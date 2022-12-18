@@ -1,0 +1,24 @@
+<NavigationBar>
+    adaptive_size: True
+    pos_hint:{'top':1}
+    canvas:
+        Color:
+            rgba: 0.5, 0.5, 1, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    MDDropDownItem:
+        id: nav_item_file
+        text: 'Файл'
+    MDDropDownItem:
+        id: nav_item_mode
+        text: 'Режим'
+    MDDropDownItem:
+        id: nav_item_settings
+        text: 'Настройка'
+    MDDropDownItem:
+        id: nav_item_doc
+        text: 'Справка'
+    MDDropDownItem:
+        id: nav_item_info
+        text: 'О программе'

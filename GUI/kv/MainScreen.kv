@@ -1,0 +1,133 @@
+#:include kv/SecondScreen.kv
+#:include kv/NavigationBar.kv
+
+MDScreenManager:
+
+    MDScreen:
+        name : 'main_screen'
+        canvas:
+            Color:
+                rgba: 1, 1, 1, 1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+        MDFloatLayout:
+            MDLabel:
+                adaptive_size: True
+                text: 'Wind Spectrum'
+                font_size: 24
+                pos_hint: {"center_x": .5, "y": .9}
+            # Навигационная панель
+            NavigationBar:
+
+            # Расчеты ветровых нагрузок и воздействий
+            MDBoxLayout:
+                orientation: 'vertical'
+                adaptive_size: True
+                pos_hint:{'top':.7,'x':0}
+                canvas:
+                    Color:
+                        rgba: 0.5, 1, 1, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+                MDLabel:
+                    adaptive_size: True
+                    text: 'Расчеты ветровых нагрузок и воздействий'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Изолированное высотное здание'
+                    font_size: 18
+                    on_release:
+                        app.tests(app)
+                        root.current = 'opt_screen'
+                MDFlatButton:
+                    text: 'Аэродинамическая интерференция высотных зданий'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Изолированные низкоэтажные здания'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Аэродинамическая интерференция низкоэтажных зданий'
+                    font_size: 18
+            # Динамический отклик
+            MDBoxLayout:
+                orientation: 'vertical'
+                adaptive_size: True
+                pos_hint:{'top':.7,'x':.25}
+                canvas:
+                    Color:
+                        rgba: 0, 1, 0, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+                MDLabel:
+                    adaptive_size: True
+                    text: 'Динамический отклик'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Интегральные параметры здания'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Матрицы Суперэлементов'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Динамические гасители колебаний'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Конвертер ветровых нагрузок в CAE'
+                    font_size: 18
+            # Инженерные калькуляторы
+            MDBoxLayout:
+                orientation: 'vertical'
+                adaptive_size: True
+                pos_hint:{'top':.7,'x':.5}
+                canvas:
+                    Color:
+                        rgba: 1, 1, 0, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+                MDLabel:
+                    adaptive_size: True
+                    text: 'Инженерные калькуляторы'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Спектры'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Интерполяционные табличные функции (изополя)'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Преобразование единиц измерений'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Калькулятор y+ (CFD)'
+                    font_size: 18
+            # Информация
+            MDBoxLayout:
+                orientation: 'vertical'
+                adaptive_size: True
+                pos_hint:{'top':.7,'x':.75}
+                canvas:
+                    Color:
+                        rgba: 1, 0, 1, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+                MDLabel:
+                    adaptive_size: True
+                    text: 'Информация'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Климатические карты'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Рекомендуемые публикации'
+                    font_size: 18
+                MDFlatButton:
+                    text: 'Рекомендуемые ссылки'
+                    font_size: 18
+
+    SecondScreen:

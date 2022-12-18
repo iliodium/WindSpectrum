@@ -1,0 +1,131 @@
+<SecondScreen>:
+    name : 'opt_screen'
+    canvas:
+        Color:
+            rgba: 1, 1, 1, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    NavigationBar:
+
+    MDFloatLayout:
+        MDFlatButton:
+            adaptive_size: True
+            text: 'Назад'
+            font_size: 18
+            on_release:
+                app.tests(app)
+                app.root.current='main_screen'
+        MDBoxLayout:
+            id: panel
+            orientation: 'vertical'
+            adaptive_size: True
+            pos_hint:{'top':.7,'x':0}
+            canvas:
+                Color:
+                    rgba: 0.5, 1, 1, 1
+                Rectangle:
+                    size: self.size
+                    pos: self.pos
+            MDLabel:
+                adaptive_size: True
+                font_size: 24
+                text: 'Общие сведения'
+            MDBoxLayout:
+                adaptive_size: True
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Ветровой район'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Климатическая карта России]'
+                MDFlatButton:
+                    text: 'Выбор'
+                    font_size: 18
+            MDBoxLayout:
+                adaptive_size: True
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Тип местности'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Описание]'
+                MDFlatButton:
+                    text: 'Выбор'
+                    font_size: 18
+            MDBoxLayout:
+                adaptive_size: True
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Угол атака ветра (RUMB)'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Описание]'
+                MDFlatButton:
+                    text: 'RUMB'
+                    font_size: 18
+            MDBoxLayout:
+                adaptive_size: True
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Размеры здания'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Пояснения]'
+                MDFlatButton:
+                    text: 'X, Y, Z'
+                    font_size: 18
+            MDBoxLayout:
+                adaptive_size: True
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 18
+                    text: 'Параметры интегрирования по высоте'
+                MDFlatButton:
+                    text: 'Поверхность'
+                    font_size: 18
+            MDFlatButton:
+                text: 'Интегрирование по высоте'
+                font_size: 18
+            MDFlatButton:
+                text: 'Поверхность интегрирования'
+                font_size: 18
+            MDFlatButton:
+                text: 'Шаг сканирования (шаг интегрирования)'
+                font_size: 18
+            MDFlatButton:
+                text: 'Экспорт'
+                font_size: 24
+            MDBoxLayout:
+                adaptive_size: True
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 18
+                    text: 'Нормативный документ'
+                MDFlatButton:
+                    text: 'СП20.13330.2016'
+                    font_size: 18
