@@ -14,7 +14,6 @@
             text: 'Назад'
             font_size: 18
             on_release:
-                app.tests(app)
                 app.root.current='main_screen'
         MDBoxLayout:
             id: panel
@@ -66,6 +65,7 @@
                     text: 'Выбор'
                     font_size: 18
             MDBoxLayout:
+                padding: '10dp'
                 adaptive_size: True
                 MDBoxLayout:
                     orientation: 'vertical'
@@ -79,9 +79,18 @@
                         font_size: 10
                         font_style: 'Caption'
                         text: '[Описание]'
-                MDFlatButton:
-                    text: 'RUMB'
+                MDTextField:
+                    id: RUMB
+                    hint_text: 'RUMB'
+                    helper_text: "углы кратные 5"
+                    helper_text_mode: "on_focus"
                     font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 75
+                    on_text_validate:
+                        app.get_RUMB(self)
+
             MDBoxLayout:
                 adaptive_size: True
                 MDBoxLayout:
@@ -96,9 +105,17 @@
                         font_size: 10
                         font_style: 'Caption'
                         text: '[Пояснения]'
-                MDFlatButton:
-                    text: 'X, Y, Z'
+                MDTextField:
+                    id: RUMB
+                    hint_text: 'X Y Z'
+                    helper_text: "через пробел"
+                    helper_text_mode: "on_focus"
                     font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 75
+                    on_text_validate:
+                        app.get_size(self)
             MDBoxLayout:
                 adaptive_size: True
                 MDLabel:
