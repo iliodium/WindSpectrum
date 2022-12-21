@@ -17,9 +17,6 @@ class DataBaseToolkit:
         experiments = {'4': dict(),
                        '6': dict()
                        }
-        parameters = {'pressure_coefficients': [],
-
-                      }
         self.cursor.execute("""
                             select model_name
                             from experiments_alpha_4
@@ -35,7 +32,7 @@ class DataBaseToolkit:
                                 from experiments_alpha_4
                                 where model_name = (%s))
                                 """, (model_name,))
-            experiments['4'][model_name] = {str(i[0]): parameters for i in self.cursor.fetchall()}
+            experiments['4'][model_name] = {str(i[0]): dict() for i in self.cursor.fetchall()}
 
         self.cursor.execute("""
                             select model_name
@@ -52,9 +49,9 @@ class DataBaseToolkit:
                                 from experiments_alpha_6
                                 where model_name = (%s))
                                 """, (model_name,))
-            experiments['6'][model_name] = {str(i[0]): parameters for i in self.cursor.fetchall()}
-
+            experiments['6'][model_name] = {str(i[0]): dict() for i in self.cursor.fetchall()}
         self.connection.commit()
+
         return experiments
 
     def get_pressure_coefficients(self, alpha, model_name, angle):
@@ -103,7 +100,44 @@ class DataBaseToolkit:
         x, z = self.cursor.fetchall()[0]
         return x, z
 
+    def get_uh_average_wind_speed(self, alpha, model_name):
+        if alpha == '4':
+            self.cursor.execute("""
+                        select uh_averagewindspeed
+                        from experiments_alpha_4
+                        where model_name = (%s)
+                    """, (model_name,))
+
+        elif alpha == '6':
+            self.cursor.execute("""
+                        select uh_averagewindspeed
+                        from experiments_alpha_6
+                        where model_name = (%s)
+                    """, (model_name,))
+        self.connection.commit()
+
+        return self.cursor.fetchall()[0][0]
+
+    def get_face_number(self, alpha, model_name):
+        if alpha == '4':
+            self.cursor.execute("""
+                        select face_number
+                        from experiments_alpha_4
+                        where model_name = (%s)
+                    """, (model_name,))
+
+        elif alpha == '6':
+            self.cursor.execute("""
+                        select face_number
+                        from experiments_alpha_6
+                        where model_name = (%s)
+                    """, (model_name,))
+        self.connection.commit()
+
+        return self.cursor.fetchall()[0][0]
+
+
 if __name__ == '__main__':
     d = DataBaseToolkit()
     # print(d.get_experiments())
-    # print(d.get_pressure_coefficients('4', '111', '0'))
+    print(d.get_uh_average_wind_speed('4', '111'))

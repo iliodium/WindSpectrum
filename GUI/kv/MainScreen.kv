@@ -2,8 +2,9 @@
 #:include kv/NavigationBar.kv
 
 MDScreenManager:
-
+    id: screen_manager
     MDScreen:
+        id: main_screen
         name : 'main_screen'
         canvas:
             Color:
@@ -130,3 +131,4 @@ MDScreenManager:
                     font_size: 18
 
     SecondScreen:
+        id: second_screen

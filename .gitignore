@@ -1,5 +1,6 @@
-/venv
+/venv*
 .idea
 /.ipynb_checkpoints
 tests.py
 __pycache__/
+*.ipynb

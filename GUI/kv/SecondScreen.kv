@@ -1,4 +1,6 @@
+#:import toast kivymd.toast.toast
 <SecondScreen>:
+
     name : 'opt_screen'
     canvas:
         Color:
@@ -15,6 +17,34 @@
             font_size: 18
             on_release:
                 app.root.current='main_screen'
+        MDBoxLayout:
+            adaptive_size: True
+            orientation: 'vertical'
+            pos_hint:{'y':.5,'x':.675}
+            size_hint:.325,.5
+            MDRaisedButton:
+                adaptive_size: True
+                id: isofield_modes
+                text: "Режим"
+                on_release: app.menu.open()
+            MDBoxLayout:
+                id: field_top_right
+                daptive_size: True
+        MDBoxLayout:
+            pos_hint:{'y':.5,'x':.35}
+            size_hint:.325,.5
+            MDBoxLayout:
+                id: field_top_left
+                daptive_size: True
+        MDBoxLayout:
+            id: field_bottom_right
+            pos_hint:{'y':0,'x':.675}
+            size_hint:.325,.5
+        MDBoxLayout:
+            id: field_bottom_left
+            pos_hint:{'y':0,'x':.35}
+            size_hint:.325,.5
+
         MDBoxLayout:
             id: panel
             orientation: 'vertical'
@@ -83,13 +113,14 @@
                     id: RUMB
                     hint_text: 'RUMB'
                     helper_text: "углы кратные 5"
+                    text: '0' ######
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
                     size_hint_x: None
                     width: 75
                     on_text_validate:
-                        app.get_RUMB(self)
+                        app.get_RUMB()
 
             MDBoxLayout:
                 adaptive_size: True
@@ -106,16 +137,17 @@
                         font_style: 'Caption'
                         text: '[Пояснения]'
                 MDTextField:
-                    id: RUMB
+                    id: model_size
                     hint_text: 'X Y Z'
                     helper_text: "через пробел"
+                    text:'0.1 0.1 0.1' ######
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
                     size_hint_x: None
                     width: 75
                     on_text_validate:
-                        app.get_size(self)
+                        app.get_size()
             MDBoxLayout:
                 adaptive_size: True
                 MDLabel:
