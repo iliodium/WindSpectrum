@@ -1,7 +1,5 @@
 import numpy as np
 import scipy.interpolate
-import scipy.io as sio
-import random
 import matplotlib.cm as cm
 import matplotlib.tri as mtri
 import matplotlib.pyplot as plt
@@ -45,6 +43,7 @@ class Plot:
             'min': np.min(pressure_coefficients, axis=0),
             'std': np.std(pressure_coefficients, axis=0),
         }
+        # Номера графиков
         num = {
             'min': 1,
             'mean': 2,
@@ -52,9 +51,6 @@ class Plot:
             'std': 4,
         }
         pressure_coefficients = mods[mode]
-        min_v = np.min(pressure_coefficients)
-        max_v = np.max(pressure_coefficients)
-        x, z = np.array(coordinates)
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
         count_sensors_on_middle = int(model_name[0]) * 5
@@ -69,9 +65,12 @@ class Plot:
                                           ], axis=1)
         del pressure_coefficients[4]
 
+        x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
         fig, ax = plt.subplots(1, 4, dpi=200, num=num[mode], clear=True)
         cmap = cm.get_cmap(name="jet")
+        min_v = np.min(pressure_coefficients)
+        max_v = np.max(pressure_coefficients)
         normalizer = Normalize(min_v, max_v)
         im = cm.ScalarMappable(norm=normalizer, cmap=cmap)
         for i in range(4):
@@ -82,19 +81,15 @@ class Plot:
             if i in [0, 2]:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_middle + 1, 5)])
                 ax[i].set_xticklabels(labels=list(map(str, np.arange(0, breadth + 0.1, 0.1))))
-                x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
-                ax[i].plot(x, y, '.k')
             else:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_side + 1, 5)])
                 ax[i].set_xticklabels(labels=list(map(str, np.arange(0, depth + 0.1, 0.1))))
-                x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
-                ax[i].plot(x, y, '.k')
+            x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
+            ax[i].plot(x, y, '.k')
 
         if breadth == depth == height:
             [ax[i].set_aspect('equal') for i in range(4)]
         ticks = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, 0.1)
-        # fig.colorbar(im, ax=ax.ravel().tolist(), location='bottom', cmap=cmap, ticks=ticks).ax.tick_params(
-        #     labelsize=7)
         fig.colorbar(im, ax=ax, location='bottom', cmap=cmap, ticks=ticks).ax.tick_params(
             labelsize=7)
         return fig
@@ -106,13 +101,14 @@ class Plot:
     @staticmethod
     def integral_isofield(model_name, mode, pressure_coefficients, coordinates, alpha):
         """Отрисовка интегральных изополей"""
-        integral_func = []
+        # Виды изополей
         mods = {
             'max': np.max(pressure_coefficients, axis=0),
             'mean': np.mean(pressure_coefficients, axis=0),
             'min': np.min(pressure_coefficients, axis=0),
             'std': np.std(pressure_coefficients, axis=0),
-        }  # Виды изополей
+        }
+        # Номера графиков
         num = {
             'min': 5,
             'mean': 6,
@@ -120,30 +116,27 @@ class Plot:
             'std': 8,
         }
         pressure_coefficients = mods[mode]
-        min_v = np.min(pressure_coefficients)
-        max_v = np.max(pressure_coefficients)
-        steps = {
-            'max': 0.2,
-            'mean': 0.2 if alpha == 6 else 0.1,
-            'min': 0.2,
-            'std': 0.05,
-        }  # Шаги для изополей
-        #  Шаг для изополей и контурных линий
-        levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, steps[mode]).round(2)
-        x, z = np.array(coordinates)
-        # if integral[1] == 1:
-        #     # Масштабирование
-        #     print(model_name, 1.25)
-        #     k = 1.25  # коэффициент масштабирования по высоте
-        #     z *= k
-        # else:
-        #     k = 1
-        #     print(model_name, 1)
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
         count_sensors_on_middle = int(model_name[0]) * 5
         count_sensors_on_side = int(model_name[1]) * 5
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+        x, z = np.array(coordinates)
+
+        # Шаги для изополей
+        steps = {
+            'max': 0.2,
+            'mean': 0.2 if alpha == 6 else 0.1,
+            'min': 0.2,
+            'std': 0.05,
+        }
+        #  Шаг для изополей и контурных линий
+
+        min_v = np.min(pressure_coefficients)
+        max_v = np.max(pressure_coefficients)
+        levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, steps[mode]).round(2)
+
         pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
         pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
                                                                  count_sensors_on_middle + count_sensors_on_side,
@@ -168,22 +161,17 @@ class Plot:
         del x[4]
         del z[4]
 
-        for i in range(4):
-            x[i] = x[i].tolist()
-            z[i] = z[i].tolist()
+        # x это тензор со всеми координатами граней по ширине,x1...x4 координаты отдельных граней
+        x1, x2, x3, x4 = list(x[0]), list(x[1]), list(x[2]), list(x[3])
+        # z это тензор со всеми координатами граней по высоте,z1...z4 координаты отдельных граней
+        z1, z2, z3, z4 = list(z[0]), list(z[1]), list(z[2]), list(z[3])
 
-        x1, x2, x3, x4 = x  # x это тензор со всеми координатами граней по ширине,x1...x4 координаты отдельных граней
-        z1, z2, z3, z4 = z  # z это тензор со всеми координатами граней по высоте,z1...z4 координаты отдельных граней
-
-        x = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]  # Входные координаты для изополей
-        z = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]  # Входные координаты для изополей
-        ret_int = []  # массив с функциями изополей
         # Расширение матрицы координат по бокам
         for i in range(len(x1)):
-            x1[i] = [0] + x1[i] + [breadth]
-            x2[i] = [breadth] + x2[i] + [breadth + depth]
-            x3[i] = [breadth + depth] + x3[i] + [2 * breadth + depth]
-            x4[i] = [2 * breadth + depth] + x4[i] + [2 * (breadth + depth)]
+            x1[i] = np.append(np.insert(x1[i], 0, 0), breadth)
+            x2[i] = np.append(np.insert(x2[i], 0, breadth), breadth + depth)
+            x3[i] = np.append(np.insert(x3[i], 0, breadth + depth), 2 * breadth + depth)
+            x4[i] = np.append(np.insert(x4[i], 0, 2 * breadth + depth), 2 * (breadth + depth))
 
         x1.append(x1[0])
         x2.append(x2[0])
@@ -195,35 +183,38 @@ class Plot:
         x3.insert(0, x3[0])
         x4.insert(0, x4[0])
 
-        x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]  # Расширенные координаты для изополей
-
         # Расширение матрицы координат по бокам
         for i in range(len(z1)):
-            z1[i] = [z1[i][0]] + z1[i] + [z1[i][0]]
-            z2[i] = [z2[i][0]] + z2[i] + [z2[i][0]]
-            z3[i] = [z3[i][0]] + z3[i] + [z3[i][0]]
-            z4[i] = [z4[i][0]] + z4[i] + [z4[i][0]]
+            z1[i] = np.append(np.insert(z1[i], 0, z1[i][0]), z1[i][0])
+            z2[i] = np.append(np.insert(z2[i], 0, z2[i][0]), z2[i][0])
+            z3[i] = np.append(np.insert(z3[i], 0, z3[i][0]), z3[i][0])
+            z4[i] = np.append(np.insert(z4[i], 0, z4[i][0]), z4[i][0])
 
-        z1.append([0 for _ in range(len(z1[0]))])
-        z2.append([0 for _ in range(len(z2[0]))])
-        z3.append([0 for _ in range(len(z3[0]))])
-        z4.append([0 for _ in range(len(z4[0]))])
+        z1.append(np.array([0 for _ in range(len(z1[0]))]))
+        z2.append(np.array([0 for _ in range(len(z2[0]))]))
+        z3.append(np.array([0 for _ in range(len(z3[0]))]))
+        z4.append(np.array([0 for _ in range(len(z4[0]))]))
 
-        z1.insert(0, [height for _ in range(len(z1[0]))])
-        z2.insert(0, [height for _ in range(len(z2[0]))])
-        z3.insert(0, [height for _ in range(len(z3[0]))])
-        z4.insert(0, [height for _ in range(len(z4[0]))])
+        z1.insert(0, np.array([height for _ in range(len(z1[0]))]))
+        z2.insert(0, np.array([height for _ in range(len(z2[0]))]))
+        z3.insert(0, np.array([height for _ in range(len(z3[0]))]))
+        z4.insert(0, np.array([height for _ in range(len(z4[0]))]))
 
-        z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]  # Расширенные координаты для изополей
+        # Расширенные координаты для изополей
+        z_extended = np.array([np.array(z1), np.array(z2), np.array(z3), np.array(z4)])
+        x_extended = np.array([np.array(x1), np.array(x2), np.array(x3), np.array(x4)])
+
         fig, graph = plt.subplots(1, 4, dpi=200, num=num[mode], clear=True, figsize=(9, 5))
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
-        # data_old_integer = []  # данные для дискретного интегрирования по осям
-        # data_for_3d_model = []  # данные для 3D модели
+
         for i in range(4):
             # x это координаты по ширине
             x_new = x_extended[i].reshape(1, -1)[0]
             x_old = x[i].reshape(1, -1)[0]
+            # z это координаты по высоте
+            z_new = z_extended[i].reshape(1, -1)[0]
+            z_old = z[i].reshape(1, -1)[0]
             # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
             if i == 1:
                 x_old -= breadth
@@ -234,29 +225,24 @@ class Plot:
             elif i == 3:
                 x_old -= (2 * breadth + depth)
                 x_new -= (2 * breadth + depth)
-            # z это координаты по высоте
-            z_new = z_extended[i].reshape(1, -1)[0]
-            z_old = z[i].reshape(1, -1)[0]
 
             data_old = pressure_coefficients[i].reshape(1, -1)[0]
             # data_old_integer.append(data_old)
             coords = [[i1, j1] for i1, j1 in zip(x_old, z_old)]  # Старые координаты
             # Интерполятор полученный на основе имеющихся данных
             interpolator = Plot.interpolator(coords, data_old)
-            integral_func.append(interpolator)
+
             # Получаем данные для несуществующих датчиков
             data_new = [float(interpolator([[X, Y]])) for X, Y in zip(x_new, z_new)]
 
             triang = mtri.Triangulation(x_new, z_new)
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(data_new, subdiv=4)
-            # data_for_3d_model.append((grid, value))
             data_colorbar = graph[i].tricontourf(grid, value, cmap=cmap, levels=levels, extend='both')
             aq = graph[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
-            X, Y = np.meshgrid(x_old, z_old)
-            graph[i].plot(X, Y, '.k', **dict(markersize=3.7))
+            x_dots, y_dots = np.meshgrid(x_old, z_old)
+            graph[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
             graph[i].clabel(aq, fontsize=10)
-
             graph[i].set_ylim([0, height])
             if breadth == depth == height:
                 graph[i].set_aspect('equal')
@@ -266,8 +252,6 @@ class Plot:
             else:
                 graph[i].set_xlim([0, depth])
                 graph[i].set_xticks(ticks=np.arange(0, depth + 0.1, 0.1))
-            ret_int.append(interpolator)
-            # graph[i].axis('off')
         fig.colorbar(data_colorbar, ax=graph, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=7)
 
         return fig

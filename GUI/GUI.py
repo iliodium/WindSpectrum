@@ -53,7 +53,7 @@ class MainApp(MDApp):
         return self.app
 
     def check(self, mode):
-        self.get_rumb()
+        self.get_RUMB()
         self.get_size()
 
         if self.x and self.y and self.z and self.rumb:
@@ -69,8 +69,8 @@ class MainApp(MDApp):
             # self.app.ids.second_screen.ids.field_bottom_right.add_widget(FigureCanvasKivyAgg(plt.gcf()))
             # self.app.ids.second_screen.ids.field_bottom_left.add_widget(FigureCanvasKivyAgg(plt.gcf()))
 
-    def get_rumb(self):
-        rumb = self.app.ids.second_screen.ids.rumb.text
+    def get_RUMB(self):
+        rumb = self.app.ids.second_screen.ids.RUMB.text
         if int(rumb) % 5 != 0:
             print("кратные 5")
         else:
