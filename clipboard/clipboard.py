@@ -15,19 +15,51 @@ class Clipboard:
                                '6': dict()
                                }
 
-        # параметры уникальный для каждого угла атаки
+        # параметры уникальный для каждого угла атаки эксперимента
         parameters = {'pressure_coefficients': array([]),
-                      'discrete': {
+                      'discrete_isofields': {
                           'isofields_min': None,
                           'isofields_mean': None,
                           'isofields_max': None,
                           'isofields_std': None,
                       },
-                      'integral': {
+                      'integral_isofields': {
                           'isofields_min': None,
                           'isofields_mean': None,
                           'isofields_max': None,
                           'isofields_std': None,
+                      },
+                      'summary_coefficients': {
+                          'CMz': array([]),
+                          'Cx': array([]),
+                          'Cy': array([]),
+                          'plot_Cx': None,
+                          'plot_Cy': None,
+                          'plot_CMz': None,
+                          'plot_Cx|Cy': None,
+                          'plot_Cx|CMz': None,
+                          'plot_Cy|CMz': None,
+                          'plot_Cx|Cy|CMz': None,
+                      },
+                      'summary_spectres': {
+                          'CMz': array([]),
+                          'Cx': array([]),
+                          'Cy': array([]),
+                          'plot_Cx_log': None,
+                          'plot_Cy_log': None,
+                          'plot_CMz_log': None,
+                          'plot_Cx|Cy_log': None,
+                          'plot_Cx|CMz_log': None,
+                          'plot_Cy|CMz_log': None,
+                          'plot_Cx|Cy|CMz_log': None,
+
+                          'plot_Cx_linear': None,
+                          'plot_Cy_linear': None,
+                          'plot_CMz_linear': None,
+                          'plot_Cx|Cy_linear': None,
+                          'plot_Cx|CMz_linear': None,
+                          'plot_Cy|CMz_linear': None,
+                          'plot_Cx|Cy|CMz_linear': None,
                       },
                       }
 

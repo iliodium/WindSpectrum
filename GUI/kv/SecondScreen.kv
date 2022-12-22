@@ -17,6 +17,22 @@
             font_size: 18
             on_release:
                 app.root.current='main_screen'
+
+        # top left plot
+        MDBoxLayout:
+            adaptive_size: True
+            orientation: 'vertical'
+            pos_hint:{'y':.5,'x':.35}
+            size_hint:.325,.5
+            MDRaisedButton:
+                adaptive_size: True
+                id: button_plot_top_left
+                text: "Режим"
+                on_release: app.dropdownmenu_top_left.open()
+            MDBoxLayout:
+                id: field_top_left
+
+        # top right plot
         MDBoxLayout:
             adaptive_size: True
             orientation: 'vertical'
@@ -24,27 +40,51 @@
             size_hint:.325,.5
             MDRaisedButton:
                 adaptive_size: True
-                id: isofield_modes
+                id: button_plot_top_right
                 text: "Режим"
-                on_release: app.menu.open()
+                on_release: app.dropdownmenu_top_right.open()
             MDBoxLayout:
-                id: field_top_right
-                daptive_size: True
+                id: plot_top_right
+
+        # bottom left plot
         MDBoxLayout:
-            pos_hint:{'y':.5,'x':.35}
-            size_hint:.325,.5
-            MDBoxLayout:
-                id: field_top_left
-                daptive_size: True
-        MDBoxLayout:
-            id: field_bottom_right
-            pos_hint:{'y':0,'x':.675}
-            size_hint:.325,.5
-        MDBoxLayout:
-            id: field_bottom_left
+            adaptive_size: True
+            orientation: 'vertical'
             pos_hint:{'y':0,'x':.35}
             size_hint:.325,.5
+            MDBoxLayout:
+                adaptive_size: True
+                orientation:'horizontal'
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: button_plot_button_left_1
+                    text: "Суммарные"
+                    on_release: app.dropdownmenu_bottom_left_1.open()
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: button_plot_button_left_2
+                    text: "Масштаб"
+                    on_release: app.dropdownmenu_bottom_left_2.open()
+                MDRectangleFlatButton:
+                    text: "График"
+                    on_release: app.plot_bottom_left()
+            MDBoxLayout:
+                id: plot_bottom_left
 
+        # bottom right plot
+        MDBoxLayout:
+            adaptive_size: True
+            orientation: 'vertical'
+            pos_hint:{'y':0,'x':.675}
+            size_hint:.325,.5
+            MDRaisedButton:
+                adaptive_size: True
+                id: button_plot_button_right
+                text: "Режим"
+                #on_release: app.dropdownmenu_top_left.open()
+            MDBoxLayout:
+                id: field_bottom_right
+        # панель управления
         MDBoxLayout:
             id: panel
             orientation: 'vertical'
