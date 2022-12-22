@@ -1,6 +1,7 @@
 # local imports
 from databasetoolkit.databasetoolkit import DataBaseToolkit
 
+from copy import deepcopy
 from numpy import array
 
 
@@ -76,8 +77,8 @@ class Clipboard:
         for alpha in self.clipboard_dict.keys():
             for model_name in self.clipboard_dict[alpha].keys():
                 for angle in self.clipboard_dict[alpha][model_name].keys():
-                    self.clipboard_dict[alpha][model_name][angle] = parameters
-                self.clipboard_dict[alpha][model_name]['const_parameters'] = const_parameters
+                    self.clipboard_dict[alpha][model_name][angle] = deepcopy(parameters)
+                self.clipboard_dict[alpha][model_name]['const_parameters'] = deepcopy(const_parameters)
 
     def get_pressure_coefficients(self, alpha, model_name, angle):
         if not self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'].any():
@@ -110,6 +111,7 @@ class Clipboard:
 if __name__ == '__main__':
     d = Clipboard()
     print(d.clipboard_dict)
-    # print(d.get_pressure_coefficients('4', '111', '0')[:10])
-    print('---')
-    print(d.get_coordinates('4', '111'))
+    d.clipboard_dict['4']['111']['0']['discrete_isofields']['isofields_min'] = 10
+    print(d.clipboard_dict)
+
+

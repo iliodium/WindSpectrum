@@ -20,17 +20,18 @@ class Core:
 
             pressure_coefficients = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients']
 
-            if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'].any():
-                self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'], \
-                self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['z'] = \
+            if not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'] or \
+                    not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']:
+                self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+                self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z'] = \
                     self.clipboard_obj.get_coordinates(alpha, model_name)
 
-            coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'], \
-                          self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['z']
+            coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+                          self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']
 
-            if type_plot == 'discrete':
+            if type_plot == 'discrete_isofields':
                 fig = Plot.discrete_isofield(model_name, angle, mode, pressure_coefficients, coordinates)
-            else:
+            elif type_plot == 'integral_isofields':
                 fig = Plot.integral_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates)
             self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'isofields_{mode}'] = fig
 
@@ -44,10 +45,10 @@ class Core:
                 'CMz': None,
                 }
         cx, cy, cmz = None, None, None
-        if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['uh_average_wind_speed']:
-            self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['uh_average_wind_speed'] = \
+        if not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['uh_average_wind_speed']:
+            self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['uh_average_wind_speed'] = \
                 self.clipboard_obj.get_uh_average_wind_speed(alpha, model_name)
-        speed = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['uh_average_wind_speed']
+        speed = self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['uh_average_wind_speed']
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'].any():
             self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] = \
@@ -55,13 +56,15 @@ class Core:
 
         pressure_coefficients = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients']
 
-        if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'].any():
-            self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'], \
-            self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['z'] = \
+        if not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'] or \
+                not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']:
+            self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+            self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z'] = \
                 self.clipboard_obj.get_coordinates(alpha, model_name)
 
-        coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['x'], \
-                      self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['const_parameters']['z']
+        coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+                      self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']
+
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}_{scale}']:
             t_cx, t_cy = None, None

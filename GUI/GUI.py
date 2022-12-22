@@ -33,19 +33,19 @@ class MainApp(MDApp):
 
     def build(self):
         self.app = Builder.load_file("kv\\MainScreen.kv")
-        self.top_left_plot()
-        self.top_right_plot()
-        self.bottom_left_plot()
-        self.bottom_right_plot()
+        self.top_left_plot_dropmenu()
+        self.top_right_plot_dropmenu()
+        self.bottom_left_plot_dropmenu()
+        self.bottom_right_plot_dropmenu()
 
         return self.app
 
-    def top_left_plot(self):
+    def top_left_plot_dropmenu(self):
         items_dropdownmenu_top_left = [
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.plot_top_left(x),
+                "on_release": lambda x = i: self.top_left_plot(x),
             } for i in ('mean',
                         'min',
                         'max',
@@ -60,12 +60,12 @@ class MainApp(MDApp):
             max_height=200
         )
 
-    def top_right_plot(self):
+    def top_right_plot_dropmenu(self):
         items_dropdownmenu_top_right = [
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.plot_top_right(x),
+                "on_release": lambda x = i: self.top_right_plot(x),
             } for i in ('mean',
                         'min',
                         'max',
@@ -79,7 +79,7 @@ class MainApp(MDApp):
             max_height=200
         )
 
-    def bottom_left_plot(self):
+    def bottom_left_plot_dropmenu(self):
         items_dropdownmenu_bottom_left_1 = [
             {
                 "text": i,
@@ -116,6 +116,21 @@ class MainApp(MDApp):
             max_height=100
         )
 
+    def bottom_right_plot_dropmenu(self):
+        items_dropdownmenu_bottom_right = [
+            {
+                "text": i,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x = i: self.bottom_right_plot(x),
+            } for i in range(0, 50, 5)
+        ]
+        self.dropdownmenu_bottom_right = MDDropdownMenu(
+            caller=self.app.ids.second_screen.ids.button_plot_button_right,
+            items=items_dropdownmenu_bottom_right,
+            width_mult=1.5,
+            max_height=200
+        )
+
     def action_bottom_left_button_1(self, x):
         self.get_summary_plot_mode(x)
         self.change_text_plot_mode(x)
@@ -136,36 +151,19 @@ class MainApp(MDApp):
     def change_text_plot_scale(self, text):
         self.app.ids.second_screen.ids.button_plot_button_left_2.text = text
 
-    def bottom_right_plot(self):
-        items_dropdownmenu_bottom_right = [
-            {
-                "text": i,
-                "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.plot_bottom_right(x),
-            } for i in range(0, 50, 5)
-        ]
-        self.dropdownmenu_bottom_right = MDDropdownMenu(
-            caller=self.app.ids.second_screen.ids.button_plot_button_right,
-            items=items_dropdownmenu_bottom_right,
-            width_mult=1.5,
-            max_height=200
-        )
-
-    def plot_top_left(self, mode):
+    def top_left_plot(self, mode):
         if self.check_top():
             fig = self.core.get_plot_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'integral_isofields')
-            if 'FigureCanvasKivyAgg' in str(self.app.ids.second_screen.ids.field_top_left.children):
-                self.app.ids.second_screen.ids.field_top_left.clear_widgets()
+            self.app.ids.second_screen.ids.field_top_left.clear_widgets()
             self.app.ids.second_screen.ids.field_top_left.add_widget(FigureCanvasKivyAgg(fig))
 
-    def plot_top_right(self, mode):
+    def top_right_plot(self, mode):
         if self.check_top():
             fig = self.core.get_plot_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'discrete_isofields')
-            if 'FigureCanvasKivyAgg' in str(self.app.ids.second_screen.ids.plot_top_right.children):
-                self.app.ids.second_screen.ids.plot_top_right.clear_widgets()
-            self.app.ids.second_screen.ids.plot_top_right.add_widget(FigureCanvasKivyAgg(fig))
+            self.app.ids.second_screen.ids.top_right_plot.clear_widgets()
+            self.app.ids.second_screen.ids.top_right_plot.add_widget(FigureCanvasKivyAgg(fig))
 
-    def plot_bottom_left(self):
+    def bottom_left_plot(self):
         model_size = (self.x, self.y, self.z)
         fig = self.core.get_plot_summary_spectres('6',
                                                   model_size,
@@ -174,11 +172,10 @@ class MainApp(MDApp):
                                                   self.summary_plot_scale,
                                                   'summary_spectres'
                                                   )
-        if 'FigureCanvasKivyAgg' in str(self.app.ids.second_screen.ids.plot_bottom_left.children):
-            self.app.ids.second_screen.ids.plot_bottom_left.clear_widgets()
-        self.app.ids.second_screen.ids.plot_bottom_left.add_widget(FigureCanvasKivyAgg(fig))
+        self.app.ids.second_screen.ids.bottom_left_plot.clear_widgets()
+        self.app.ids.second_screen.ids.bottom_left_plot.add_widget(FigureCanvasKivyAgg(fig))
 
-    def plot_bottom_right(self, mode):
+    def bottom_right_plot(self, mode):
         if self.check_top():
             # fig = self.core.get_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'discrete')
             # if 'FigureCanvasKivyAgg' in str(self.app.ids.second_screen.ids.plot_top_right.children):

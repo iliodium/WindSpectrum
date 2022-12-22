@@ -302,7 +302,6 @@ class Plot:
         }
         # size = float(model_name[0]) / 10
         k = int(angle) // 5 + 1
-        print(num[mode] * k + 7 if scale == 'linear' else 0)
         fig, ax = plt.subplots(dpi=200, num=num[mode] * k + 7 if scale == 'linear' else 0, clear=True)
         if scale == 'linear':
             ax.set_xlim([0, 15])
