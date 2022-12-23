@@ -1,5 +1,5 @@
 import numpy as np
-
+import asyncio
 # local imports
 from plot.plot import Plot
 from clipboard.clipboard import Clipboard
@@ -30,7 +30,7 @@ class Core:
                           self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']
 
             if type_plot == 'discrete_isofields':
-                fig = Plot.discrete_isofield(model_name, angle, mode, pressure_coefficients, coordinates)
+                fig = Plot.discrete_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates)
             elif type_plot == 'integral_isofields':
                 fig = Plot.integral_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates)
             self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'isofields_{mode}'] = fig
@@ -64,7 +64,6 @@ class Core:
 
         coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
                       self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']
-
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}_{scale}']:
             t_cx, t_cy = None, None

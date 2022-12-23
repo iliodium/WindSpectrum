@@ -1,7 +1,6 @@
 # dev imports (optional)
-import os
+# import os
 # os.environ["KIVY_NO_CONSOLELOG"] = "1"
-
 
 from kivymd.app import MDApp
 from kivymd.uix.label import MDLabel
@@ -26,6 +25,7 @@ class MainApp(MDApp):
         self.x = '0.1'
         self.y = '0.1'
         self.z = '0.1'
+        self.alpha = '6'
         self.app = None
         self.core = Core()
         self.summary_plot_mode = 'Cx|Cy|CMz'
@@ -37,7 +37,6 @@ class MainApp(MDApp):
         self.top_right_plot_dropmenu()
         self.bottom_left_plot_dropmenu()
         self.bottom_right_plot_dropmenu()
-
         return self.app
 
     def top_left_plot_dropmenu(self):
@@ -152,28 +151,29 @@ class MainApp(MDApp):
         self.app.ids.second_screen.ids.button_plot_button_left_2.text = text
 
     def top_left_plot(self, mode):
-        if self.check_top():
-            fig = self.core.get_plot_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'integral_isofields')
-            self.app.ids.second_screen.ids.field_top_left.clear_widgets()
-            self.app.ids.second_screen.ids.field_top_left.add_widget(FigureCanvasKivyAgg(fig))
+        model_size = (self.x, self.y, self.z)
+        fig = self.core.get_plot_isofileds(self.alpha, model_size, self.rumb, mode, 'integral_isofields')
+        self.app.ids.second_screen.ids.field_top_left.clear_widgets()
+        self.app.ids.second_screen.ids.field_top_left.add_widget(FigureCanvasKivyAgg(fig))
 
     def top_right_plot(self, mode):
-        if self.check_top():
-            fig = self.core.get_plot_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'discrete_isofields')
-            self.app.ids.second_screen.ids.top_right_plot.clear_widgets()
-            self.app.ids.second_screen.ids.top_right_plot.add_widget(FigureCanvasKivyAgg(fig))
+        model_size = (self.x, self.y, self.z)
+        fig = self.core.get_plot_isofileds(self.alpha, model_size, self.rumb, mode, 'discrete_isofields')
+        self.app.ids.second_screen.ids.top_right_plot.clear_widgets()
+        self.app.ids.second_screen.ids.top_right_plot.add_widget(FigureCanvasKivyAgg(fig))
 
     def bottom_left_plot(self):
         model_size = (self.x, self.y, self.z)
-        fig = self.core.get_plot_summary_spectres('6',
+        fig = self.core.get_plot_summary_spectres(self.alpha,
                                                   model_size,
                                                   self.rumb,
                                                   self.summary_plot_mode,
                                                   self.summary_plot_scale,
                                                   'summary_spectres'
                                                   )
-        self.app.ids.second_screen.ids.bottom_left_plot.clear_widgets()
-        self.app.ids.second_screen.ids.bottom_left_plot.add_widget(FigureCanvasKivyAgg(fig))
+
+        self.app.ids.second_screen.ids.plot_bottom_left.clear_widgets()
+        self.app.ids.second_screen.ids.plot_bottom_left.add_widget(FigureCanvasKivyAgg(fig))
 
     def bottom_right_plot(self, mode):
         if self.check_top():
@@ -182,11 +182,6 @@ class MainApp(MDApp):
             #     self.app.ids.second_screen.ids.plot_top_right.clear_widgets()
             # self.app.ids.second_screen.ids.plot_top_right.add_widget(FigureCanvasKivyAgg(fig))
             pass
-
-    def check_top(self):
-        self.get_RUMB()
-        self.get_size()
-        return self.x and self.y and self.z and self.rumb
 
     def get_RUMB(self):
         rumb = self.app.ids.second_screen.ids.RUMB.text
@@ -199,6 +194,9 @@ class MainApp(MDApp):
         size = self.app.ids.second_screen.ids.model_size.text
         self.x, self.y, self.z = size.split()
 
+    def get_alpha(self):
+        self.alpha = self.app.ids.second_screen.ids.alpha.text
+
     def get_summary_mode(self):
         self.summary_mode = self.app.ids.second_screen.ids.model_size.text
 
@@ -210,4 +208,5 @@ class MainApp(MDApp):
         print(text.text)
 
 
-MainApp().run()
+if __name__ == '__main__':
+    MainApp().run()

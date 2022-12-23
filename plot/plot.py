@@ -9,7 +9,8 @@ from matplotlib.colors import Normalize
 
 
 class Plot:
-    """Класс отвечает за отрисовку графиков
+    """
+    Класс отвечает за отрисовку графиков
        Виды графиков:
            Изополя:
                -Максимальные значения
@@ -24,44 +25,55 @@ class Plot:
                -Минимальные значения
            Спектры
            Нестационарные сигналы
-       Нумерация графиков нужная для очищения памяти:
-       угол 0:
-            1   discrete isofields_min
-            2   discrete isofields_mean
-            3   discrete isofields_max
-            4   discrete isofields_std
+       Нумерация:
+       Нумерация графиков нужная для очищения памяти
+       На каждый угол от 1 до 29 = k
+       начиная с любого параметра размера модели от 2 каждая высота 1 000, глубина 10 000, ширина 100 000 = k1
+       альфа 4 - 1 000 000 6 - 2 000 000 = k2
+       Пример
+       111:
+           угол 0:
+                1   discrete isofields_min
+                2   discrete isofields_mean
+                3   discrete isofields_max
+                4   discrete isofields_std
 
-            5   integral isofields_min
-            6   integral isofields_mean
-            7   integral isofields_max
-            8   integral isofields_std
+                5   integral isofields_min
+                6   integral isofields_mean
+                7   integral isofields_max
+                8   integral isofields_std
 
-            9    summary_coefficients cx
-            10    summary_coefficients cy
-            11    summary_coefficients cmz
-            12    summary_coefficients cx|cy
-            13    summary_coefficients cx|cmz
-            14    summary_coefficients cy|cmz
-            15    summary_coefficients cx|cy|cmz
+                9    summary_coefficients cx
+                10    summary_coefficients cy
+                11    summary_coefficients cmz
+                12    summary_coefficients cx|cy
+                13    summary_coefficients cx|cmz
+                14    summary_coefficients cy|cmz
+                15    summary_coefficients cx|cy|cmz
 
-            16    summary_spectres cx_log
-            17    summary_spectres cy_log
-            18    summary_spectres cmz_log
-            19    summary_spectres cx|cy_log
-            20    summary_spectres cx|cmz_log
-            21    summary_spectres cy|cmz_log
-            22    summary_spectres cx|cy|cmz_log
+                16    summary_spectres cx_log
+                17    summary_spectres cy_log
+                18    summary_spectres cmz_log
+                19    summary_spectres cx|cy_log
+                20    summary_spectres cx|cmz_log
+                21    summary_spectres cy|cmz_log
+                22    summary_spectres cx|cy|cmz_log
 
-            23    summary_spectres cx_linear
-            24    summary_spectres cy_linear
-            25    summary_spectres cmz_linear
-            26    summary_spectres cx|cy_linear
-            27    summary_spectres cx|cmz_linear
-            28    summary_spectres cy|cmz_linear
-            29    summary_spectres cx|cy|cmz_linear
-       угол 5:
-            30   discrete isofields_min
-            ...
+                23    summary_spectres cx_linear
+                24    summary_spectres cy_linear
+                25    summary_spectres cmz_linear
+                26    summary_spectres cx|cy_linear
+                27    summary_spectres cx|cmz_linear
+                28    summary_spectres cy|cmz_linear
+                29    summary_spectres cx|cy|cmz_linear
+           угол 5:
+                30   discrete isofields_min
+                ...
+       112:
+            угол 0:
+                1001 discrete isofields_min
+                ...
+
        """
 
     @staticmethod
@@ -69,7 +81,7 @@ class Plot:
         return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
 
     @staticmethod
-    def discrete_isofield(model_name, angle, mode, pressure_coefficients, coordinates):
+    def discrete_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates):
         """Отрисовка дискретных изополей"""
         # Виды изополей
         mods = {
@@ -102,8 +114,15 @@ class Plot:
 
         x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
+
         k = int(angle) // 5 + 1
-        fig, ax = plt.subplots(1, 4, dpi=200, num=num[mode] * k, clear=True)
+        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
+        if alpha == '4':
+            k2 = 0
+        elif alpha == '6':
+            k2 = 1000000
+        fig, ax = plt.subplots(1, 4, dpi=200, num=num[mode] * k + k1 + k2, clear=True)
+
         cmap = cm.get_cmap(name="jet")
         min_v = np.min(pressure_coefficients)
         max_v = np.max(pressure_coefficients)
@@ -236,8 +255,15 @@ class Plot:
         # Расширенные координаты для изополей
         z_extended = np.array([np.array(z1), np.array(z2), np.array(z3), np.array(z4)])
         x_extended = np.array([np.array(x1), np.array(x2), np.array(x3), np.array(x4)])
+
         k = int(angle) // 5 + 1
-        fig, graph = plt.subplots(1, 4, dpi=200, num=num[mode] * k, clear=True, figsize=(9, 5))
+        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
+        if alpha == '4':
+            k2 = 0
+        elif alpha == '6':
+            k2 = 1000000
+        fig, graph = plt.subplots(1, 4, dpi=200, num=num[mode] * k + k1 + k2, clear=True, figsize=(9, 5))
+
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
 
@@ -301,8 +327,15 @@ class Plot:
             'Cx|Cy|CMz': 22,
         }
         # size = float(model_name[0]) / 10
+
         k = int(angle) // 5 + 1
-        fig, ax = plt.subplots(dpi=200, num=num[mode] * k + 7 if scale == 'linear' else 0, clear=True)
+        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
+        if alpha == '4':
+            k2 = 0
+        elif alpha == '6':
+            k2 = 1000000
+        fig, ax = plt.subplots(dpi=200, num=num[mode] * k + k1 + k2 + 7 if scale == 'linear' else 0, clear=True)
+
         if scale == 'linear':
             ax.set_xlim([0, 15])
 
