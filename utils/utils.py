@@ -50,7 +50,7 @@ def get_cmz(model_name, pr_coeff, coordinates):
                 coeff[i] *= coeffs_norm_24
         t_cmz = mx * coeff
         cmz = np.append(cmz, np.sum(t_cmz))
-    return cmz
+    return np.array(cmz)
 
 
 def get_cx_cy(model_name, pr_coeff):
@@ -77,7 +77,7 @@ def get_cx_cy(model_name, pr_coeff):
                 faces_y.append(np.sum(coeff[face]) / (count_sensors_on_model / 4))
         cx.append((faces_x[0] - faces_x[1]))
         cy.append((faces_y[0] - faces_y[1]))
-    return cx, cy
+    return np.array(cx), np.array(cy)
 
 
 if __name__ == '__main__':

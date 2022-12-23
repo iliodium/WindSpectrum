@@ -27,53 +27,7 @@ class Plot:
            Нестационарные сигналы
        Нумерация:
        Нумерация графиков нужная для очищения памяти
-       На каждый угол от 1 до 29 = k
-       начиная с любого параметра размера модели от 2 каждая высота 1 000, глубина 10 000, ширина 100 000 = k1
-       альфа 4 - 1 000 000 6 - 2 000 000 = k2
-       Пример
-       111:
-           угол 0:
-                1   discrete isofields_min
-                2   discrete isofields_mean
-                3   discrete isofields_max
-                4   discrete isofields_std
-
-                5   integral isofields_min
-                6   integral isofields_mean
-                7   integral isofields_max
-                8   integral isofields_std
-
-                9    summary_coefficients cx
-                10    summary_coefficients cy
-                11    summary_coefficients cmz
-                12    summary_coefficients cx|cy
-                13    summary_coefficients cx|cmz
-                14    summary_coefficients cy|cmz
-                15    summary_coefficients cx|cy|cmz
-
-                16    summary_spectres cx_log
-                17    summary_spectres cy_log
-                18    summary_spectres cmz_log
-                19    summary_spectres cx|cy_log
-                20    summary_spectres cx|cmz_log
-                21    summary_spectres cy|cmz_log
-                22    summary_spectres cx|cy|cmz_log
-
-                23    summary_spectres cx_linear
-                24    summary_spectres cy_linear
-                25    summary_spectres cmz_linear
-                26    summary_spectres cx|cy_linear
-                27    summary_spectres cx|cmz_linear
-                28    summary_spectres cy|cmz_linear
-                29    summary_spectres cx|cy|cmz_linear
-           угол 5:
-                30   discrete isofields_min
-                ...
-       112:
-            угол 0:
-                1001 discrete isofields_min
-                ...
-
+       num = alpha_model_name_angle_mode
        """
 
     @staticmethod
@@ -90,13 +44,7 @@ class Plot:
             'min': np.min(pressure_coefficients, axis=0),
             'std': np.std(pressure_coefficients, axis=0),
         }
-        # Номера графиков
-        num = {
-            'min': 1,
-            'mean': 2,
-            'max': 3,
-            'std': 4,
-        }
+
         pressure_coefficients = mods[mode]
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
@@ -115,13 +63,11 @@ class Plot:
         x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
 
-        k = int(angle) // 5 + 1
-        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
-        if alpha == '4':
-            k2 = 0
-        elif alpha == '6':
-            k2 = 1000000
-        fig, ax = plt.subplots(1, 4, dpi=200, num=num[mode] * k + k1 + k2, clear=True)
+        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
+        num_fig_b = ''
+        b = num_fig.encode()
+        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
+        fig, ax = plt.subplots(1, 4, dpi=200, num=num_fig_b, clear=True)
 
         cmap = cm.get_cmap(name="jet")
         min_v = np.min(pressure_coefficients)
@@ -161,12 +107,6 @@ class Plot:
             'std': np.std(pressure_coefficients, axis=0),
         }
         # Номера графиков
-        num = {
-            'min': 5,
-            'mean': 6,
-            'max': 7,
-            'std': 8,
-        }
         pressure_coefficients = mods[mode]
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
@@ -256,13 +196,11 @@ class Plot:
         z_extended = np.array([np.array(z1), np.array(z2), np.array(z3), np.array(z4)])
         x_extended = np.array([np.array(x1), np.array(x2), np.array(x3), np.array(x4)])
 
-        k = int(angle) // 5 + 1
-        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
-        if alpha == '4':
-            k2 = 0
-        elif alpha == '6':
-            k2 = 1000000
-        fig, graph = plt.subplots(1, 4, dpi=200, num=num[mode] * k + k1 + k2, clear=True, figsize=(9, 5))
+        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
+        num_fig_b = ''
+        b = num_fig.encode()
+        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
+        fig, graph = plt.subplots(1, 4, dpi=200, num=num_fig_b, clear=True, figsize=(9, 5))
 
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
@@ -316,26 +254,15 @@ class Plot:
         return fig
 
     @staticmethod
-    def generate_welch_graphs(model_name, alpha, angle, speed, scale, mode, data):
-        num = {
-            'Cx': 16,
-            'Cy': 17,
-            'CMz': 18,
-            'Cx|Cy': 19,
-            'Cx|Cz': 20,
-            'Cy|CMz': 21,
-            'Cx|Cy|CMz': 22,
-        }
+    def welch_graphs(model_name, alpha, angle, speed, scale, mode, data):
         # size = float(model_name[0]) / 10
 
-        k = int(angle) // 5 + 1
-        k1 = (int(model_name[0]) - 1) * 100000 + (int(model_name[1]) - 1) * 10000 + (int(model_name[2]) - 1) * 1000
-        if alpha == '4':
-            k2 = 0
-        elif alpha == '6':
-            k2 = 1000000
-        fig, ax = plt.subplots(dpi=200, num=num[mode] * k + k1 + k2 + 7 if scale == 'linear' else 0, clear=True)
+        num_fig = f'{alpha}_{model_name}_{angle}_{mode}_{scale}'
+        num_fig_b = ''
+        b = num_fig.encode()
+        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
 
+        fig, ax = plt.subplots(dpi=200, num=num_fig_b, clear=True)
         if scale == 'linear':
             ax.set_xlim([0, 15])
 
@@ -362,6 +289,24 @@ class Plot:
 
         # ax.set_xticks(frequency, labels=[np.array(i * size / speed).round(3) for i in frequency])
 
+        ax.legend(loc='upper right', fontsize=9)
+        return fig
+
+    @staticmethod
+    def summary_coefficients(model_name, alpha, angle, mode, data):
+        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
+        num_fig_b = ''
+        b = num_fig.encode()
+        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
+        fig, ax = plt.subplots(dpi=200, num=num_fig_b, clear=True)
+        ax.grid()
+        ax.set_xlim(0, 32.768)
+        ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        ax.set_xlabel('Время, с')
+        ox = np.linspace(0, 32.768, 32768)
+        for name in data.keys():
+            if data[name] is not None:
+                ax.plot(ox, data[name], label=name)
         ax.legend(loc='upper right', fontsize=9)
 
         return fig

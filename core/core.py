@@ -68,37 +68,98 @@ class Core:
         if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}_{scale}']:
             t_cx, t_cy = None, None
             if 'Cx' in mode:
-                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cx'].any():
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx'].any():
                     t_cx, t_cy = get_cx_cy(model_name, pressure_coefficients)
-                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cx'] = t_cx
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx'] = t_cx
                     cx = t_cx
                 else:
-                    cx = self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cx']
+                    cx = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx']
 
             if 'Cy' in mode:
-                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cy'].any():
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy'].any():
                     if t_cy is None:
                         t_cx, t_cy = get_cx_cy(model_name, pressure_coefficients)
-                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cy'] = t_cy
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy'] = t_cy
                     cy = t_cy
                 else:
-                    cy = self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['Cy']
+                    cy = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy']
 
             if 'CMz' in mode:
-                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['CMz'].any():
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz'].any():
                     cmz = get_cmz(model_name, pressure_coefficients, coordinates)
-                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['CMz'] = cmz
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
                 else:
-                    cmz = self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot]['CMz']
+                    cmz = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz']
 
             data['Cx'] = cx
             data['Cy'] = cy
             data['CMz'] = cmz
 
-            fig = Plot.generate_welch_graphs(model_name, alpha, angle, speed, scale, mode, data)
+            fig = Plot.welch_graphs(model_name, alpha, angle, speed, scale, mode, data)
             self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}_{scale}'] = fig
 
         return self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}_{scale}']
+
+    def get_plot_summary_coefficients(self, alpha, model_size, angle, mode, type_plot):
+        x, y, z = [str(int(10 * i)) for i in map(float, model_size)]
+        model_name = ''.join((x, y, z))
+        data = {'Cx': None,
+                'Cy': None,
+                'CMz': None,
+                }
+        cx, cy, cmz = None, None, None
+
+        if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'].any():
+            self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] = \
+                self.clipboard_obj.get_pressure_coefficients(alpha, model_name, angle)
+
+        pressure_coefficients = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['pressure_coefficients']
+
+        if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}']:
+            t_cx, t_cy = None, None
+            if 'Cx' in mode:
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx'].any():
+                    t_cx, t_cy = get_cx_cy(model_name, pressure_coefficients)
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx'] = t_cx
+                    cx = t_cx
+                else:
+                    cx = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cx']
+
+            if 'Cy' in mode:
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy'].any():
+                    if t_cy is None:
+                        t_cx, t_cy = get_cx_cy(model_name, pressure_coefficients)
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy'] = t_cy
+                    cy = t_cy
+                else:
+                    cy = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['Cy']
+
+            if 'CMz' in mode:
+                if not self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz'].any():
+
+                    if not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'] or \
+                            not self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']:
+                        self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+                        self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z'] = \
+                            self.clipboard_obj.get_coordinates(alpha, model_name)
+
+                    coordinates = self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
+                                  self.clipboard_obj.clipboard_dict[alpha][model_name]['const_parameters']['z']
+
+                    cmz = get_cmz(model_name, pressure_coefficients, coordinates)
+
+                    self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
+                else:
+                    cmz = self.clipboard_obj.clipboard_dict[alpha][model_name][angle]['CMz']
+
+            data['Cx'] = cx
+            data['Cy'] = cy
+            data['CMz'] = cmz
+
+            fig = Plot.summary_coefficients(model_name, alpha, angle, mode, data)
+            self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}'] = fig
+        print(self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}'].number,'number')
+        return self.clipboard_obj.clipboard_dict[alpha][model_name][angle][type_plot][f'plot_{mode}']
 
 
 if __name__ == '__main__':

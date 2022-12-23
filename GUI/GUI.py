@@ -28,7 +28,8 @@ class MainApp(MDApp):
         self.alpha = '6'
         self.app = None
         self.core = Core()
-        self.summary_plot_mode = 'Cx|Cy|CMz'
+        self.summary_welch_plot_mode = 'Cx|Cy|CMz'
+        self.summary_coefficients_plot_mode = 'Cx|Cy|CMz'
         self.summary_plot_scale = 'linear'
 
     def build(self):
@@ -116,30 +117,44 @@ class MainApp(MDApp):
         )
 
     def bottom_right_plot_dropmenu(self):
-        items_dropdownmenu_bottom_right = [
+        items_dropdownmenu_bottom_right_1 = [
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.bottom_right_plot(x),
-            } for i in range(0, 50, 5)
+                "on_release": lambda x = i: self.action_bottom_right_button_1(x),
+            } for i in ('Cx',
+                        'Cy',
+                        'CMz',
+                        'Cx|Cy',
+                        'Cx|CMz',
+                        'Cy|CMz',
+                        'Cx|Cy|CMz',
+                        )
         ]
-        self.dropdownmenu_bottom_right = MDDropdownMenu(
-            caller=self.app.ids.second_screen.ids.button_plot_button_right,
-            items=items_dropdownmenu_bottom_right,
-            width_mult=1.5,
+        self.dropdownmenu_bottom_right_1 = MDDropdownMenu(
+            caller=self.app.ids.second_screen.ids.button_plot_button_right_1,
+            items=items_dropdownmenu_bottom_right_1,
+            width_mult=2,
             max_height=200
         )
 
     def action_bottom_left_button_1(self, x):
-        self.get_summary_plot_mode(x)
+        self.get_summary_welch_plot_mode(x)
         self.change_text_plot_mode(x)
 
     def action_bottom_left_button_2(self, x):
         self.get_summary_plot_scale(x)
         self.change_text_plot_scale(x)
 
-    def get_summary_plot_mode(self, mode):
-        self.summary_plot_mode = mode
+    def action_bottom_right_button_1(self, x):
+        self.get_summary_coefficients_plot_mode(x)
+        self.change_text_plot_mode_1(x)
+
+    def get_summary_coefficients_plot_mode(self, x):
+        self.summary_coefficients_plot_mode = x
+
+    def get_summary_welch_plot_mode(self, mode):
+        self.summary_welch_plot_mode = mode
 
     def get_summary_plot_scale(self, scale):
         self.summary_plot_scale = scale
@@ -147,27 +162,30 @@ class MainApp(MDApp):
     def change_text_plot_mode(self, text):
         self.app.ids.second_screen.ids.button_plot_button_left_1.text = text
 
+    def change_text_plot_mode_1(self, text):
+        self.app.ids.second_screen.ids.button_plot_button_right_1.text = text
+
     def change_text_plot_scale(self, text):
         self.app.ids.second_screen.ids.button_plot_button_left_2.text = text
 
     def top_left_plot(self, mode):
         model_size = (self.x, self.y, self.z)
         fig = self.core.get_plot_isofileds(self.alpha, model_size, self.rumb, mode, 'integral_isofields')
-        self.app.ids.second_screen.ids.field_top_left.clear_widgets()
-        self.app.ids.second_screen.ids.field_top_left.add_widget(FigureCanvasKivyAgg(fig))
+        self.app.ids.second_screen.ids.plot_top_left.clear_widgets()
+        self.app.ids.second_screen.ids.plot_top_left.add_widget(FigureCanvasKivyAgg(fig))
 
     def top_right_plot(self, mode):
         model_size = (self.x, self.y, self.z)
         fig = self.core.get_plot_isofileds(self.alpha, model_size, self.rumb, mode, 'discrete_isofields')
-        self.app.ids.second_screen.ids.top_right_plot.clear_widgets()
-        self.app.ids.second_screen.ids.top_right_plot.add_widget(FigureCanvasKivyAgg(fig))
+        self.app.ids.second_screen.ids.plot_top_right.clear_widgets()
+        self.app.ids.second_screen.ids.plot_top_right.add_widget(FigureCanvasKivyAgg(fig))
 
     def bottom_left_plot(self):
         model_size = (self.x, self.y, self.z)
         fig = self.core.get_plot_summary_spectres(self.alpha,
                                                   model_size,
                                                   self.rumb,
-                                                  self.summary_plot_mode,
+                                                  self.summary_welch_plot_mode,
                                                   self.summary_plot_scale,
                                                   'summary_spectres'
                                                   )
@@ -175,13 +193,16 @@ class MainApp(MDApp):
         self.app.ids.second_screen.ids.plot_bottom_left.clear_widgets()
         self.app.ids.second_screen.ids.plot_bottom_left.add_widget(FigureCanvasKivyAgg(fig))
 
-    def bottom_right_plot(self, mode):
-        if self.check_top():
-            # fig = self.core.get_isofileds('6', (self.x, self.y, self.z), self.rumb, mode, 'discrete')
-            # if 'FigureCanvasKivyAgg' in str(self.app.ids.second_screen.ids.plot_top_right.children):
-            #     self.app.ids.second_screen.ids.plot_top_right.clear_widgets()
-            # self.app.ids.second_screen.ids.plot_top_right.add_widget(FigureCanvasKivyAgg(fig))
-            pass
+    def bottom_right_plot(self):
+        model_size = (self.x, self.y, self.z)
+        fig = self.core.get_plot_summary_coefficients(self.alpha,
+                                                      model_size,
+                                                      self.rumb,
+                                                      self.summary_coefficients_plot_mode,
+                                                      'summary_coefficients'
+                                                      )
+        self.app.ids.second_screen.ids.plot_bottom_right.clear_widgets()
+        self.app.ids.second_screen.ids.plot_bottom_right.add_widget(FigureCanvasKivyAgg(fig))
 
     def get_RUMB(self):
         rumb = self.app.ids.second_screen.ids.RUMB.text
@@ -196,12 +217,6 @@ class MainApp(MDApp):
 
     def get_alpha(self):
         self.alpha = self.app.ids.second_screen.ids.alpha.text
-
-    def get_summary_mode(self):
-        self.summary_mode = self.app.ids.second_screen.ids.model_size.text
-
-    def get_scale(self):
-        self.scale_welch = self.app.ids.second_screen.ids.model_size.text
 
     def tests(self, text):
         print(dir(text))

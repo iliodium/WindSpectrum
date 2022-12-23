@@ -30,10 +30,10 @@ class Clipboard:
                           'isofields_max': None,
                           'isofields_std': None,
                       },
+                      'CMz': array([]),
+                      'Cx': array([]),
+                      'Cy': array([]),
                       'summary_coefficients': {
-                          'CMz': array([]),
-                          'Cx': array([]),
-                          'Cy': array([]),
                           'plot_Cx': None,
                           'plot_Cy': None,
                           'plot_CMz': None,
@@ -43,9 +43,7 @@ class Clipboard:
                           'plot_Cx|Cy|CMz': None,
                       },
                       'summary_spectres': {
-                          'CMz': array([]),
-                          'Cx': array([]),
-                          'Cy': array([]),
+
                           'plot_Cx_log': None,
                           'plot_Cy_log': None,
                           'plot_CMz_log': None,
@@ -113,5 +111,3 @@ if __name__ == '__main__':
     print(d.clipboard_dict)
     d.clipboard_dict['4']['111']['0']['discrete_isofields']['isofields_min'] = 10
     print(d.clipboard_dict)
-
-
