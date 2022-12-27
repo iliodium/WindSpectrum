@@ -1,6 +1,5 @@
 #:import toast kivymd.toast.toast
-<SecondScreen>:
-
+<IsolatedHighriseScreen>:
     name : 'opt_screen'
     canvas:
         Color:
@@ -10,105 +9,33 @@
             pos: self.pos
     NavigationBar:
 
-    MDFloatLayout:
         MDFlatButton:
             adaptive_size: True
             text: 'Назад'
-            font_size: 18
             on_release:
                 app.root.current='main_screen'
 
-        # top left plot
-        MDBoxLayout:
-            adaptive_size: True
-            orientation: 'vertical'
-            pos_hint:{'y':.5,'x':.35}
-            size_hint:.325,.5
-            MDRaisedButton:
-                adaptive_size: True
-                id: button_plot_top_left
-                text: "Режим"
-                on_release: app.dropdownmenu_top_left.open()
+    MDBoxLayout:
+        orientation: 'horizontal'
 
-            MDBoxLayout:
-                id: plot_top_left
-
-        # top right plot
-        MDBoxLayout:
-            adaptive_size: True
-            orientation: 'vertical'
-            pos_hint:{'y':.5,'x':.675}
-            size_hint:.325,.5
-            MDRaisedButton:
-                adaptive_size: True
-                id: button_plot_top_right
-                text: "Режим"
-                on_release: app.dropdownmenu_top_right.open()
-            MDBoxLayout:
-                id: plot_top_right
-
-        # bottom left plot
-        MDBoxLayout:
-            adaptive_size: True
-            orientation: 'vertical'
-            pos_hint:{'y':0,'x':.35}
-            size_hint:.325,.5
-            MDBoxLayout:
-                adaptive_size: True
-                orientation:'horizontal'
-                MDRaisedButton:
-                    adaptive_size: True
-                    id: button_plot_button_left_1
-                    text: "Суммарные"
-                    on_release: app.dropdownmenu_bottom_left_1.open()
-                MDRaisedButton:
-                    adaptive_size: True
-                    id: button_plot_button_left_2
-                    text: "Масштаб"
-                    on_release: app.dropdownmenu_bottom_left_2.open()
-                MDRectangleFlatButton:
-                    text: "График"
-                    on_release: app.bottom_left_plot()
-            MDBoxLayout:
-                id: plot_bottom_left
-
-        # bottom right plot
-        MDBoxLayout:
-            adaptive_size: True
-            orientation: 'vertical'
-            pos_hint:{'y':0,'x':.675}
-            size_hint:.325,.5
-            MDBoxLayout:
-                adaptive_size: True
-                orientation:'horizontal'
-                MDRaisedButton:
-                    adaptive_size: True
-                    id: button_plot_button_right_1
-                    text: "Суммарные"
-                    on_release: app.dropdownmenu_bottom_right_1.open()
-                MDRectangleFlatButton:
-                    text: "График"
-                    on_release: app.bottom_right_plot()
-            MDBoxLayout:
-                id: plot_bottom_right
         # панель управления
-        MDBoxLayout:
-            id: panel
-            orientation: 'vertical'
-            adaptive_size: True
-            pos_hint:{'top':.7,'x':0}
-            canvas:
-                Color:
-                    rgba: 0.5, 1, 1, 1
-                Rectangle:
-                    size: self.size
-                    pos: self.pos
-            MDLabel:
+        MDScrollView
+            pos_hint:{'top':.8,'x':0}
+            size_hint:.35,1
+            MDGridLayout:
+                cols: 2
                 adaptive_size: True
-                font_size: 24
-                text: 'Общие сведения'
-            MDBoxLayout:
-                adaptive_size: True
+                spacing:10
+                padding:8
+
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 24
+                    text: 'Общие сведения'
+                    mg_bg_color: (0.24, 0.59, 0.98, 1)
+                MDFlatButton:
+                    disabled: True
+
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -124,8 +51,7 @@
                 MDFlatButton:
                     text: 'Выбор'
                     font_size: 18
-            MDBoxLayout:
-                adaptive_size: True
+
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -141,9 +67,8 @@
                 MDFlatButton:
                     text: 'Выбор'
                     font_size: 18
-            MDBoxLayout:
-                padding: '10dp'
-                adaptive_size: True
+
+
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -156,6 +81,7 @@
                         font_size: 10
                         font_style: 'Caption'
                         text: '[Описание]'
+
                 MDTextField:
                     id: RUMB
                     hint_text: 'RUMB'
@@ -169,8 +95,6 @@
                     on_text_validate:
                         app.get_RUMB()
 
-            MDBoxLayout:
-                adaptive_size: True
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -195,8 +119,7 @@
                     width: 75
                     on_text_validate:
                         app.get_size()
-            MDBoxLayout:
-                adaptive_size: True
+
                 MDLabel:
                     adaptive_size: True
                     font_size: 18
@@ -211,29 +134,38 @@
                     width: 75
                     on_text_validate:
                         app.get_alpha()
-            MDBoxLayout:
-                adaptive_size: True
+
                 MDLabel:
                     adaptive_size: True
                     font_size: 18
-                    text: 'Параметры интегрирования по высоте'
+                    text: 'Параметры интегрирования\n по высоте'
+                MDFlatButton:
+                    disabled: True
+
+                MDFlatButton:
+                    text: 'Интегрирование по высоте'
+                    font_size: 18
+                MDFlatButton:
+                    disabled: True
+
+                MDFlatButton:
+                    text: 'Поверхность интегрирования'
+                    font_size: 18
+                MDFlatButton:
+                    disabled: True
+
                 MDFlatButton:
                     text: 'Поверхность'
                     font_size: 18
-            MDFlatButton:
-                text: 'Интегрирование по высоте'
-                font_size: 18
-            MDFlatButton:
-                text: 'Поверхность интегрирования'
-                font_size: 18
-            MDFlatButton:
-                text: 'Шаг сканирования (шаг интегрирования)'
-                font_size: 18
-            MDFlatButton:
-                text: 'Экспорт'
-                font_size: 24
-            MDBoxLayout:
-                adaptive_size: True
+                MDFlatButton:
+                    disabled: True
+
+                MDFlatButton:
+                    text: 'Шаг интегрирования'
+                    font_size: 18
+                MDFlatButton:
+                    disabled: True
+
                 MDLabel:
                     adaptive_size: True
                     font_size: 18
@@ -241,3 +173,78 @@
                 MDFlatButton:
                     text: 'СП20.13330.2016'
                     font_size: 18
+
+                MDFlatButton:
+                    text: 'Экспорт'
+                    font_size: 18
+        MDGridLayout:
+            cols: 2
+            # top left plot
+            MDBoxLayout:
+                adaptive_size: True
+                orientation: 'vertical'
+                size_hint:.325,1
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: button_plot_top_left
+                    text: "Режим"
+                    on_release: app.dropdownmenu_top_left.open()
+
+                MDBoxLayout:
+                    id: plot_top_left
+
+            # top right plot
+            MDBoxLayout:
+                adaptive_size: True
+                orientation: 'vertical'
+                size_hint:.325,1
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: button_plot_top_right
+                    text: "Режим"
+                    on_release: app.dropdownmenu_top_right.open()
+                MDBoxLayout:
+                    id: plot_top_right
+
+            # bottom left plot
+            MDBoxLayout:
+                adaptive_size: True
+                orientation: 'vertical'
+                size_hint:.325,1
+                MDBoxLayout:
+                    adaptive_size: True
+                    orientation:'horizontal'
+                    MDRaisedButton:
+                        adaptive_size: True
+                        id: button_plot_button_left_1
+                        text: "Суммарные"
+                        on_release: app.dropdownmenu_bottom_left_1.open()
+                    MDRaisedButton:
+                        adaptive_size: True
+                        id: button_plot_button_left_2
+                        text: "Масштаб"
+                        on_release: app.dropdownmenu_bottom_left_2.open()
+                    MDRectangleFlatButton:
+                        text: "График"
+                        on_release: app.bottom_left_plot()
+                MDBoxLayout:
+                    id: plot_bottom_left
+
+            # bottom right plot
+            MDBoxLayout:
+                adaptive_size: True
+                orientation: 'vertical'
+                size_hint:.325,1
+                MDBoxLayout:
+                    adaptive_size: True
+                    orientation:'horizontal'
+                    MDRaisedButton:
+                        adaptive_size: True
+                        id: button_plot_button_right_1
+                        text: "Суммарные"
+                        on_release: app.dropdownmenu_bottom_right_1.open()
+                    MDRectangleFlatButton:
+                        text: "График"
+                        on_release: app.bottom_right_plot()
+                MDBoxLayout:
+                    id: plot_bottom_right

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.fft import fft, rfftfreq
 from scipy.signal import argrelextrema, welch
 from matplotlib.colors import Normalize
+from matplotlib.axis import rcParams
 
 
 class Plot:
@@ -44,7 +45,6 @@ class Plot:
             'min': np.min(pressure_coefficients, axis=0),
             'std': np.std(pressure_coefficients, axis=0),
         }
-
         pressure_coefficients = mods[mode]
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
@@ -63,12 +63,7 @@ class Plot:
         x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
 
-        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
-        num_fig_b = ''
-        b = num_fig.encode()
-        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
-        fig, ax = plt.subplots(1, 4, dpi=200, num=num_fig_b, clear=True)
-
+        fig, ax = plt.subplots(1, 4, dpi=200, clear=True)
         cmap = cm.get_cmap(name="jet")
         min_v = np.min(pressure_coefficients)
         max_v = np.max(pressure_coefficients)
@@ -76,23 +71,22 @@ class Plot:
         im = cm.ScalarMappable(norm=normalizer, cmap=cmap)
         for i in range(4):
             data_old = pressure_coefficients[i]
-            ax[i].pcolormesh(np.flip(data_old, axis=0), cmap=cmap)
+            ax[i].pcolormesh(np.flip(data_old, axis=0), cmap=cmap, norm=normalizer)
             ax[i].set_yticks(np.arange(0, count_row + 1, 2.5))
-            ax[i].set_yticklabels(labels=np.arange(0, height + 0.01, 0.05))
+            ax[i].set_yticklabels(labels=np.arange(0, height + 0.01, 0.05).round(2), fontsize=5)
             if i in [0, 2]:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_middle + 1, 5)])
-                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, breadth + 0.1, 0.1))))
+                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, breadth + 0.1, 0.1))), fontsize=5)
             else:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_side + 1, 5)])
-                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, depth + 0.1, 0.1))))
+                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, depth + 0.1, 0.1))), fontsize=5)
             x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
             ax[i].plot(x, y, '.k')
 
         if breadth == depth == height:
             [ax[i].set_aspect('equal') for i in range(4)]
         ticks = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, 0.1)
-        fig.colorbar(im, ax=ax, location='bottom', cmap=cmap, ticks=ticks).ax.tick_params(
-            labelsize=7)
+        fig.colorbar(im, ax=ax, location='bottom', cmap=cmap, ticks=ticks).ax.tick_params(labelsize=4)
 
         return fig
 
@@ -196,11 +190,7 @@ class Plot:
         z_extended = np.array([np.array(z1), np.array(z2), np.array(z3), np.array(z4)])
         x_extended = np.array([np.array(x1), np.array(x2), np.array(x3), np.array(x4)])
 
-        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
-        num_fig_b = ''
-        b = num_fig.encode()
-        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
-        fig, graph = plt.subplots(1, 4, dpi=200, num=num_fig_b, clear=True, figsize=(9, 5))
+        fig, ax = plt.subplots(1, 4, dpi=200, clear=True, figsize=(9, 5))
 
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
@@ -235,21 +225,27 @@ class Plot:
             triang = mtri.Triangulation(x_new, z_new)
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(data_new, subdiv=4)
-            data_colorbar = graph[i].tricontourf(grid, value, cmap=cmap, levels=levels, extend='both')
-            aq = graph[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
+            data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, levels=levels, extend='both')
+            aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
             x_dots, y_dots = np.meshgrid(x_old, z_old)
-            graph[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
-            graph[i].clabel(aq, fontsize=10)
-            graph[i].set_ylim([0, height])
+            ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
+
+            ax[i].clabel(aq, fontsize=10)
+            ax[i].set_ylim([0, height])
+            ax[i].set_yticks(np.arange(0, height + 0.01, 0.05))
+            ax[i].set_yticklabels(labels=np.arange(0, height + 0.01, 0.05).round(2), fontsize=5)
             if breadth == depth == height:
-                graph[i].set_aspect('equal')
+                ax[i].set_aspect('equal')
             if i in [0, 2]:
-                graph[i].set_xlim([0, breadth])
-                graph[i].set_xticks(ticks=np.arange(0, breadth + 0.1, 0.1))
+                ax[i].set_xlim([0, breadth])
+                ax[i].set_xticks(ticks=np.arange(0, breadth + 0.1, 0.1))
+                ax[i].set_xticklabels(labels=ax[i].get_xticks(), fontsize=5)
             else:
-                graph[i].set_xlim([0, depth])
-                graph[i].set_xticks(ticks=np.arange(0, depth + 0.1, 0.1))
-        fig.colorbar(data_colorbar, ax=graph, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=7)
+                ax[i].set_xlim([0, depth])
+                ax[i].set_xticks(ticks=np.arange(0, depth + 0.1, 0.1))
+                ax[i].set_xticklabels(labels=ax[i].get_xticks(), fontsize=5)
+
+        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
 
         return fig
 
@@ -257,12 +253,7 @@ class Plot:
     def welch_graphs(model_name, alpha, angle, speed, scale, mode, data):
         # size = float(model_name[0]) / 10
 
-        num_fig = f'{alpha}_{model_name}_{angle}_{mode}_{scale}'
-        num_fig_b = ''
-        b = num_fig.encode()
-        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
-
-        fig, ax = plt.subplots(dpi=200, num=num_fig_b, clear=True)
+        fig, ax = plt.subplots(dpi=200, clear=True)
         if scale == 'linear':
             ax.set_xlim([0, 15])
 
@@ -294,11 +285,7 @@ class Plot:
 
     @staticmethod
     def summary_coefficients(model_name, alpha, angle, mode, data):
-        num_fig = f'{alpha}_{model_name}_{angle}_{mode}'
-        num_fig_b = ''
-        b = num_fig.encode()
-        num_fig_b = int(num_fig_b.join([str(b[i]) for i in range(len(b))]))
-        fig, ax = plt.subplots(dpi=200, num=num_fig_b, clear=True)
+        fig, ax = plt.subplots(dpi=200, clear=True)
         ax.grid()
         ax.set_xlim(0, 32.768)
         ax.set_ylabel('Суммарные аэродинамические коэффициенты')

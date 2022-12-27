@@ -1,4 +1,5 @@
 # local imports
+from utils.utils import calculate_cx_cy, calculate_cmz
 from databasetoolkit.databasetoolkit import DataBaseToolkit
 
 from copy import deepcopy
@@ -9,9 +10,9 @@ class Clipboard:
     def __init__(self):
         self.clipboard_dict = None
         self.database_obj = DataBaseToolkit()
-        self.init_clipboard()
+        self.init_clipboard_dict()
 
-    def init_clipboard(self):
+    def init_clipboard_dict(self):
         self.clipboard_dict = {'4': dict(),
                                '6': dict()
                                }
@@ -104,6 +105,25 @@ class Clipboard:
             self.clipboard_dict[alpha][model_name]['const_parameters']['face_number'] = \
                 self.database_obj.get_face_number(alpha, model_name)
         return self.clipboard_dict[alpha][model_name]['const_parameters']['face_number']
+
+    def get_cx_cy(self, alpha, model_name, angle):
+        if not self.clipboard_dict[alpha][model_name][angle]['Cx'].any() or \
+                not self.clipboard_dict[alpha][model_name][angle]['Cy'].any():
+            coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
+            cx, cy = calculate_cx_cy(model_name, coefficients)
+            self.clipboard_dict[alpha][model_name][angle]['Cx'] = cx
+            self.clipboard_dict[alpha][model_name][angle]['Cy'] = cy
+
+        return self.clipboard_dict[alpha][model_name][angle]['Cx'], self.clipboard_dict[alpha][model_name][angle]['Cy']
+
+    def get_cmz(self, alpha, model_name, angle):
+        if not self.clipboard_dict[alpha][model_name][angle]['CMz'].any():
+            coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
+            coordinates = self.get_coordinates(alpha, model_name)
+            cmz = calculate_cmz(model_name, coefficients, coordinates)
+            self.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
+
+        return self.clipboard_dict[alpha][model_name][angle]['CMz']
 
 
 if __name__ == '__main__':

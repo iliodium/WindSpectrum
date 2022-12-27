@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_cmz(model_name, pr_coeff, coordinates):
+def calculate_cmz(model_name, pr_coeff, coordinates):
     cmz = []
     breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
     v2 = breadth
@@ -53,7 +53,7 @@ def get_cmz(model_name, pr_coeff, coordinates):
     return np.array(cmz)
 
 
-def get_cx_cy(model_name, pr_coeff):
+def calculate_cx_cy(model_name, pr_coeff):
     cx = []
     cy = []
     count_sensors_on_model = len(pr_coeff[0])

@@ -1,8 +1,9 @@
-#:include kv/SecondScreen.kv
+#:include kv/IsolatedHighriseScreen.kv
 #:include kv/NavigationBar.kv
 
 MDScreenManager:
     id: screen_manager
+
     MDScreen:
         id: main_screen
         name : 'main_screen'
@@ -13,30 +14,28 @@ MDScreenManager:
                 size: self.size
                 pos: self.pos
 
-        MDFloatLayout:
-            MDLabel:
-                adaptive_size: True
-                text: 'Wind Spectrum'
-                font_size: 24
-                pos_hint: {"center_x": .5, "y": .9}
-            # Навигационная панель
-            NavigationBar:
+        NavigationBar:
 
-            # Расчеты ветровых нагрузок и воздействий
-            MDBoxLayout:
-                orientation: 'vertical'
+        MDLabel:
+            adaptive_size: True
+            text: 'Wind Spectrum'
+            font_size: 24
+            pos_hint: {'top':.9,"x": .2}
+
+        MDScrollView:
+            pos_hint:{'top':.8,'x':0}
+            MDGridLayout:
+                cols:1
                 adaptive_size: True
-                pos_hint:{'top':.7,'x':0}
-                canvas:
-                    Color:
-                        rgba: 0.5, 1, 1, 1
-                    Rectangle:
-                        size: self.size
-                        pos: self.pos
+                spacing:10
+                padding:8
+
+                # Расчеты ветровых нагрузок и воздействий
                 MDLabel:
                     adaptive_size: True
                     text: 'Расчеты ветровых нагрузок и воздействий'
                     font_size: 18
+                    md_bg_color: (0.24, 0.59, 0.98, 1)
                 MDFlatButton:
                     text: 'Изолированное высотное здание'
                     font_size: 18
@@ -51,21 +50,13 @@ MDScreenManager:
                 MDFlatButton:
                     text: 'Аэродинамическая интерференция низкоэтажных зданий'
                     font_size: 18
+
             # Динамический отклик
-            MDBoxLayout:
-                orientation: 'vertical'
-                adaptive_size: True
-                pos_hint:{'top':.7,'x':.25}
-                canvas:
-                    Color:
-                        rgba: 0, 1, 0, 1
-                    Rectangle:
-                        size: self.size
-                        pos: self.pos
                 MDLabel:
                     adaptive_size: True
                     text: 'Динамический отклик'
                     font_size: 18
+                    md_bg_color:(0.24, 0.59, 0.98, 1)
                 MDFlatButton:
                     text: 'Интегральные параметры здания'
                     font_size: 18
@@ -78,21 +69,13 @@ MDScreenManager:
                 MDFlatButton:
                     text: 'Конвертер ветровых нагрузок в CAE'
                     font_size: 18
+
             # Инженерные калькуляторы
-            MDBoxLayout:
-                orientation: 'vertical'
-                adaptive_size: True
-                pos_hint:{'top':.7,'x':.5}
-                canvas:
-                    Color:
-                        rgba: 1, 1, 0, 1
-                    Rectangle:
-                        size: self.size
-                        pos: self.pos
                 MDLabel:
                     adaptive_size: True
                     text: 'Инженерные калькуляторы'
                     font_size: 18
+                    md_bg_color:(0.24, 0.59, 0.98, 1)
                 MDFlatButton:
                     text: 'Спектры'
                     font_size: 18
@@ -105,21 +88,13 @@ MDScreenManager:
                 MDFlatButton:
                     text: 'Калькулятор y+ (CFD)'
                     font_size: 18
+
             # Информация
-            MDBoxLayout:
-                orientation: 'vertical'
-                adaptive_size: True
-                pos_hint:{'top':.7,'x':.75}
-                canvas:
-                    Color:
-                        rgba: 1, 0, 1, 1
-                    Rectangle:
-                        size: self.size
-                        pos: self.pos
                 MDLabel:
                     adaptive_size: True
                     text: 'Информация'
                     font_size: 18
+                    md_bg_color:(0.24, 0.59, 0.98, 1)
                 MDFlatButton:
                     text: 'Климатические карты'
                     font_size: 18
@@ -130,5 +105,5 @@ MDScreenManager:
                     text: 'Рекомендуемые ссылки'
                     font_size: 18
 
-    SecondScreen:
-        id: second_screen
+    IsolatedHighriseScreen:
+        id: isolated_highrise_screen

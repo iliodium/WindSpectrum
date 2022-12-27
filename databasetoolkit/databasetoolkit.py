@@ -5,10 +5,16 @@ class DataBaseToolkit:
 
     def __init__(self):
         self.connection = psycopg2.connect(user='postgres',
-                                           password='2325070307',
+                                           password='08101430',
                                            host='127.0.0.1',
                                            port='5432',
                                            database='tpu')
+        #2325070307
+        # self.connection = psycopg2.connect(user='postgres',
+        #                                    password='08101430',
+        #                                    host='26.148.227.16',
+        #                                    port='5432',
+        #                                    database='tpu')
         self.cursor = self.connection.cursor()
         print("Соединение с PostgreSQL открыто")
 
