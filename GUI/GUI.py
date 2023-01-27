@@ -14,12 +14,17 @@
 # dev imports (optional)
 # import os
 # os.environ["KIVY_NO_CONSOLELOG"] = "1"
+import sys
 
+import psycopg2
 from kivymd.app import MDApp
+from kivymd.uix.button import MDFlatButton
+from kivymd.uix.dialog import MDDialog
 from kivymd.uix.label import MDLabel
 from kivymd.app import Builder
 from matplotlib import pyplot as plt
 import numpy as np
+
 from kivy.garden.matplotlib import FigureCanvasKivyAgg
 from kivymd.uix.menu import MDDropdownMenu
 
@@ -40,12 +45,30 @@ class MainApp(MDApp):
         self.z = '0.1'
         self.alpha = '6'
         self.app = None
-        self.core = Core()
+        try:
+            self.core = Core()
+        except psycopg2.OperationalError as e:
+            self.core = None
+            self.error_connection_to_database = e
         self.summary_welch_plot_mode = 'Cx|Cy|CMz'
         self.summary_coefficients_plot_mode = 'Cx|Cy|CMz'
         self.summary_plot_scale = 'linear'
 
     def build(self):
+        if self.core is None:
+            dialog = MDDialog(
+                text=f"Could not connect to database.\n{self.error_connection_to_database}",
+                buttons=[
+                    MDFlatButton(
+                        text="Ok",
+                        theme_text_color="Custom",
+                        text_color=self.theme_cls.primary_color,
+                        on_release=lambda *args: sys.exit(1)
+                    )
+                ],
+                on_dismis=lambda *args: sys.exit(0)
+            )
+            return dialog.open()
         self.app = Builder.load_file("kv\\MainScreen.kv")
         self.top_left_plot_dropmenu()
         self.top_right_plot_dropmenu()

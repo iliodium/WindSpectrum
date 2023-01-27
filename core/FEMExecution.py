@@ -1,15 +1,15 @@
 import dataclasses
 import enum
 import json
-import multiprocessing
 import os
 import os.path as path
 import subprocess
+from typing import List
 
 import numpy as np
 
 
-@dataclasses.dataclass(slots=True, kw_only=True)
+@dataclasses.dataclass()
 class SuperElement:
     alpha: float = 1.
     beta: float = 1.
@@ -28,13 +28,13 @@ class DynamicsExecutionMode(enum.IntEnum):
     NEWMARK = 2
 
 
-@dataclasses.dataclass(slots=True)
+@dataclasses.dataclass()
 class DynamicsExecutionUnit:
     f_dat_file_path: str
     method: DynamicsExecutionMode = DynamicsExecutionMode.NEWMARK
     dt: float = 0.01
     N: int = 1
-    elements: list[SuperElement] = dataclasses.field(default_factory=list)
+    elements: List[SuperElement] = dataclasses.field(default_factory=list)
 
     def __add__(self, other):
         if isinstance(other, SuperElement):
@@ -50,7 +50,7 @@ class DynamicsExecutionUnit:
         raise ValueError("Not implemented!")
 
 
-@dataclasses.dataclass(slots=True, kw_only=True)
+@dataclasses.dataclass()
 class NewmarkExecutionUnit(DynamicsExecutionUnit):
     newmark_alpha: float = 1
     newmark_delta: float = 1
@@ -71,13 +71,15 @@ class NewmarkExecutionUnit(DynamicsExecutionUnit):
         print(f"Attempt to start execution {path_to_executable} with config {filename_of_config}")
         with open(filename_of_config, mode='w') as json_file:
             json.dump(dataclasses.asdict(self), json_file)
-        return subprocess.Popen((path_to_executable, filename_of_config), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.Popen((path_to_executable, filename_of_config), stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 class FDMExecutionUtils:
 
     @staticmethod
-    def start_execution(deu: DynamicsExecutionUnit, fs_dat: np.array, path_to_executable: str, config_filename: str) -> subprocess.Popen:
+    def start_execution(deu: DynamicsExecutionUnit, fs_dat: np.array, path_to_executable: str,
+                        config_filename: str) -> subprocess.Popen:
         deu.f_dat_file_path = path.abspath(deu.f_dat_file_path)
         FDMExecutionUtils.write_dat_file(deu, fs_dat)
         return deu(path_to_executable, config_filename)
@@ -98,6 +100,7 @@ class FDMExecutionUtils:
 
 
 if __name__ == "__main__":
+    import sys
 
     print("Test suite for class SuperElement")
     se = SuperElement()
@@ -111,13 +114,6 @@ if __name__ == "__main__":
     se.I_z = 0.1
     se.E = 1.75e7
     se.G = 1.05e11
-    try:
-        se.fake = 3
-        raise IndexError("Fake field indexed")
-    except IndexError:
-        exit(2)
-    except AttributeError as e:
-        print("Fake field test success!")
 
     neu = NewmarkExecutionUnit(r"./test.dat")
     neu.dt = 0.05
