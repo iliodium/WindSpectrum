@@ -1,12 +1,10 @@
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
 import numpy as np
 import scipy.interpolate
-import matplotlib.cm as cm
-import matplotlib.tri as mtri
-import matplotlib.pyplot as plt
-from scipy.fft import fft, rfftfreq
-from scipy.signal import argrelextrema, welch
 from matplotlib.colors import Normalize
-from matplotlib.axis import rcParams
+from scipy.signal import welch
 
 
 class Plot:

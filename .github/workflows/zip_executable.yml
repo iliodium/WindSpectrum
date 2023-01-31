@@ -31,7 +31,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build with nuitka
-        run: python -m nuitka --standalone --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data main.py
+        run: python -m nuitka --standalone --assume-yes-for-downloads --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data main.py
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3

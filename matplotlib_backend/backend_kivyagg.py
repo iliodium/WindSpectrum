@@ -67,8 +67,6 @@ The events available are the same events available from Backend Kivy.::
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-__all__ = ('FigureCanvasKivyAgg')
-
 from matplotlib.backend_bases import register_backend, ShowBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -87,6 +85,8 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.core.image import Image
 from .backend_kivy import FigureCanvasKivy, \
     FigureManagerKivy, NavigationToolbar2Kivy
+
+__all__ = 'FigureCanvasKivyAgg'
 
 register_backend('png', 'backend_kivyagg', 'PNG File Format')
 

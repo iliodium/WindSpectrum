@@ -1,8 +1,6 @@
-import numpy as np
-import asyncio
 # local imports
-from plot.plot import Plot
 from clipboard.clipboard import Clipboard
+from plot.plot import Plot
 
 
 class Core:
