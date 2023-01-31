@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 import time
 import numpy as np
@@ -11,7 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 # local imports
 from plot.plot import Plot
 from utils.utils import *
+=======
+# local imports
+>>>>>>> b28311c22755b3806c0ef8b7874d2ae258d6b3ea
 from clipboard.clipboard import Clipboard
+from plot.plot import Plot
 
 
 class Core:

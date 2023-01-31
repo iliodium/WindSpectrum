@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import asyncio
 import numpy as np
 import matplotlib.cm as cm
@@ -12,6 +13,15 @@ from matplotlib.ticker import MultipleLocator, ScalarFormatter
 import threading
 
 from utils.utils import interpolator as intp
+=======
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
+import numpy as np
+import scipy.interpolate
+from matplotlib.colors import Normalize
+from scipy.signal import welch
+>>>>>>> b28311c22755b3806c0ef8b7874d2ae258d6b3ea
 
 
 class Plot:
