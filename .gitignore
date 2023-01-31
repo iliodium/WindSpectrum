@@ -11,3 +11,6 @@ __pycache__/
 /KivyMD
 mylog.txt
 pyinstaller.help.txt
+
+main.build/
+main.dist/
