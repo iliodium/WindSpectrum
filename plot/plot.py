@@ -1,19 +1,20 @@
-<<<<<<< HEAD
 import asyncio
 import numpy as np
-import matplotlib.cm as cm
-import matplotlib.tri as mtri
+
 import matplotlib.pyplot as plt
+
+plt.switch_backend('Qt5Agg')
+#plt.switch_backend('TkAgg')
+
 from scipy.fft import fft, rfftfreq
 from scipy.signal import argrelextrema, welch
 from matplotlib.colors import Normalize
 from matplotlib.axis import rcParams
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MultipleLocator, ScalarFormatter
-import threading
 
 from utils.utils import interpolator as intp
-=======
+
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
@@ -21,7 +22,6 @@ import numpy as np
 import scipy.interpolate
 from matplotlib.colors import Normalize
 from scipy.signal import welch
->>>>>>> b28311c22755b3806c0ef8b7874d2ae258d6b3ea
 
 
 class Plot:
@@ -50,7 +50,7 @@ class Plot:
     clear = False
 
     @staticmethod
-    def discrete_isofield(model_name, mode, pressure_coefficients, coordinates):
+    def discrete_isofield(model_name: str, mode: str, angle: str, alpha: str, pressure_coefficients, coordinates):
         """Отрисовка дискретных изополей"""
         # Виды изополей
         mods = {
@@ -77,7 +77,8 @@ class Plot:
         x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
 
-        fig, ax = plt.subplots(1, 4, num=1, dpi=Plot.dpi, clear=True)
+        num_fig = f'Дискретные изополя {model_name} {mode} {alpha} {angle}'
+        fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
         cmap = cm.get_cmap(name="jet")
         min_v = np.min(pressure_coefficients)
         max_v = np.max(pressure_coefficients)
@@ -105,7 +106,8 @@ class Plot:
         return fig
 
     @staticmethod
-    def integral_isofield(model_name, model_size, scale_factors, alpha, mode, pressure_coefficients, coordinates):
+    def integral_isofield(model_name, model_size, scale_factors, alpha, mode, angle, pressure_coefficients,
+                          coordinates):
         """Отрисовка интегральных изополей"""
         # Виды изополей
         mods = {
@@ -207,7 +209,8 @@ class Plot:
         z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]
         x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
-        fig, ax = plt.subplots(1, 4, num=1, dpi=Plot.dpi, clear=True)
+        num_fig = f'Непрерывные изополя {model_name} {model_size} {mode} {alpha} {angle}'
+        fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
 
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
@@ -286,34 +289,14 @@ class Plot:
         return fig
 
     @staticmethod
-    def welch_graphs(data):
-        fig, ax = plt.subplots(dpi=Plot.dpi, num=1, clear=True)
-
-        ax.set_xlim([10 ** -2, 10 ** 3])
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-
-        ax.grid()
-        ax.set_xlabel('Frequency')
-        ax.set_ylabel('PSD, V**2/Hz')
-
-        for name in data.keys():
-            if data[name] is not None:
-                temp, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
-                ax.plot(temp, psd, label=name)
-
-        ax.legend(loc='upper right', fontsize=9)
-
-        return fig
-
-    @staticmethod
-    def summary_coefficients(data):
+    def summary_coefficients(data, model_name, alpha, angle):
         """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
         data = {name:array,
                 ...
                 }
         """
-        fig, ax = plt.subplots(dpi=Plot.dpi, num=1, clear=True)
+        num_fig = f'Суммарные коэффициенты декартовая система координат {model_name} {alpha} {angle}'
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
         ax.grid()
         ax.set_xlim(0, 32.768)
         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
@@ -351,14 +334,15 @@ class Plot:
             return x_scale
 
     @staticmethod
-    def polar_plot(data, title):
+    def polar_plot(data, title, model_size, alpha):
         """Графики суммарных аэродинамических коэффициентов в полярной системе координат.
         data = {name:array,
                 ...
                 }
         """
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
-        fig, ax = plt.subplots(dpi=Plot.dpi, num=1, clear=True, subplot_kw={'projection': 'polar'})
+        num_fig = f'Суммарные коэффициенты декартовая система координат {" ".join(model_size)} {alpha}'
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
 
         for name in data.keys():
             ax.plot(angles, data[name], label=name)
@@ -372,49 +356,110 @@ class Plot:
         return fig
 
     @staticmethod
-    def model_pic(model_scale, coordinates):
-        breadth, depth, height = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
-        size_x = 2 * (breadth + depth)
+    def model_pic(model_size, model_scale, coordinates):
+        breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        breadth_db, depth_db, height_db = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
+
+        size_x = 2 * (breadth_real + depth_real)
         x, z = coordinates
-        count_sensors = len(x)
-        fig, ax = plt.subplots(figsize=(12, 6), num=1, dpi=Plot.dpi, clear=True)
+
+        num_fig = f'Развертка модели {" ".join(model_size)}'
+        fig, ax = plt.subplots(figsize=(16, 9), num=num_fig, dpi=Plot.dpi, clear=True)
         ax.set_title('Развертка датчиков по модели', fontweight='semibold', fontsize=8)
         ax.set_xlabel('Горизонтальная развертка /м', fontweight='semibold', fontsize=8)
         ax.set_ylabel('Высота модели /м', fontweight='semibold', fontsize=8)
-        ax.set_ylim(0, height)
+        ax.set_ylim(0, height_real)
         ax.set_xlim(0, size_x)
-        xtick_s = 0.05
-        ytick_s = 0.02 if height in [0.1, 0.2] else 0.05
-        xticks = np.arange(0, size_x + xtick_s, xtick_s)
-        yticks = np.arange(0, height + ytick_s, ytick_s)
-        xlabels = ['0'] + [str(i)[:4].rstrip('0') for i in xticks[1:]]
-        ylabels = ['0'] + [str(i)[:4].rstrip('0') for i in yticks[1:]]
-        ax.set_xticks(ticks=xticks)
-        ax.set_xticklabels(labels=xlabels)
-        ax.set_yticks(yticks)
-        ax.set_yticklabels(labels=ylabels)
-        xticks_minor = np.arange(0, size_x, 0.02)
-        ax.set_xticks(xticks_minor, minor=True)
-        ax.set_xticklabels(labels=xticks_minor, minor=True, fontsize=7)
-        ax.tick_params(axis='x', which='minor', pad=5)
-        ax.tick_params(axis='x', which='major', pad=10)
 
-        for i in range(1, int(size_x * 10)):
-            ax.plot([i / 10, i / 10], [0, height], linestyle='--', color='black')
-        ax.plot(x, z, '+')
-        for i, j, text in zip(x, z, [str(i) for i in range(1, count_sensors + 1)]):
-            ax.text(i, j - 0.01, text, fontsize=8)
-        ax.set_aspect('equal') if height == 0.1 else None
+        xticks = [0, breadth_real, breadth_real + depth_real, 2 * breadth_real + depth_real, size_x]
+        yticks = np.arange(0, height_real + height_real * 0.01, height_real * 0.2)
+
+        ax.set_xticks(ticks=xticks)
+        ax.set_yticks(ticks=yticks)
+
+        ax.xaxis.set_minor_locator(MultipleLocator(size_x * 0.03125))
+        ax.yaxis.set_minor_locator(MultipleLocator(height_real * 0.05))
+
+        ax.xaxis.set_minor_formatter(ScalarFormatter())
+        ax.yaxis.set_minor_formatter(ScalarFormatter())
+
+        ax.tick_params(axis='x', which='minor', pad=5, labelsize=7)
+        ax.tick_params(axis='x', which='major', pad=10, labelsize=10)
+
+        ax.tick_params(axis='y', which='minor', pad=5, labelsize=7)
+        ax.tick_params(axis='y', which='major', pad=10, labelsize=10)
+
+        count_sensors_on_model = len(x)
+        count_sensors_on_middle = int(model_scale[0]) * 5
+        count_sensors_on_side = int(model_scale[1]) * 5
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+        x = np.reshape(x, (count_row, -1))
+        x = np.split(x, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+
+        z = np.reshape(z, (count_row, -1))
+        z = np.split(z, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+        del x[4]
+        del z[4]
+
+        for i in (breadth_real, breadth_real + depth_real, breadth_real + depth_real, 2 * breadth_real + depth_real):
+            ax.plot([i, i], [0, height_real], linestyle='--', color='black')
+
+        x[0] *= breadth_real / breadth_db
+
+        x[1] -= breadth_db
+        x[1] *= depth_real / depth_db
+        x[1] += breadth_real
+
+        x[2] -= breadth_db + depth_db
+        x[2] *= breadth_real / breadth_db
+        x[2] += breadth_real + depth_real
+
+        x[3] -= 2 * breadth_db + depth_db
+        x[3] *= depth_real / depth_db
+        x[3] += 2 * breadth_real + depth_real
+
+        for i in range(4):
+            z[i] *= height_real / height_db
+
+        for i in range(4):
+            ax.plot(x[i], z[i], 'b+')
+
+        labels = [str(i) for i in range(1, count_sensors_on_model + 1)]
+        labels = np.reshape(labels, (count_row, -1))
+        labels = np.split(labels, [count_sensors_on_middle,
+                                   count_sensors_on_middle + count_sensors_on_side,
+                                   2 * count_sensors_on_middle + count_sensors_on_side,
+                                   2 * (count_sensors_on_middle + count_sensors_on_side)
+                                   ], axis=1)
+
+        d = height_real * 0.02
+
+        for f in range(4):
+            for i in range(len(x[f])):
+                for j in range(len(x[f][i])):
+                    ax.text(x[f][i][j], z[f][i][j] - d, labels[f][i][j], fontsize=8)
 
         return fig
 
     @staticmethod
-    def model_polar(model_scale):
-        plt.close()
-        b_scale, d_scale, h_scale = int(model_scale[0]), int(model_scale[1]), int(model_scale[2])
-        fig = plt.figure(figsize=(8, 8), num=1, dpi=Plot.dpi, clear=True)
+    def model_polar(model_size):
+        x, y, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        min_size = min(x, y)
+        b_scale, d_scale = x / min_size, y / min_size
 
-        polar = fig.add_axes([0.1, 0.1, 0.8, 0.8], projection='polar')
+        num_fig = f'Модель в полярной системе координат {" ".join(model_size)}'
+        fig = plt.figure(num=num_fig, dpi=Plot.dpi, clear=True)
+        pos = [0.1, 0.1, 0.8, 0.8]
+        polar = fig.add_axes(pos, projection='polar')
         polar.patch.set_alpha(0)
         polar.set_theta_zero_location('N')
         polar.set_theta_direction(-1)
@@ -432,7 +477,7 @@ class Plot:
         polar.annotate("y", xy=(angles[0], 2))
         polar.annotate("x", xy=(angles[18], 2))
 
-        ax = fig.add_subplot(111, position=[0.1, 0.1, 0.8, 0.8])
+        ax = fig.add_subplot(111, position=pos)
         ax.set_visible(True)
         ax.set_autoscale_on(False)
         ax.set_aspect(1)
@@ -450,10 +495,13 @@ class Plot:
         return fig
 
     @staticmethod
-    def model_cube(model_scale):
-        b_scale, d_scale, h_scale = int(model_scale[0]), int(model_scale[1]), int(model_scale[2])
+    def model_cube(model_size):
+        x, y, z = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        min_size = min(x, y, z)
+        b_scale, d_scale, h_scale = x / min_size, y / min_size, z / min_size
 
-        fig = plt.figure(figsize=(8, 8), num=1, dpi=Plot.dpi, clear=True)
+        num_fig = f'Модель в трехмерном представлении {" ".join(model_size)}'
+        fig = plt.figure(num=num_fig, dpi=Plot.dpi, clear=True)
         ax = fig.add_subplot(1, 1, 1, projection='3d')
 
         count_nodes = 2
@@ -516,8 +564,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def envelopes(pressure_coefficients):
-        # print(threading.get_ident())
+    def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle: str):
         figs = []  # массив для графиков так как на 1 графике максимум 100 датчиков
         step_x = 20
         step_x_minor = 5
@@ -527,7 +574,8 @@ class Plot:
         count_sensors_plot = len(pressure_coefficients[0])
 
         for q in range(0, count_sensors_plot, step_sens):
-            fig, ax = plt.subplots(dpi=Plot.dpi, num=f'Огибающие датчики от {q + 1} до {q + step_sens + 1}', clear=True)
+            num_fig = f'Огибающие {model_scale} {alpha} {angle} {q + 1} до {q + step_sens + 1}'
+            fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
             ax.grid(visible=True, which='minor', color='black', linestyle='--')
             ax.grid(visible=True, which='major', color='black', linewidth=1.5)
 
@@ -549,8 +597,8 @@ class Plot:
             ax.set_yticks(yticks)
 
             ax.set_xticks([q + 1] + [i for i in range(q + step_x, q + step_sens + 1, 20)])
-            # ax.xaxis.set_major_locator(MultipleLocator(20))
-            ax.xaxis.set_minor_locator(MultipleLocator(5))
+
+            ax.xaxis.set_minor_locator(MultipleLocator(step_x_minor))
             ax.xaxis.set_minor_formatter(ScalarFormatter())
             ax.xaxis.set_tick_params(which='major', labelsize=10)
             ax.xaxis.set_tick_params(which='minor', labelsize=7)
@@ -576,6 +624,28 @@ class Plot:
         for data, name in zip((sum_cx, sum_cy, sum_cmz), ('Cx', 'Cy', 'CMz')):
             temp, psd = welch(data, fs=1000, nperseg=int(32768 / 5))
             ax.plot(temp, psd, label=name)
+
+        ax.legend(loc='upper right', fontsize=9)
+
+        return fig
+
+    @staticmethod
+    def welch_graphs(data, model_size, alpha, angle):
+        num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+        ax.set_xlim([10 ** -2, 10 ** 3])
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+
+        ax.grid()
+        ax.set_xlabel('Frequency')
+        ax.set_ylabel('PSD, V**2/Hz')
+
+        for name in data.keys():
+            if data[name] is not None:
+                temp, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
+                ax.plot(temp, psd, label=name)
 
         ax.legend(loc='upper right', fontsize=9)
 

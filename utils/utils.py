@@ -3,20 +3,25 @@ import scipy.interpolate
 import numpy as np
 import multiprocessing
 import matplotlib.pyplot as plt
+from typing import Tuple
 
 
-def calculate_cmz(model_name: str, pr_coeff, coordinates):
+def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, coordinates):
     cmz = []
-    breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+    breadth_db, depth_db, _ = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+    breadth_real, depth_real, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
 
-    mid13_x = breadth / 2
-    mid24_x = depth / 2
+    center_1 = breadth_real / 2
+    center_2 = breadth_real + depth_real / 2
+    center_3 = breadth_real + depth_real + depth_real / 2
+    center_4 = breadth_real + 2 * depth_real + breadth_real / 2
+
     count_sensors_on_model = len(pr_coeff[0])
     count_sensors_on_middle = int(model_name[0]) * 5
     count_sensors_on_side = int(model_name[1]) * 5
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
-    x, z = coordinates
+    x, _ = coordinates
     x = np.reshape(x, (count_row, -1))
     x = np.split(x, [count_sensors_on_middle,
                      count_sensors_on_middle + count_sensors_on_side,
@@ -25,27 +30,46 @@ def calculate_cmz(model_name: str, pr_coeff, coordinates):
                      ], axis=1)
 
     del x[4]
-    del z[4]
 
-    v2 = breadth
-    v3 = breadth + depth
-    v4 = 2 * breadth + depth
-    x[1] -= v2
-    x[2] -= v3
-    x[3] -= v4
+    x[0] *= breadth_real / breadth_db
 
-    mx13 = np.array([
-        abs(x[0] - mid13_x),
-        abs(x[2] - mid13_x),
-    ])
+    x[1] -= breadth_db
+    x[1] *= depth_real / depth_db
+    x[1] += breadth_real
 
-    mx24 = np.array([
-        abs(x[1] - mid24_x),
-        abs(x[3] - mid24_x),
-    ])
+    x[2] -= breadth_db + depth_db
+    x[2] *= breadth_real / breadth_db
+    x[2] += breadth_real + depth_real
+
+    x[3] -= 2 * breadth_db + depth_db
+    x[3] *= depth_real / depth_db
+    x[3] += 2 * breadth_real + depth_real
+
+    mx1 = np.array([abs(x[0] - center_1)])
+    mx2 = np.array([abs(x[1] - center_2)])
+    mx3 = np.array([abs(x[2] - center_3)])
+    mx4 = np.array([abs(x[3] - center_4)])
+
+    print(x[0])
+    print('---------------------')
+    print(x[1])
+    print('---------------------')
+    print(x[2])
+    print('---------------------')
+    print(x[3])
+    print('---------------------')
+    print(mx1)
+    print('---------------------')
+    print(mx2)
+    print('---------------------')
+    print(mx3)
+    print('---------------------')
+    print(mx4)
+    print('---------------------')
 
     coeffs_norm_13 = [1 if i <= count_sensors_on_middle // 2 else -1 for i in range(count_sensors_on_middle)]
     coeffs_norm_24 = [1 if i <= count_sensors_on_side // 2 else -1 for i in range(count_sensors_on_side)]
+
     for coeff in pr_coeff:
         t_cmz = 0
         coeff = np.reshape(coeff, (count_row, -1))
@@ -54,17 +78,17 @@ def calculate_cmz(model_name: str, pr_coeff, coordinates):
                                  2 * count_sensors_on_middle + count_sensors_on_side,
                                  2 * (count_sensors_on_middle + count_sensors_on_side)
                                  ], axis=1)
-        del coeff[4]
+
         for i in range(4):
             if i in [0, 2]:
                 coeff[i] *= coeffs_norm_13
             else:
                 coeff[i] *= coeffs_norm_24
 
-        t_cmz += np.sum(mx13[0] * coeff[0])
-        t_cmz += np.sum(mx24[0] * coeff[1])
-        t_cmz += np.sum(mx13[1] * coeff[2])
-        t_cmz += np.sum(mx24[1] * coeff[3])
+        t_cmz += np.sum(mx1 * coeff[0])
+        t_cmz += np.sum(mx2 * coeff[1])
+        t_cmz += np.sum(mx3 * coeff[2])
+        t_cmz += np.sum(mx4 * coeff[3])
 
         cmz = np.append(cmz, t_cmz)
 
@@ -162,7 +186,7 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     return model_from_db, scale_factors
 
 
-def generate_directory_for_report(name_report: str):
+def generate_directory_for_report(path_report: str):
     folders = (
         'Модель',
         'Огибающие',
@@ -180,12 +204,12 @@ def generate_directory_for_report(name_report: str):
         'Спектральная плотность мощности\\Логарифмическая шкала',
     )
 
-    if not os.path.isdir(f'{os.getcwd()}\\{name_report}'):
-        os.mkdir(f'{os.getcwd()}\\{name_report}')
+    if not os.path.isdir(f'{path_report}'):
+        os.mkdir(f'{path_report}')
 
     for folder in folders:
-        if not os.path.isdir(f'{os.getcwd()}\\{name_report}\\{folder}'):
-            os.mkdir(f'{os.getcwd()}\\{name_report}\\{folder}')
+        if not os.path.isdir(f'{path_report}\\{folder}'):
+            os.mkdir(f'{path_report}\\{folder}')
 
 
 def display_fig(fig):
@@ -215,4 +239,4 @@ def interpolator(coords, val):
 
 
 if __name__ == '__main__':
-    pass
+    print(get_model_and_scale_factors('3', '5', '10', '4'))
