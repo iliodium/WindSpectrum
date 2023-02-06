@@ -1,10 +1,6 @@
-import asyncio
-import numpy as np
-
 import matplotlib.pyplot as plt
 
 plt.switch_backend('Qt5Agg')
-#plt.switch_backend('TkAgg')
 
 from scipy.fft import fft, rfftfreq
 from scipy.signal import argrelextrema, welch
@@ -19,7 +15,6 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import numpy as np
-import scipy.interpolate
 from matplotlib.colors import Normalize
 from scipy.signal import welch
 
@@ -46,8 +41,7 @@ class Plot:
        num = alpha_model_name_angle_mode
        """
 
-    dpi = 200
-    clear = False
+    dpi = 200  # качество графиков
 
     @staticmethod
     def discrete_isofield(model_name: str, mode: str, angle: str, alpha: str, pressure_coefficients, coordinates):
@@ -106,7 +100,8 @@ class Plot:
         return fig
 
     @staticmethod
-    def integral_isofield(model_name, model_size, scale_factors, alpha, mode, angle, pressure_coefficients,
+    def integral_isofield(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle,
+                          pressure_coefficients,
                           coordinates):
         """Отрисовка интегральных изополей"""
         # Виды изополей
@@ -210,8 +205,11 @@ class Plot:
         x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
         num_fig = f'Непрерывные изополя {model_name} {model_size} {mode} {alpha} {angle}'
+        #num_fig = angle
+        print(num_fig)
+        #time.sleep(random.randint(0.1,1))
         fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
-
+        print(99)
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
 
@@ -277,7 +275,6 @@ class Plot:
             if i in [0, 2]:
                 ax[i].set_xlim([0, b_scaled])
                 ax[i].set_xticks(ticks=np.arange(0, b_scaled + b_scaled * 0.01, b_scaled * 0.2))
-                ax[i].set_xticklabels(labels=np.arange(0, size_x + size_x * 0.01, size_x * 0.2).round(2), fontsize=5)
 
             else:
                 ax[i].set_xlim([0, d_scaled])
@@ -289,7 +286,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def summary_coefficients(data, model_name, alpha, angle):
+    def summary_coefficients(data, model_name: str, alpha: str, angle: str):
         """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
         data = {name:array,
                 ...
@@ -334,14 +331,15 @@ class Plot:
             return x_scale
 
     @staticmethod
-    def polar_plot(data, title, model_size, alpha):
+    def polar_plot(data, title: str, model_size, alpha: str):
         """Графики суммарных аэродинамических коэффициентов в полярной системе координат.
         data = {name:array,
                 ...
                 }
         """
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
-        num_fig = f'Суммарные коэффициенты декартовая система координат {" ".join(model_size)} {alpha}'
+        num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {alpha}'
+
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
 
         for name in data.keys():
@@ -357,6 +355,7 @@ class Plot:
 
     @staticmethod
     def model_pic(model_size, model_scale, coordinates):
+        """Отрисовка развертки модели"""
         breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
         breadth_db, depth_db, height_db = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
 
@@ -452,6 +451,7 @@ class Plot:
 
     @staticmethod
     def model_polar(model_size):
+        """Отрисовка модели в полярной системе координат"""
         x, y, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
         min_size = min(x, y)
         b_scale, d_scale = x / min_size, y / min_size
@@ -496,6 +496,7 @@ class Plot:
 
     @staticmethod
     def model_cube(model_size):
+        """Отрисовка модели в трехмерном виде"""
         x, y, z = float(model_size[0]), float(model_size[1]), float(model_size[2])
         min_size = min(x, y, z)
         b_scale, d_scale, h_scale = x / min_size, y / min_size, z / min_size
@@ -565,6 +566,7 @@ class Plot:
 
     @staticmethod
     def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle: str):
+        """Отрисовка огибающих"""
         figs = []  # массив для графиков так как на 1 графике максимум 100 датчиков
         step_x = 20
         step_x_minor = 5
@@ -630,7 +632,8 @@ class Plot:
         return fig
 
     @staticmethod
-    def welch_graphs(data, model_size, alpha, angle):
+    def welch_graphs(data, model_size, alpha: str, angle: str):
+        """Отрисовка графиков спектральной плотности мощности"""
         num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
 

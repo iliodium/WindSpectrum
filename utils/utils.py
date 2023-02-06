@@ -7,6 +7,7 @@ from typing import Tuple
 
 
 def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, coordinates):
+    """Вычисление моментов сил CMz"""
     cmz = []
     breadth_db, depth_db, _ = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
     breadth_real, depth_real, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
@@ -50,23 +51,6 @@ def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, c
     mx3 = np.array([abs(x[2] - center_3)])
     mx4 = np.array([abs(x[3] - center_4)])
 
-    print(x[0])
-    print('---------------------')
-    print(x[1])
-    print('---------------------')
-    print(x[2])
-    print('---------------------')
-    print(x[3])
-    print('---------------------')
-    print(mx1)
-    print('---------------------')
-    print(mx2)
-    print('---------------------')
-    print(mx3)
-    print('---------------------')
-    print(mx4)
-    print('---------------------')
-
     coeffs_norm_13 = [1 if i <= count_sensors_on_middle // 2 else -1 for i in range(count_sensors_on_middle)]
     coeffs_norm_24 = [1 if i <= count_sensors_on_side // 2 else -1 for i in range(count_sensors_on_side)]
 
@@ -96,6 +80,8 @@ def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, c
 
 
 def calculate_cx_cy(model_name: str, pr_coeff):
+    """Вычисление CX и CY"""
+
     cx = []
     cy = []
     count_sensors_on_model = len(pr_coeff[0])
@@ -148,6 +134,7 @@ def obes_m(data):
 
 
 def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tuple):
+    """Вычисление ближайшей модели из БД и коэффициентов масштабирования"""
     x, y, z = float(x), float(y), float(z)
     min_size = min(x, y, z)
 
@@ -187,6 +174,7 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
 
 
 def generate_directory_for_report(path_report: str):
+    """Создание директории под отчет"""
     folders = (
         'Модель',
         'Огибающие',
@@ -196,6 +184,11 @@ def generate_directory_for_report(path_report: str):
         'Изополя ветровых нагрузок и воздействий\\Непрерывные\\MEAN',
         'Изополя ветровых нагрузок и воздействий\\Непрерывные\\MIN',
         'Изополя ветровых нагрузок и воздействий\\Непрерывные\\STD',
+        'Изополя ветровых нагрузок и воздействий\\Дискретные',
+        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MAX',
+        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MEAN',
+        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MIN',
+        'Изополя ветровых нагрузок и воздействий\\Дискретные\\STD',
         'Суммарные аэродинамические коэффициенты',
         'Суммарные аэродинамические коэффициенты\\Декартовая система координат',
         'Суммарные аэродинамические коэффициенты\\Полярная система координат',
@@ -213,6 +206,7 @@ def generate_directory_for_report(path_report: str):
 
 
 def display_fig(fig):
+    """Функция для открытия графика"""
     plt.close(fig)
 
     # create a dummy figure and use its
@@ -226,15 +220,18 @@ def display_fig(fig):
 
 
 def run_proc(fig):
+    """Запуск нового процесса для отображения графика"""
     multiprocessing.Process(target=display_fig, args=(fig,)).start()
 
 
 def open_fig(*figures):
+    """Отображение графиков"""
     for fig in figures:
         run_proc(fig)
 
 
 def interpolator(coords, val):
+    """Функция интерполяции"""
     return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
 
 

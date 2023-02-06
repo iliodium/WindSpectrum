@@ -6,12 +6,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class DataBaseToolkit:
-    _min_count_connections = 18
-    _max_count_connections = 25
+    _min_count_connections = 18  # минимальное число соединений с БД
+    _max_count_connections = 25  # максимальное число соединений с БД
 
     def __init__(self):
+        """Создание пула подключений к БД"""
         #self.manager = Manager()
-        self.manager = None
+        #self.manager = None
         self.connection_pool = ThreadedConnectionPool(DataBaseToolkit._min_count_connections,
                                                       DataBaseToolkit._max_count_connections,
                                                       user='postgres',
@@ -27,6 +28,7 @@ class DataBaseToolkit:
         #                                 database = 'tpu')
 
     def get_connection(self):
+        """Запрос свободного подключения к БД с таймаутом 1 секунда"""
         try:
             connection = self.connection_pool.getconn()
         except PoolError:

@@ -10,10 +10,11 @@ class Clipboard:
     def __init__(self):
         self.clipboard_dict = None
         self.database_obj = DataBaseToolkit()
-        self.manager = self.database_obj.manager
+        # self.manager = self.database_obj.manager
         self.init_clipboard_dict()
 
     def init_clipboard_dict(self):
+        """Создание буфера"""
         self.clipboard_dict = dict({'4': dict(),
                                     '6': dict()
                                     })
@@ -30,23 +31,6 @@ class Clipboard:
                 self.clipboard_dict[alpha][model_name]['const_parameters'] = dict()
                 self.clipboard_dict[alpha][model_name]['model_attributes'] = dict()
 
-    # def init_clipboard_dict1(self):
-    #     self.clipboard_dict = self.manager.dict({'4': self.manager.dict(),
-    #                                              '6': self.manager.dict()
-    #                                              })
-    #
-    #     experiments = self.database_obj.get_experiments()
-    #     self.clipboard_dict['4'] = experiments['4']
-    #     self.clipboard_dict['6'] = experiments['6']
-    #
-    #     for alpha in self.clipboard_dict.keys():
-    #         for model_name in self.clipboard_dict[alpha].keys():
-    #             for angle in self.clipboard_dict[alpha][model_name].keys():
-    #                 self.clipboard_dict[alpha][model_name][angle] = self.manager.dict()
-    #
-    #             self.clipboard_dict[alpha][model_name]['const_parameters'] = self.manager.dict()
-    #             self.clipboard_dict[alpha][model_name]['model_attributes'] = self.manager.dict()
-
     def get_pressure_coefficients(self, alpha: str, model_name: str, angle: str):
         """Возвращает коэффициенты давления из буфера"""
         print(f"Запрос коэффициентов давления модель = {model_name} альфа = {alpha} угол = {angle} из буфера")
@@ -61,20 +45,20 @@ class Clipboard:
 
         return pressure_coefficients
 
-    def get_coordinates(self, alpha: str, model_name: str):
+    def get_coordinates(self, alpha: str, model_scale: str):
         """Возвращает координаты датчиков из буфера"""
-        print(f"Запрос координаты датчиков модель = {model_name} альфа = {alpha} из буфера")
+        print(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
 
-        if not self.clipboard_dict[alpha][model_name]['const_parameters'].get('x') or \
-                not self.clipboard_dict[alpha][model_name]['const_parameters'].get('z'):
-            self.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
-            self.clipboard_dict[alpha][model_name]['const_parameters']['z'] = \
-                self.database_obj.get_coordinates(alpha, model_name)
+        if not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('x') or \
+                not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('z'):
+            self.clipboard_dict[alpha][model_scale]['const_parameters']['x'], \
+            self.clipboard_dict[alpha][model_scale]['const_parameters']['z'] = \
+                self.database_obj.get_coordinates(alpha, model_scale)
 
-        print(f"Запрос координат датчиков модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
+        print(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} из буфера успешно выполнен")
 
-        return self.clipboard_dict[alpha][model_name]['const_parameters']['x'], \
-               self.clipboard_dict[alpha][model_name]['const_parameters']['z']
+        return self.clipboard_dict[alpha][model_scale]['const_parameters']['x'], \
+               self.clipboard_dict[alpha][model_scale]['const_parameters']['z']
 
     def get_uh_average_wind_speed(self, alpha: str, model_name: str):
         """Возвращает среднюю скорость ветра из буфера"""
