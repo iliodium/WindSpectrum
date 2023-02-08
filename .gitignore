@@ -1,10 +1,12 @@
 /venv*
 /dist
 /build
+/Отчет*
 .idea
 *.spec
 /.ipynb_checkpoints
 tests.py
+test1.py
 __pycache__/
 *.ipynb
 *.png

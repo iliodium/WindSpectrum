@@ -13,7 +13,7 @@ if __name__ == '__main__':
     from kivymd.app import MDApp, Builder
     from kivymd.uix.menu import MDDropdownMenu
     from kivymd.uix.toolbar.toolbar import MDTopAppBar
-    from kivy.garden.matplotlib import FigureCanvasKivyAgg
+    #from kivy.garden.matplotlib import FigureCanvasKivyAgg
 
 
     class MainApp(MDApp):

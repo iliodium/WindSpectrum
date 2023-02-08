@@ -6,11 +6,13 @@ import matplotlib.pyplot as plt
 from typing import Tuple
 
 
-def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, coordinates):
+def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, coordinates, angle: int):
     """Вычисление моментов сил CMz"""
     cmz = []
     breadth_db, depth_db, _ = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
     breadth_real, depth_real, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
+
+    sin = np.sin(angle * np.pi / 180)
 
     center_1 = breadth_real / 2
     center_2 = breadth_real + depth_real / 2
@@ -73,6 +75,7 @@ def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, c
         t_cmz += np.sum(mx2 * coeff[1])
         t_cmz += np.sum(mx3 * coeff[2])
         t_cmz += np.sum(mx4 * coeff[3])
+        # t_cmz *= sin
 
         cmz = np.append(cmz, t_cmz)
 
@@ -140,7 +143,6 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
 
     # Относительный масштаб фигуры
     x_scale = x / min_size
-    y_scale = y / min_size
     z_scale = z / min_size
 
     # Масштабы из базы данных
@@ -153,7 +155,6 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     difference_x = np.absolute(x_from_db - x_scale)
     index_x = difference_x.argmin()
     x_nearest = x_from_db[index_x]
-    x_scale_factor = x_scale / x_nearest
 
     # Проверка тк в БД отсутствует z == 1 для x == 2 | x == 3
     if x_nearest in [2, 3]:
@@ -165,10 +166,14 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     difference_z = np.absolute(z_from_db - z_scale)
     index_z = difference_z.argmin()
     z_nearest = z_from_db[index_z]
-    z_scale_factor = z_scale / z_nearest
+
+    # Коэффициенты масштабирования
+    x_scale_factor = x / x_nearest
+    y_scale_factor = y
+    z_scale_factor = z / z_nearest
 
     model_from_db = ''.join(map(str, (x_nearest, 1, z_nearest)))  # Модель из БД
-    scale_factors = (x_scale_factor, y_scale, z_scale_factor)  # Коэффициенты масштабирования
+    scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors
 
@@ -207,6 +212,7 @@ def generate_directory_for_report(path_report: str):
 
 def display_fig(fig):
     """Функция для открытия графика"""
+    plt.switch_backend('TkAgg')
     plt.close(fig)
 
     # create a dummy figure and use its
@@ -224,15 +230,87 @@ def run_proc(fig):
     multiprocessing.Process(target=display_fig, args=(fig,)).start()
 
 
-def open_fig(*figures):
+def open_fig(figures):
     """Отображение графиков"""
-    for fig in figures:
-        run_proc(fig)
+    if isinstance(figures, list) or isinstance(figures, tuple):
+        for fig in figures:
+            run_proc(fig)
+    else:
+        run_proc(figures)
 
 
 def interpolator(coords, val):
     """Функция интерполяции"""
     return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
+
+
+def converter_coordinates(x_old, breadth: float, depth: float, face_number, count_sensors: int):
+    """Возвращает из (x_old) -> (x,y)"""
+    x = []
+    y = []
+    for i in range(count_sensors):
+        if face_number[i] == 1:
+            x.append(float('%.5f' % (-depth / 2)))
+            y.append(float('%.5f' % (breadth / 2 - x_old[i])))
+        elif face_number[i] == 2:
+            x.append(float('%.5f' % (- depth / 2 + x_old[i] - breadth)))
+            y.append(float('%.5f' % (-breadth / 2)))
+        elif face_number[i] == 3:
+            x.append(float('%.5f' % (depth / 2)))
+            y.append(float('%.5f' % (-3 * breadth / 2 + x_old[i] - depth)))
+        else:
+            x.append(float('%.5f' % (3 * depth / 2 - x_old[i] + 2 * breadth)))
+            y.append(float('%.5f' % (breadth / 2)))
+
+    return x, y
+
+
+def converter_coordinates_to_real(x, z, model_size, model_scale, scale_factors: Tuple[float, float, float]):
+    breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
+    breadth_db, depth_db, height_db = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
+
+    x_scale_factor = scale_factors[0]
+    y_scale_factor = scale_factors[1]
+    z_scale_factor = scale_factors[2]
+
+    count_sensors_on_model = len(x)
+    count_sensors_on_middle = int(model_scale[0]) * 5
+    count_sensors_on_side = int(model_scale[1]) * 5
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+    x = np.reshape(x, (count_row, -1))
+    x = np.split(x, [count_sensors_on_middle,
+                     count_sensors_on_middle + count_sensors_on_side,
+                     2 * count_sensors_on_middle + count_sensors_on_side,
+                     2 * (count_sensors_on_middle + count_sensors_on_side)
+                     ], axis=1)
+
+    z_real = np.array(z) * z_scale_factor
+
+    del x[4]
+
+    x[0] *= x_scale_factor
+
+    x[1] -= breadth_db
+    x[1] *= y_scale_factor
+    x[1] += breadth_real
+
+    x[2] -= breadth_db + depth_db
+    x[2] *= x_scale_factor
+    x[2] += breadth_real + depth_real
+
+    x[3] -= 2 * breadth_db + depth_db
+    x[3] *= y_scale_factor
+    x[3] += 2 * breadth_real + depth_real
+
+    x_real = np.array([])
+    for i in range(count_row):
+        x_real = np.append(x_real, x[0][i])
+        x_real = np.append(x_real, x[1][i])
+        x_real = np.append(x_real, x[2][i])
+        x_real = np.append(x_real, x[3][i])
+
+    return x_real, z_real
 
 
 if __name__ == '__main__':

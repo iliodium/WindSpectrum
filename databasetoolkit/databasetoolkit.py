@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class DataBaseToolkit:
-    _min_count_connections = 18  # минимальное число соединений с БД
-    _max_count_connections = 25  # максимальное число соединений с БД
+    _min_count_connections = 15  # минимальное число соединений с БД
+    _max_count_connections = 15  # максимальное число соединений с БД
 
     def __init__(self):
         """Создание пула подключений к БД"""

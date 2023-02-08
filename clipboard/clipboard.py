@@ -108,7 +108,7 @@ class Clipboard:
         if not any(self.clipboard_dict[alpha][model_name][angle].get('CMz')):
             coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
             coordinates = self.get_coordinates(alpha, model_name)
-            cmz = calculate_cmz(model_name, model_size, coefficients, coordinates)
+            cmz = calculate_cmz(model_name, model_size, coefficients, coordinates, int(angle))
             self.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
 
         print(f"Запрос CMz модель = {model_name} размеры = {' '.join(model_size)} "

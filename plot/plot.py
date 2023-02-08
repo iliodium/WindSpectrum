@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
+import time
 
-plt.switch_backend('Qt5Agg')
+# plt.switch_backend('Qt5Agg')
+plt.switch_backend('Agg')
 
 from scipy.fft import fft, rfftfreq
 from scipy.signal import argrelextrema, welch
@@ -17,6 +19,7 @@ import matplotlib.tri as mtri
 import numpy as np
 from matplotlib.colors import Normalize
 from scipy.signal import welch
+from typing import Tuple
 
 
 class Plot:
@@ -127,7 +130,7 @@ class Plot:
         # Шаги для изополей
         steps = {
             'max': 0.2,
-            'mean': 0.2 if alpha == 6 else 0.1,
+            'mean': 0.2 if alpha == '6' else 0.1,
             'min': 0.2,
             'std': 0.05,
         }
@@ -205,11 +208,7 @@ class Plot:
         x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
         num_fig = f'Непрерывные изополя {model_name} {model_size} {mode} {alpha} {angle}'
-        #num_fig = angle
-        print(num_fig)
-        #time.sleep(random.randint(0.1,1))
         fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
-        print(99)
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
 
@@ -275,6 +274,7 @@ class Plot:
             if i in [0, 2]:
                 ax[i].set_xlim([0, b_scaled])
                 ax[i].set_xticks(ticks=np.arange(0, b_scaled + b_scaled * 0.01, b_scaled * 0.2))
+                ax[i].set_xticklabels(labels=np.arange(0, size_x + size_x * 0.01, size_x * 0.2).round(2), fontsize=5)
 
             else:
                 ax[i].set_xlim([0, d_scaled])
@@ -357,7 +357,6 @@ class Plot:
     def model_pic(model_size, model_scale, coordinates):
         """Отрисовка развертки модели"""
         breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
-        breadth_db, depth_db, height_db = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
 
         size_x = 2 * (breadth_real + depth_real)
         x, z = coordinates
@@ -411,23 +410,6 @@ class Plot:
 
         for i in (breadth_real, breadth_real + depth_real, breadth_real + depth_real, 2 * breadth_real + depth_real):
             ax.plot([i, i], [0, height_real], linestyle='--', color='black')
-
-        x[0] *= breadth_real / breadth_db
-
-        x[1] -= breadth_db
-        x[1] *= depth_real / depth_db
-        x[1] += breadth_real
-
-        x[2] -= breadth_db + depth_db
-        x[2] *= breadth_real / breadth_db
-        x[2] += breadth_real + depth_real
-
-        x[3] -= 2 * breadth_db + depth_db
-        x[3] *= depth_real / depth_db
-        x[3] += 2 * breadth_real + depth_real
-
-        for i in range(4):
-            z[i] *= height_real / height_db
 
         for i in range(4):
             ax.plot(x[i], z[i], 'b+')

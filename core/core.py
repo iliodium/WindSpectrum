@@ -21,7 +21,7 @@ from plot.plot import Plot
 
 
 class Core:
-    _count_threads = 1  # количество запускаемых потоков при работе
+    _count_threads = 15  # количество запускаемых потоков при работе
 
     def __init__(self):
         """Создание объекта для работы с буфером"""
@@ -38,17 +38,18 @@ class Core:
         """
         print(f'Запрос {type_plot} альфа = {alpha} '
               f'размер = {" ".join(model_size)} угол = {angle} режим = {mode} из буфера')
+
         fig = None
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
 
         id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
-        print(123)
+
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
             print(f'Отрисовка {type_plot} альфа = {alpha} '
                   f'размер = {" ".join(model_size)} угол = {angle} режим = {mode}')
             pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
             coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
-            print(321)
+
             if type_plot == 'discrete_isofields':
                 fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
             elif type_plot == 'integral_isofields':
@@ -61,11 +62,11 @@ class Core:
                                              pressure_coefficients,
                                              coordinates,
                                              )
-            print(222)
+
             self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-        print(333)
+
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
-        print(444)
+
         print(f'Запрос {type_plot} альфа = {alpha} '
               f'размер = {" ".join(model_size)} угол = {angle} режим = {mode} из буфера успешно выполнен')
 
@@ -328,9 +329,6 @@ class Core:
         args_isofields = [(alpha, model_size, str(angle), mode, path_report)
                           for angle in range(0, angle_border, 5) for mode in mods]
 
-        # for i in range(len(args_isofields)):
-        #     self.isofields_thread(*args_isofields[i])
-
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.isofields_thread(*i), args_isofields)
 
@@ -346,20 +344,12 @@ class Core:
 
         file_name = f'Изополя {" ".join(model_size)} {alpha} {int(angle):02} {mode}.png'
 
-        # if not os.path.exists(f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Непрерывные\\'
-        #                       f'{mode.upper()}\\{file_name}'):
-            # fig = self.get_plot_isofields(alpha, model_size, str(angle), mode, type_plot)
-            # fig.savefig(f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Непрерывные\\'
-            #             f'{mode.upper()}\\{file_name}')
-        print(2)
         fig = self.get_plot_isofields(alpha, model_size, str(angle), mode, 'integral_isofields')
-        print(1)
 
         fig.savefig(
             f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Непрерывные\\{mode.upper()}\\{file_name}')
 
         fig = self.get_plot_isofields(alpha, model_size, str(angle), mode, 'discrete_isofields')
-        print(1)
 
         fig.savefig(
             f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Дискретные\\{mode.upper()}\\{file_name}')
@@ -368,7 +358,8 @@ class Core:
                    alpha: str,
                    model_size: Tuple[str, str, str],
                    model_scale: str,
-                   path_report: str):
+                   path_report: str,
+                   scale_factors: Tuple[float, float, float]):
         """Функция запускает отрисовку  выбранной модели.
         - развертка модели
         - модель в полярной системе координат
@@ -378,6 +369,7 @@ class Core:
 
         print('Генерация развертки модели')
         coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+        coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale, scale_factors)
         fig = Plot.model_pic(model_size, model_scale, coordinates)
         fig.savefig(f'{path_report}\\Модель\\Развертка модели.png')
         print('Генерация развертки модели завершена')
@@ -465,6 +457,90 @@ class Core:
         print(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
               f'размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
+    def get_sensor_statistics(self,
+                              alpha: str,
+                              model_scale: str,
+                              angle_border: int,
+                              model_size: Tuple[str, str, str],
+                              coordinates
+                              ):
+        sensor_statistics = []
+        accuracy_values = 2
+
+        breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
+
+        face_number = self.clipboard_obj.get_face_number(alpha, model_scale)
+
+        x, z = coordinates
+
+        sensors_on_model = len(x)
+        x_new, y_new = converter_coordinates(x, breadth_real, depth_real, face_number, sensors_on_model)
+
+        for angle in range(0, angle_border, 5):
+            statistics_of_angle = []
+
+            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(angle))
+            pressure_coefficients_t = pressure_coefficients.T
+
+            mean_list = np.mean(pressure_coefficients, axis=0).round(accuracy_values)
+            std_list = np.std(pressure_coefficients, axis=0).round(accuracy_values)
+            max_list = np.max(pressure_coefficients, axis=0).round(accuracy_values)
+            min_list = np.min(pressure_coefficients, axis=0).round(accuracy_values)
+
+            rms_m_list = [rms(i).round(accuracy_values) for i in pressure_coefficients_t]
+            rach_list = [rach(i).round(accuracy_values) for i in pressure_coefficients_t]
+            obec_p_list = [obes_p(i).round(accuracy_values) for i in pressure_coefficients_t]
+            obec_m_list = [obes_m(i).round(accuracy_values) for i in pressure_coefficients_t]
+
+            for i in range(sensors_on_model):
+                row = [i + 1,
+                       x_new[i],
+                       y_new[i],
+                       z[i].round(3),
+                       mean_list[i],
+                       rms_m_list[i],
+                       std_list[i],
+                       max_list[i],
+                       min_list[i],
+                       rach_list[i],
+                       obec_p_list[i],
+                       obec_m_list[i],
+                       ]
+                statistics_of_angle.append(row)
+            sensor_statistics.append(statistics_of_angle)
+
+        return sensor_statistics
+
+    def get_summary_coefficients_statistics(self,
+                                            angle_border: int,
+                                            alpha: str,
+                                            model_name: str,
+                                            model_size: Tuple[str, str, str]
+                                            ):
+        accuracy_values = 3
+        statistics = []
+
+        for angle in range(0, angle_border, 5):
+            list_cmz_cx_cy = []
+            cmz = self.clipboard_obj.get_cmz(alpha, model_name, str(angle), model_size)
+            cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_name, str(angle))
+            for data, name in zip((cx, cy, cmz), ('Cx', 'Cy', 'CMz')):
+                list_cmz_cx_cy.append([
+                    name,
+                    np.mean(data).round(accuracy_values),
+                    rms(data).round(accuracy_values),
+                    np.std(data).round(accuracy_values),
+                    np.max(data).round(accuracy_values),
+                    np.min(data).round(accuracy_values),
+                    rach(data).round(accuracy_values),
+                    obes_p(data).round(accuracy_values),
+                    obes_m(data).round(accuracy_values)
+                ])
+
+            statistics.append(list_cmz_cx_cy)
+
+        return statistics
+
     def report(self, alpha: str, model_size: Tuple[str, str, str]):
         """Создание отчёта для выбранной конфигурации.
         Отчёт включает:
@@ -478,12 +554,12 @@ class Core:
         """
         print(f'Начало формирования отчета размеры = {" ".join(model_size)} альфа = {alpha}')
 
-        report_path = 'D:\\Projects\\WindSpectrum'
+        folder = 'D:\\Projects\\WindSpectrum'
 
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
         breadth, depth, height = model_size
         name_report = f'Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}'
-        path_report = f'{report_path}\\{name_report}'
+        path_report = f'{folder}\\{name_report}'
         generate_directory_for_report(path_report)
 
         if model_scale[0] == model_scale[1]:
@@ -491,29 +567,31 @@ class Core:
         else:
             angle_border = 95
 
+        x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
+
         # Запрос данных из БД
         # Координаты являются одинаковыми для всех углов
         # и чтобы потоки не обращались к БД за ними
         # нужно запросить их заранее.
-        self.clipboard_obj.get_coordinates(alpha, model_scale)
+        x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
 
-        # # Отображение модели
-        # self.draw_model(alpha, model_size, model_scale, path_report)
-        #
-        # # Изополя
-        # self.draw_isofields(alpha, model_size, angle_border, path_report)
-        #
-        # # Огибающие
-        # self.draw_envelopes(alpha, model_scale, angle_border, path_report)
+        # Отображение модели
+        self.draw_model(alpha, model_size, model_scale, path_report, scale_factors)
 
-        # # Суммарные аэродинамические коэффициенты в декартовой системе координат
-        # self.draw_summary_coefficients(alpha, model_size, angle_border, path_report)
+        # Изополя
+        self.draw_isofields(alpha, model_size, angle_border, path_report)
 
-        # # Суммарные аэродинамические коэффициенты в полярной системе координат
-        # self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report)
+        # Огибающие
+        self.draw_envelopes(alpha, model_scale, angle_border, path_report)
 
-        # # Спектральная плотность мощности суммарных аэродинамических коэффициентов
-        # self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report)
+        # Суммарные аэродинамические коэффициенты в декартовой системе координат
+        self.draw_summary_coefficients(alpha, model_size, angle_border, path_report)
+
+        # Суммарные аэродинамические коэффициенты в полярной системе координат
+        self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report)
+
+        # Спектральная плотность мощности суммарных аэродинамических коэффициентов
+        self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report)
 
         # Работа с word файлом
         doc = Document()
@@ -529,8 +607,6 @@ class Core:
         counter_plots = 1  # Счетчик графиков для нумерации
         counter_tables = 1  # Счетчик таблиц для нумерации
 
-        # Раздел 1
-
         title = doc.add_heading().add_run(f'Отчет по зданию {breadth}x{depth}x{height}')
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
         title.font.size = Pt(24)
@@ -544,7 +620,7 @@ class Core:
         p = doc.add_paragraph()
 
         run = p.add_run()
-        run.add_picture(f'{path_report}\\Модель\\3D Модель.png', width=Mm(82.5))
+        run.add_picture(f'{path_report}\\Модель\\Модель 3D.png', width=Mm(82.5))
         run.add_picture(f'{path_report}\\Модель\\Модель в полярной системе координат.png', width=Mm(82.5))
         doc.add_paragraph().add_run(
             f'Рисунок {counter_plots}. Геометрические размеры и система координат направления ветровых потоков')
@@ -568,7 +644,7 @@ class Core:
             row_cells = table_model.add_row().cells
             row_cells[0].add_paragraph().add_run(j)
             row_cells[1].add_paragraph().add_run(str(i))
-        doc.add_picture(f'{path_report}\\Модель\\Развертка модели.png')
+        doc.add_picture(f'{path_report}\\Модель\\Развертка модели.png', width=Mm(165))
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph().add_run(f'Рисунок {counter_plots}. Система датчиков мониторинга')
         counter_plots += 1
@@ -579,14 +655,15 @@ class Core:
 
         doc.add_heading().add_run('2. Статистика по датчиках. Максимумы и огибающие').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for angle in range(0, 50, 5):
+
+        for angle in range(0, angle_border, 5):
             envelopes = glob.glob(
-                f'{path_report}\\Огибающие\\Огибающие {model_scale}_{alpha} {angle:02}\\Огибающие *.png')
+                f'{path_report}\\Огибающие\\Огибающие {model_scale} {alpha} {angle:02}\\Огибающие *.png')
             for i in envelopes:
                 doc.add_picture(i, height=Mm(80))
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 doc.add_paragraph().add_run(
-                    f'Рисунок {counter_plots}. Огибающая ветрового давления для здания '
+                    f'Рисунок {counter_plots}. Огибающие ветрового давления для здания '
                     f'{breadth}x{depth}x{height} угол {angle:02}º '
                     f'датчики {i[i[:i.rfind("-") - 1].rfind(" ") + 1:i.rfind(".")]}')
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -597,39 +674,166 @@ class Core:
 
         doc.add_heading().add_run('3. Изополя ветровых нагрузок и воздействий').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # 3.1 Непрерывные изополя
+
         doc.add_heading(level=2).add_run('3.1 Непрерывные изополя').font.size = Pt(16)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        isofields = glob.glob(
-            f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Непрерывные\\Изополя *.png')
-        for i in isofields:
-            doc.add_picture(i)
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            angle = i[i.rfind('_') + 1:i.rfind(' ')]
-            mode = i[i.rfind(" ") + 1:i.rfind(".")]
+        mods = ('MAX', 'MEAN', 'MIN', 'STD')
+        for mode in mods:
+            for angle in range(0, angle_border, 5):
+                isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Непрерывные\\{mode}\\' \
+                            f'Изополя {breadth} {depth} {height} {alpha} {angle:02} {mode}.png'
+
+                doc.add_picture(isofields)
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                doc.add_paragraph().add_run(
+                    f'Рисунок {counter_plots}. Непрерывные изополя {mode} '
+                    f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                counter_plots += 1
+
+        # 3.2 Дискретные изополя
+
+        doc.add_heading(level=2).add_run('3.2 Дискретные изополя').font.size = Pt(16)
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        for mode in mods:
+            for angle in range(0, angle_border, 5):
+                isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Дискретные\\{mode}\\' \
+                            f'Изополя {breadth} {depth} {height} {alpha} {angle:02} {mode}.png'
+
+                doc.add_picture(isofields)
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                doc.add_paragraph().add_run(
+                    f'Рисунок {counter_plots}. Непрерывные изополя {mode} '
+                    f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                counter_plots += 1
+        doc.add_page_break()
+
+        # 4. Статистика по датчикам в табличном виде
+
+        coordinates = converter_coordinates_to_real(x, z, model_size, model_scale, scale_factors)
+        sensor_statistics = self.get_sensor_statistics(alpha,
+                                                       model_scale,
+                                                       angle_border,
+                                                       model_size,
+                                                       coordinates,
+                                                       )
+
+        doc.add_heading().add_run('4. Статистика по датчикам в табличном виде ').font.size = Pt(20)
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        header_sensors = (
+            'ДАТЧИК',
+            'X(мм)',
+            'Y(мм)',
+            'Z(мм)',
+            'MEAN',
+            'RMS',
+            'STD',
+            'MAX',
+            'MIN',
+            'РАСЧЕТНОЕ',
+            'ОБЕСП+',
+            'ОБЕСП-'
+        )
+        for angle in range(0, angle_border, 5):
             doc.add_paragraph().add_run(
-                f'Рисунок {counter_plots}. Непрерывные изополя {mode} '
+                f'\nТаблица {counter_tables}. Аэродинамический коэффициент в датчиках для '
+                f'здания {breadth}x{depth}x{height} угол {angle}º')
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            counter_tables += 1
+            table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
+            table_sensors.style = 'Table Grid'
+            hdr_cells = table_sensors.rows[0].cells
+            for i in range(len(header_sensors)):
+                hdr_cells[i].add_paragraph().add_run(header_sensors[i]).font.size = Pt(8)
+
+            for rec in sensor_statistics[angle // 5]:
+                row_cells = table_sensors.add_row().cells
+                for i in range(len(rec)):
+                    row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
+        doc.add_page_break()
+
+        # 5. Суммарные значения аэродинамических коэффициентов
+
+        summary_coefficients_statistics = self.get_summary_coefficients_statistics(angle_border,
+                                                                                   alpha,
+                                                                                   model_scale,
+                                                                                   model_size
+                                                                                   )
+
+        doc.add_heading().add_run('5. Суммарные значения аэродинамических коэффициентов').font.size = Pt(20)
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        header_sum = (
+            'СИЛА',
+            'MEAN',
+            'RMS',
+            'STD',
+            'MAX',
+            'MIN',
+            'РАСЧЕТНОЕ',
+            'ОБЕСП+',
+            'ОБЕСП-'
+        )
+        for angle in range(0, angle_border, 5):
+            doc.add_picture(
+                f'{path_report}\\Суммарные аэродинамические коэффициенты\\Декартовая система координат\\'
+                f'Суммарные аэродинамические коэффициенты Cx_Cy_CMz {" ".join(model_size)} {alpha} {angle:02}.png')
+            doc.add_paragraph().add_run(
+                f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты '
                 f'для здания {breadth}x{depth}x{height} угол {angle}º')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_plots += 1
-        doc.add_heading(level=2).add_run('3.2 Дискретные изополя').font.size = Pt(16)
-        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        isofields_disc = glob.glob(
-            f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Дискретные\\Изополя *.png')
-        for i in isofields_disc:
-            doc.add_picture(i)
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            angle = i[i.rfind('_') + 1:i.rfind(' ')]
-            mode = i[i.rfind(" ") + 1:i.rfind(".")]
             doc.add_paragraph().add_run(
-                f'Рисунок {counter_plots}. Дискретные изополя {mode} '
+                f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
                 f'для здания {breadth}x{depth}x{height} угол {angle}º')
+            counter_tables += 1
+            table_sum = doc.add_table(rows=1, cols=len(header_sum))
+            table_sum.style = 'Table Grid'
+            hdr_cells = table_sum.rows[0].cells
+            for i in range(len(header_sum)):
+                hdr_cells[i].add_paragraph().add_run(header_sum[i]).font.size = Pt(8)
+
+            for rec in summary_coefficients_statistics[angle // 5]:
+                row_cells = table_sum.add_row().cells
+                for i in range(len(rec)):
+                    row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
+
+            doc.add_page_break()
+
+        for mode in header_sum[1:]:
+            doc.add_picture(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
+                            f'Суммарные аэродинамические коэффициенты Cx Cy CMz 0.1 0.1 0.1 {mode} '
+                            f'в полярной системе координат.png')
+
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            doc.add_paragraph().add_run(
+                f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты в полярной системе координат {mode}'
+                f' для здания {breadth}x{depth}x{height}')
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            counter_plots += 1
+            doc.add_page_break()
+
+        # 6. Спектры cуммарных значений аэродинамических коэффициентов
+
+        doc.add_heading().add_run('6. Спектры cуммарных значений аэродинамических коэффициентов').font.size = Pt(20)
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for angle in range(0, angle_border, 5):
+            doc.add_picture(f'{path_report}\\Спектральная плотность мощности\\Логарифмическая шкала\\'
+                            f'Спектральная плотность мощности {model_scale} {alpha} {angle:02}.png')
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            doc.add_paragraph().add_run(
+                f'Рисунок {counter_plots}. Спектр cуммарных значений аэродинамических коэффициентов '
+                f'для здания {breadth}x{depth}x{height} угол {angle:02} º')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_plots += 1
         doc.add_page_break()
 
-
-
+        doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
+        #os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
         print(f'Формирование отчета размеры = {" ".join(model_size)} альфа = {alpha} завершено')
 
 
