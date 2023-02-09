@@ -1,6 +1,6 @@
 import time
 
-#from multiprocessing import Manager
+# from multiprocessing import Manager
 from psycopg2.pool import ThreadedConnectionPool, PoolError
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,21 +11,27 @@ class DataBaseToolkit:
 
     def __init__(self):
         """Создание пула подключений к БД"""
-        #self.manager = Manager()
-        #self.manager = None
+        # self.manager = Manager()
+        # self.manager = None
         self.connection_pool = ThreadedConnectionPool(DataBaseToolkit._min_count_connections,
                                                       DataBaseToolkit._max_count_connections,
                                                       user='postgres',
-                                                      password='2325070307',
+                                                      password='08101430',
                                                       host='127.0.0.1',
                                                       port='5432',
                                                       database='tpu')
 
         # user = 'postgres',
-        #        password = '08101430',
-        #                   host = '26.148.227.16',
-        #                          port = '5432',
-        #                                 database = 'tpu')
+        # password = '08101430',
+        # host = '26.148.227.16',
+        # port = '5432',
+        # database = 'tpu')
+
+        # user='postgres',
+        # password='2325070307',
+        # host='127.0.0.1',
+        # port='5432',
+        # database='tpu')
 
     def get_connection(self):
         """Запрос свободного подключения к БД с таймаутом 1 секунда"""

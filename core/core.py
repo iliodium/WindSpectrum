@@ -8,7 +8,7 @@ from docx import Document
 from multiprocessing import Process
 from docx.shared import Inches, Pt, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 import utils.utils
 # local imports
@@ -210,11 +210,14 @@ class Core:
 
     def get_envelopes(self,
                       alpha: str,
-                      model_scale: str,
+                      model_size: Tuple[str, str, str],
                       angle: str):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
+
+        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
         print(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
               f'альфа = {alpha} угол = {int(angle):02} из буфера')
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get('envelopes'):
@@ -541,6 +544,36 @@ class Core:
 
         return statistics
 
+    def report_process(self, alpha: str, model_size: Tuple[str, str, str]):
+        '''
+        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        if model_scale[0] == model_scale[1]:
+            angle_border = 50
+        else:
+            angle_border = 95
+
+        # Запрос данных из БД
+        self.clipboard_obj.get_coordinates(alpha, model_scale)
+        self.clipboard_obj.get_face_number(alpha, model_scale)
+
+        executor = ThreadPoolExecutor(max_workers=Core._count_threads)
+
+        args_pressure_coefficients = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
+
+        with executor:
+            executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(*i), args_pressure_coefficients)
+
+        args_cmz = [(alpha, model_scale, str(angle), model_size) for angle in range(0, angle_border, 5)]
+        executor.map(lambda i: self.clipboard_obj.get_cmz(*i), args_cmz)
+
+        args_cx_cy = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
+        executor.map(lambda i: self.clipboard_obj.get_cx_cy(*i), args_cx_cy)
+
+        Process(target=self.report, args=((alpha, model_size),)).start()
+        '''
+        self.report(alpha, model_size)
+
     def report(self, alpha: str, model_size: Tuple[str, str, str]):
         """Создание отчёта для выбранной конфигурации.
         Отчёт включает:
@@ -554,7 +587,7 @@ class Core:
         """
         print(f'Начало формирования отчета размеры = {" ".join(model_size)} альфа = {alpha}')
 
-        folder = 'D:\\Projects\\WindSpectrum'
+        folder = os.getcwd()
 
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
         breadth, depth, height = model_size
@@ -567,12 +600,6 @@ class Core:
         else:
             angle_border = 95
 
-        x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
-
-        # Запрос данных из БД
-        # Координаты являются одинаковыми для всех углов
-        # и чтобы потоки не обращались к БД за ними
-        # нужно запросить их заранее.
         x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
 
         # Отображение модели
@@ -757,6 +784,8 @@ class Core:
                     row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
         doc.add_page_break()
 
+        del sensor_statistics
+
         # 5. Суммарные значения аэродинамических коэффициентов
 
         summary_coefficients_statistics = self.get_summary_coefficients_statistics(angle_border,
@@ -806,7 +835,7 @@ class Core:
 
         for mode in header_sum[1:]:
             doc.add_picture(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
-                            f'Суммарные аэродинамические коэффициенты Cx Cy CMz 0.1 0.1 0.1 {mode} '
+                            f'Суммарные аэродинамические коэффициенты Cx Cy CMz {breadth} {depth} {height} {mode} '
                             f'в полярной системе координат.png')
 
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -816,6 +845,8 @@ class Core:
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_plots += 1
             doc.add_page_break()
+
+        del summary_coefficients_statistics
 
         # 6. Спектры cуммарных значений аэродинамических коэффициентов
 
@@ -833,7 +864,7 @@ class Core:
         doc.add_page_break()
 
         doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
-        #os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
+        # os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
         print(f'Формирование отчета размеры = {" ".join(model_size)} альфа = {alpha} завершено')
 
 
@@ -842,7 +873,7 @@ if __name__ == '__main__':
     # fig = c.get_plot_summary_coefficients('6', ('0.1', '0.1', '0.1'), '0', 'Cx Cy CMz')
     # utils.utils.open_fig(fig)
     t1 = time.time()
-    c.report('6', ('0.1', '0.1', '0.1'))
+    c.report_process('6', ('1', '4', '8'))
     print(time.time() - t1)
     # print('=========================================')
     # c.report('6', ('2', '2', '2'))

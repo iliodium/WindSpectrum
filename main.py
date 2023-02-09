@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
         def report(self):
             self.update_parameters()
-            self.core.report(self.alpha, self.model_size)
+            self.core.report_process(self.alpha, self.model_size)
 
         def plot_isofields(self, view: str, mode: str):
             self.update_parameters()
