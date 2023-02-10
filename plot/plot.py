@@ -1,10 +1,25 @@
+import matplotlib.pyplot as plt
+import time
+
+# plt.switch_backend('Qt5Agg')
+plt.switch_backend('Agg')
+
+from scipy.fft import fft, rfftfreq
+from scipy.signal import argrelextrema, welch
+from matplotlib.colors import Normalize
+from matplotlib.axis import rcParams
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.ticker import MultipleLocator, ScalarFormatter
+
+from utils.utils import interpolator as intp
+
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import numpy as np
-import scipy.interpolate
 from matplotlib.colors import Normalize
 from scipy.signal import welch
+from typing import Tuple
 
 
 class Plot:
@@ -29,12 +44,10 @@ class Plot:
        num = alpha_model_name_angle_mode
        """
 
-    @staticmethod
-    def interpolator(coords, val):
-        return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
+    dpi = 200  # качество графиков
 
     @staticmethod
-    def discrete_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates):
+    def discrete_isofield(model_name: str, mode: str, angle: str, alpha: str, pressure_coefficients, coordinates):
         """Отрисовка дискретных изополей"""
         # Виды изополей
         mods = {
@@ -61,7 +74,8 @@ class Plot:
         x, z = np.array(coordinates)
         z = np.array(z[::2 * (count_sensors_on_middle + count_sensors_on_side)])[::-1]
 
-        fig, ax = plt.subplots(1, 4, dpi=200, clear=True)
+        num_fig = f'Дискретные изополя {model_name} {mode} {alpha} {angle}'
+        fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
         cmap = cm.get_cmap(name="jet")
         min_v = np.min(pressure_coefficients)
         max_v = np.max(pressure_coefficients)
@@ -89,7 +103,9 @@ class Plot:
         return fig
 
     @staticmethod
-    def integral_isofield(model_name, alpha, angle, mode, pressure_coefficients, coordinates):
+    def integral_isofield(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle,
+                          pressure_coefficients,
+                          coordinates):
         """Отрисовка интегральных изополей"""
         # Виды изополей
         mods = {
@@ -98,7 +114,10 @@ class Plot:
             'min': np.min(pressure_coefficients, axis=0),
             'std': np.std(pressure_coefficients, axis=0),
         }
-        # Номера графиков
+
+        size_x, size_y, size_z = map(float, model_size)
+        x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
+
         pressure_coefficients = mods[mode]
         breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
         count_sensors_on_model = len(pressure_coefficients)
@@ -111,7 +130,7 @@ class Plot:
         # Шаги для изополей
         steps = {
             'max': 0.2,
-            'mean': 0.2 if alpha == 6 else 0.1,
+            'mean': 0.2 if alpha == '6' else 0.1,
             'min': 0.2,
             'std': 0.05,
         }
@@ -185,19 +204,23 @@ class Plot:
         z4.insert(0, np.array([height for _ in range(len(z4[0]))]))
 
         # Расширенные координаты для изополей
-        z_extended = np.array([np.array(z1), np.array(z2), np.array(z3), np.array(z4)])
-        x_extended = np.array([np.array(x1), np.array(x2), np.array(x3), np.array(x4)])
+        z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]
+        x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
-        fig, ax = plt.subplots(1, 4, dpi=200, clear=True, figsize=(9, 5))
-
+        num_fig = f'Непрерывные изополя {model_name} {model_size} {mode} {alpha} {angle}'
+        fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
 
+        h_scaled = height * z_scale_factor
+        b_scaled = breadth * x_scale_factor
+        d_scaled = depth * y_scale_factor
+
         for i in range(4):
-            # x это координаты по ширине
+
             x_new = x_extended[i].reshape(1, -1)[0]
             x_old = x[i].reshape(1, -1)[0]
-            # z это координаты по высоте
+
             z_new = z_extended[i].reshape(1, -1)[0]
             z_old = z[i].reshape(1, -1)[0]
             # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
@@ -211,11 +234,23 @@ class Plot:
                 x_old -= (2 * breadth + depth)
                 x_new -= (2 * breadth + depth)
 
+            # Масштабирование координат
+            z_new = z_new * z_scale_factor
+            z_old = z_old * z_scale_factor
+
+            if i in [0, 2]:
+                x_new = x_new * x_scale_factor
+                x_old = x_old * x_scale_factor
+
+            else:
+                x_new = x_new * y_scale_factor
+                x_old = x_old * y_scale_factor
+
             data_old = pressure_coefficients[i].reshape(1, -1)[0]
             # data_old_integer.append(data_old)
             coords = [[i1, j1] for i1, j1 in zip(x_old, z_old)]  # Старые координаты
             # Интерполятор полученный на основе имеющихся данных
-            interpolator = Plot.interpolator(coords, data_old)
+            interpolator = intp(coords, data_old)
 
             # Получаем данные для несуществующих датчиков
             data_new = [float(interpolator([[X, Y]])) for X, Y in zip(x_new, z_new)]
@@ -229,69 +264,374 @@ class Plot:
             ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
 
             ax[i].clabel(aq, fontsize=10)
-            ax[i].set_ylim([0, height])
-            ax[i].set_yticks(np.arange(0, height + 0.01, 0.05))
-            ax[i].set_yticklabels(labels=np.arange(0, height + 0.01, 0.05).round(2), fontsize=5)
             if breadth == depth == height:
                 ax[i].set_aspect('equal')
+
+            ax[i].set_ylim([0, h_scaled])
+            ax[i].set_yticks(np.arange(0, h_scaled + h_scaled * 0.01, h_scaled * 0.2))
+            ax[i].set_yticklabels(labels=np.arange(0, size_z + size_z * 0.01, size_z * 0.2).round(2), fontsize=5)
+
             if i in [0, 2]:
-                ax[i].set_xlim([0, breadth])
-                ax[i].set_xticks(ticks=np.arange(0, breadth + 0.1, 0.1))
-                ax[i].set_xticklabels(labels=ax[i].get_xticks(), fontsize=5)
+                ax[i].set_xlim([0, b_scaled])
+                ax[i].set_xticks(ticks=np.arange(0, b_scaled + b_scaled * 0.01, b_scaled * 0.2))
+                ax[i].set_xticklabels(labels=np.arange(0, size_x + size_x * 0.01, size_x * 0.2).round(2), fontsize=5)
+
             else:
-                ax[i].set_xlim([0, depth])
-                ax[i].set_xticks(ticks=np.arange(0, depth + 0.1, 0.1))
-                ax[i].set_xticklabels(labels=ax[i].get_xticks(), fontsize=5)
+                ax[i].set_xlim([0, d_scaled])
+                ax[i].set_xticks(ticks=np.arange(0, d_scaled + d_scaled * 0.01, d_scaled * 0.2))
+                ax[i].set_xticklabels(labels=np.arange(0, size_y + size_y * 0.01, size_y * 0.2).round(2), fontsize=5)
 
         fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
 
         return fig
 
     @staticmethod
-    def welch_graphs(model_name, alpha, angle, speed, scale, mode, data):
-        # size = float(model_name[0]) / 10
+    def summary_coefficients(data, model_name: str, alpha: str, angle: str):
+        """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
+        data = {name:array,
+                ...
+                }
+        """
+        num_fig = f'Суммарные коэффициенты декартовая система координат {model_name} {alpha} {angle}'
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+        ax.grid()
+        ax.set_xlim(0, 32.768)
+        ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        ax.set_xlabel('Время, с', labelpad=.3)
+        ox = np.linspace(0, 32.768, 32768)
+        for name in data.keys():
+            if data[name] is not None:
+                ax.plot(ox, data[name], label=name)
+        ax.legend(loc='upper right', fontsize=9)
 
-        fig, ax = plt.subplots(dpi=200, clear=True)
-        if scale == 'linear':
-            ax.set_xlim([0, 15])
+        return fig
 
-        elif scale == 'log':
-            ax.set_xlim([10 ** -2, 10 ** 3])
-            ax.set_xscale('log')
-            ax.set_yscale('log')
+    @staticmethod
+    def scaling_data(x, y = None):
+        """Масштабирование данных до 360 градусов"""
+
+        if y is not None:
+            a = np.array(y)
+            b = np.append(a, np.flip(x)[1:])
+            c = np.append(b, np.flip(b)[1:])
+            x_scale = np.append(c, np.flip(c)[1:])
+
+            a = np.array(x)
+            b = np.append(a, np.flip(y)[1:])
+            c = np.append(b, np.flip(b)[1:])
+            y_scale = np.append(c, np.flip(c)[1:])
+
+            return x_scale, y_scale
+
+        else:
+            a = np.array(x)
+            b = np.append(a, np.flip(x)[1:])
+            c = np.append(b, np.flip(b)[1:])
+            x_scale = np.append(c, np.flip(c)[1:])
+            return x_scale
+
+    @staticmethod
+    def polar_plot(data, title: str, model_size, alpha: str):
+        """Графики суммарных аэродинамических коэффициентов в полярной системе координат.
+        data = {name:array,
+                ...
+                }
+        """
+        angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
+        num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {alpha}'
+
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
+
+        for name in data.keys():
+            ax.plot(angles, data[name], label=name)
+
+        ax.set_theta_direction(-1)
+        ax.set_theta_zero_location('N')
+        ax.set_thetagrids([i for i in range(0, 360, 15)])
+        ax.legend(loc='upper right', fontsize=9)
+        ax.set_title(title)
+
+        return fig
+
+    @staticmethod
+    def model_pic(model_size, model_scale, coordinates):
+        """Отрисовка развертки модели"""
+        breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
+
+        size_x = 2 * (breadth_real + depth_real)
+        x, z = coordinates
+
+        num_fig = f'Развертка модели {" ".join(model_size)}'
+        fig, ax = plt.subplots(figsize=(16, 9), num=num_fig, dpi=Plot.dpi, clear=True)
+        ax.set_title('Развертка датчиков по модели', fontweight='semibold', fontsize=8)
+        ax.set_xlabel('Горизонтальная развертка /м', fontweight='semibold', fontsize=8)
+        ax.set_ylabel('Высота модели /м', fontweight='semibold', fontsize=8)
+        ax.set_ylim(0, height_real)
+        ax.set_xlim(0, size_x)
+
+        xticks = [0, breadth_real, breadth_real + depth_real, 2 * breadth_real + depth_real, size_x]
+        yticks = np.arange(0, height_real + height_real * 0.01, height_real * 0.2)
+
+        ax.set_xticks(ticks=xticks)
+        ax.set_yticks(ticks=yticks)
+
+        ax.xaxis.set_minor_locator(MultipleLocator(size_x * 0.03125))
+        ax.yaxis.set_minor_locator(MultipleLocator(height_real * 0.05))
+
+        ax.xaxis.set_minor_formatter(ScalarFormatter())
+        ax.yaxis.set_minor_formatter(ScalarFormatter())
+
+        ax.tick_params(axis='x', which='minor', pad=5, labelsize=7)
+        ax.tick_params(axis='x', which='major', pad=10, labelsize=10)
+
+        ax.tick_params(axis='y', which='minor', pad=5, labelsize=7)
+        ax.tick_params(axis='y', which='major', pad=10, labelsize=10)
+
+        count_sensors_on_model = len(x)
+        count_sensors_on_middle = int(model_scale[0]) * 5
+        count_sensors_on_side = int(model_scale[1]) * 5
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+        x = np.reshape(x, (count_row, -1))
+        x = np.split(x, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+
+        z = np.reshape(z, (count_row, -1))
+        z = np.split(z, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+        del x[4]
+        del z[4]
+
+        for i in (breadth_real, breadth_real + depth_real, breadth_real + depth_real, 2 * breadth_real + depth_real):
+            ax.plot([i, i], [0, height_real], linestyle='--', color='black')
+
+        for i in range(4):
+            ax.plot(x[i], z[i], 'b+')
+
+        labels = [str(i) for i in range(1, count_sensors_on_model + 1)]
+        labels = np.reshape(labels, (count_row, -1))
+        labels = np.split(labels, [count_sensors_on_middle,
+                                   count_sensors_on_middle + count_sensors_on_side,
+                                   2 * count_sensors_on_middle + count_sensors_on_side,
+                                   2 * (count_sensors_on_middle + count_sensors_on_side)
+                                   ], axis=1)
+
+        d = height_real * 0.02
+
+        for f in range(4):
+            for i in range(len(x[f])):
+                for j in range(len(x[f][i])):
+                    ax.text(x[f][i][j], z[f][i][j] - d, labels[f][i][j], fontsize=8)
+
+        return fig
+
+    @staticmethod
+    def model_polar(model_size):
+        """Отрисовка модели в полярной системе координат"""
+        x, y, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        min_size = min(x, y)
+        b_scale, d_scale = x / min_size, y / min_size
+
+        num_fig = f'Модель в полярной системе координат {" ".join(model_size)}'
+        fig = plt.figure(num=num_fig, dpi=Plot.dpi, clear=True)
+        pos = [0.1, 0.1, 0.8, 0.8]
+        polar = fig.add_axes(pos, projection='polar')
+        polar.patch.set_alpha(0)
+        polar.set_theta_zero_location('N')
+        polar.set_theta_direction(-1)
+        polar.set_thetagrids([i for i in range(0, 360, 15)], fontsize=7)
+        polar.set_yticks([0, 1, 2, 3])
+        polar.set_yticklabels([0, 1, 2, 3], visible=False)
+        polar.set_autoscale_on(False)
+        angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
+        polar.annotate("", xy=(angles[0], 2), xytext=(0, 0),
+                       arrowprops=dict(arrowstyle="->",
+                                       linewidth=2.5))
+        polar.annotate("", xy=(angles[18], 2), xytext=(0, 0),
+                       arrowprops=dict(arrowstyle="->",
+                                       linewidth=2.5))
+        polar.annotate("y", xy=(angles[0], 2))
+        polar.annotate("x", xy=(angles[18], 2))
+
+        ax = fig.add_subplot(111, position=pos)
+        ax.set_visible(True)
+        ax.set_autoscale_on(False)
+        ax.set_aspect(1)
+        ax.axis('off')
+        dx = dy = (0.7 - 0.3) / 3
+        b = dx * b_scale
+        d = dy * d_scale
+        mid = 0.5
+        x0 = mid - b / 2
+        x1 = mid + b / 2
+        y0 = mid - d / 2
+        y1 = mid + d / 2
+        ax.fill_between([x0, x1], [y0, y0], [y1, y1], color='grey', alpha=0.5)
+
+        return fig
+
+    @staticmethod
+    def model_cube(model_size):
+        """Отрисовка модели в трехмерном виде"""
+        x, y, z = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        min_size = min(x, y, z)
+        b_scale, d_scale, h_scale = x / min_size, y / min_size, z / min_size
+
+        num_fig = f'Модель в трехмерном представлении {" ".join(model_size)}'
+        fig = plt.figure(num=num_fig, dpi=Plot.dpi, clear=True)
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+
+        count_nodes = 2
+        x = np.linspace(1, b_scale + 1, count_nodes)
+        y = np.linspace(1, d_scale + 1, count_nodes)
+        z = np.linspace(0, h_scale, count_nodes)
+
+        ones1d = np.ones(count_nodes)
+        zeros2d = np.zeros((count_nodes, count_nodes))
+
+        X_top, Y_top = np.meshgrid(x, y)
+        Z_top = zeros2d + h_scale
+        ax.plot_surface(X_top, Y_top, Z_top, color='grey')
+
+        X_face, Y_face = np.meshgrid(x, ones1d)
+        Z_face = (zeros2d + z).T
+        ax.plot_surface(X_face, Y_face, Z_face, color='grey')
+
+        Y_side, X_side = np.meshgrid(y, ones1d + b_scale)
+        ax.plot_surface(X_side, Y_side, Z_face, color='grey')
+
+        ax.set_xlabel('Depth')
+        ax.set_ylabel('Breadth')
+        ax.set_zlabel('Height')
+
+        # Get rid of the panes
+        ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+        # Get rid of the spines
+        ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+
+        # Get rid of the ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+
+        ax.xaxis.pane.fill = False
+        ax.yaxis.pane.fill = False
+        ax.zaxis.pane.fill = False
+
+        # Now set color to white (or whatever is "invisible")
+        ax.xaxis.pane.set_edgecolor('w')
+        ax.yaxis.pane.set_edgecolor('w')
+        ax.zaxis.pane.set_edgecolor('w')
+
+        ax.grid(False)
+        max_range = np.array([b_scale, d_scale, h_scale]).max() / 2 + 1
+
+        mid_x = (b_scale + 1) * 0.5
+        mid_y = (d_scale + 1) * 0.5
+        mid_z = (h_scale + 1) * 0.5
+        ax.set_xlim(mid_x - max_range, mid_x + max_range)
+        ax.set_ylim(mid_y - max_range, mid_y + max_range)
+        ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+        return fig
+
+    @staticmethod
+    def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle: str):
+        """Отрисовка огибающих"""
+        figs = []  # массив для графиков так как на 1 графике максимум 100 датчиков
+        step_x = 20
+        step_x_minor = 5
+        step_y = 0.4
+
+        step_sens = 100
+        count_sensors_plot = len(pressure_coefficients[0])
+
+        for q in range(0, count_sensors_plot, step_sens):
+            num_fig = f'Огибающие {model_scale} {alpha} {angle} {q + 1} до {q + step_sens + 1}'
+            fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+            ax.grid(visible=True, which='minor', color='black', linestyle='--')
+            ax.grid(visible=True, which='major', color='black', linewidth=1.5)
+
+            coefficients = pressure_coefficients.T[q:q + step_sens].T
+            mean_pr = np.mean(coefficients, axis=0).round(4)
+            rms_pr = np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]).round(4)
+            std_pr = np.std(coefficients, axis=0).round(4)
+            max_pr = np.max(coefficients, axis=0).round(4)
+            min_pr = np.min(coefficients, axis=0).round(4)
+
+            ox = [i for i in range(q + 1, q + step_sens + 1)]
+            for i, j, c in zip((mean_pr, rms_pr, std_pr, max_pr, min_pr), ('MEAN', 'RMS', 'STD', 'MAX', 'MIN'),
+                               ('b', 'g', 'r', 'c', 'y')):
+                ax.plot(ox, i, '-', label=j, linewidth=3, color=c)
+
+            ax.set_xlim([q + 1, q + step_sens])
+            yticks = np.arange(np.min(min_pr) - step_y, np.max(max_pr) + step_y, step_y).round(2)
+            ax.set_ylim(np.min(yticks) + 0.2, np.max(yticks) + 0.2)
+            ax.set_yticks(yticks)
+
+            ax.set_xticks([q + 1] + [i for i in range(q + step_x, q + step_sens + 1, 20)])
+
+            ax.xaxis.set_minor_locator(MultipleLocator(step_x_minor))
+            ax.xaxis.set_minor_formatter(ScalarFormatter())
+            ax.xaxis.set_tick_params(which='major', labelsize=10)
+            ax.xaxis.set_tick_params(which='minor', labelsize=7)
+
+            ax.legend(loc='upper right', fontsize=9)
+            ax.set_title('Огибающие')
+
+            figs.append(fig)
+
+        return figs
+
+    @staticmethod
+    def old_welch_graphs(sum_cx, sum_cy, sum_cmz):
+        fig, ax = plt.subplots(dpi=Plot.dpi, clear=True)
+        ax.set_xlim([0, 15])
+        ax.grid()
+        ax.set_xlabel('Sh')
+        ax.set_ylabel('PSD, V**2/Hz')
+        ax.set_xlim([10 ** -2, 10 ** 3])
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+
+        for data, name in zip((sum_cx, sum_cy, sum_cmz), ('Cx', 'Cy', 'CMz')):
+            temp, psd = welch(data, fs=1000, nperseg=int(32768 / 5))
+            ax.plot(temp, psd, label=name)
+
+        ax.legend(loc='upper right', fontsize=9)
+
+        return fig
+
+    @staticmethod
+    def welch_graphs(data, model_size, alpha: str, angle: str):
+        """Отрисовка графиков спектральной плотности мощности"""
+        num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
+        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+        ax.set_xlim([10 ** -2, 10 ** 3])
+        ax.set_xscale('log')
+        ax.set_yscale('log')
 
         ax.grid()
-        # ax.set_xlabel('Sh')
         ax.set_xlabel('Frequency')
         ax.set_ylabel('PSD, V**2/Hz')
-
-        # frequency = [i for i in range(1, 16)]
 
         for name in data.keys():
             if data[name] is not None:
                 temp, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
                 ax.plot(temp, psd, label=name)
-            # peak = np.max(psd)
-            # x = temp[np.where(psd == peak)]
-            # y = peak
-            # annotates.append(ax.annotate(np.array(x * size / speed).round(4)[0], xy=(x, y)))
 
-        # ax.set_xticks(frequency, labels=[np.array(i * size / speed).round(3) for i in frequency])
-
-        ax.legend(loc='upper right', fontsize=9)
-        return fig
-
-    @staticmethod
-    def summary_coefficients(model_name, alpha, angle, mode, data):
-        fig, ax = plt.subplots(dpi=200, clear=True)
-        ax.grid()
-        ax.set_xlim(0, 32.768)
-        ax.set_ylabel('Суммарные аэродинамические коэффициенты')
-        ax.set_xlabel('Время, с')
-        ox = np.linspace(0, 32.768, 32768)
-        for name in data.keys():
-            if data[name] is not None:
-                ax.plot(ox, data[name], label=name)
         ax.legend(loc='upper right', fontsize=9)
 
         return fig

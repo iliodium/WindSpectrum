@@ -1,12 +1,15 @@
 /venv*
 /dist
 /build
+/Отчет*
 .idea
 *.spec
 /.ipynb_checkpoints
 tests.py
+test1.py
 __pycache__/
 *.ipynb
+*.png
 /KivyMD
 mylog.txt
 pyinstaller.help.txt

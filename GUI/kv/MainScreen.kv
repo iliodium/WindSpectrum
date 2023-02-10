@@ -1,5 +1,5 @@
-#:include kv/IsolatedHighriseScreen.kv
-#:include kv/NavigationBar.kv
+#:include GUI/kv/IsolatedHighriseScreen.kv
+#:include GUI/kv/NavigationBar.kv
 
 MDScreenManager:
     id: screen_manager
@@ -14,96 +14,93 @@ MDScreenManager:
                 size: self.size
                 pos: self.pos
 
-        NavigationBar:
+        MDBoxLayout:
 
-        MDLabel:
-            adaptive_size: True
-            text: 'Wind Spectrum'
-            font_size: 24
-            pos_hint: {'top':.9,"x": .2}
+            orientation: 'vertical'
+            spacing:8
 
-        MDScrollView:
-            pos_hint:{'top':.8,'x':0}
-            MDGridLayout:
-                cols:1
-                adaptive_size: True
-                spacing:10
-                padding:8
+            NavigationBar:
 
-                # Расчеты ветровых нагрузок и воздействий
-                MDLabel:
+            MDScrollView:
+
+                MDGridLayout:
+                    cols:1
                     adaptive_size: True
-                    text: 'Расчеты ветровых нагрузок и воздействий'
-                    font_size: 18
-                    md_bg_color: (0.24, 0.59, 0.98, 1)
-                MDFlatButton:
-                    text: 'Изолированное высотное здание'
-                    font_size: 18
-                    on_release:
-                        root.current = 'opt_screen'
-                MDFlatButton:
-                    text: 'Аэродинамическая интерференция высотных зданий'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Изолированные низкоэтажные здания'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Аэродинамическая интерференция низкоэтажных зданий'
-                    font_size: 18
 
-            # Динамический отклик
-                MDLabel:
-                    adaptive_size: True
-                    text: 'Динамический отклик'
-                    font_size: 18
-                    md_bg_color:(0.24, 0.59, 0.98, 1)
-                MDFlatButton:
-                    text: 'Интегральные параметры здания'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Матрицы Суперэлементов'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Динамические гасители колебаний'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Конвертер ветровых нагрузок в CAE'
-                    font_size: 18
+                    # Расчеты ветровых нагрузок и воздействий
+                    MDLabel:
+                        adaptive_size: True
+                        text: 'Расчеты ветровых нагрузок и воздействий'
+                        font_size: 18
+                        md_bg_color: (0.24, 0.59, 0.98, 1)
+                    MDFlatButton:
+                        text: 'Изолированное высотное здание'
+                        font_size: 18
+                        on_release:
+                            root.current = 'IsolatedHighriseScreen_screen'
+                    MDFlatButton:
+                        text: 'Аэродинамическая интерференция высотных зданий'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Изолированные низкоэтажные здания'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Аэродинамическая интерференция низкоэтажных зданий'
+                        font_size: 18
 
-            # Инженерные калькуляторы
-                MDLabel:
-                    adaptive_size: True
-                    text: 'Инженерные калькуляторы'
-                    font_size: 18
-                    md_bg_color:(0.24, 0.59, 0.98, 1)
-                MDFlatButton:
-                    text: 'Спектры'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Интерполяционные табличные функции (изополя)'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Преобразование единиц измерений'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Калькулятор y+ (CFD)'
-                    font_size: 18
+                # Динамический отклик
+                    MDLabel:
+                        adaptive_size: True
+                        text: 'Динамический отклик'
+                        font_size: 18
+                        md_bg_color:(0.24, 0.59, 0.98, 1)
+                    MDFlatButton:
+                        text: 'Интегральные параметры здания'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Матрицы Суперэлементов'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Динамические гасители колебаний'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Конвертер ветровых нагрузок в CAE'
+                        font_size: 18
 
-            # Информация
-                MDLabel:
-                    adaptive_size: True
-                    text: 'Информация'
-                    font_size: 18
-                    md_bg_color:(0.24, 0.59, 0.98, 1)
-                MDFlatButton:
-                    text: 'Климатические карты'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Рекомендуемые публикации'
-                    font_size: 18
-                MDFlatButton:
-                    text: 'Рекомендуемые ссылки'
-                    font_size: 18
+                # Инженерные калькуляторы
+                    MDLabel:
+                        adaptive_size: True
+                        text: 'Инженерные калькуляторы'
+                        font_size: 18
+                        md_bg_color:(0.24, 0.59, 0.98, 1)
+                    MDFlatButton:
+                        text: 'Спектры'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Интерполяционные табличные функции (изополя)'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Преобразование единиц измерений'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Калькулятор y+ (CFD)'
+                        font_size: 18
+
+                # Информация
+                    MDLabel:
+                        adaptive_size: True
+                        text: 'Информация'
+                        font_size: 18
+                        md_bg_color:(0.24, 0.59, 0.98, 1)
+                    MDFlatButton:
+                        text: 'Климатические карты'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Рекомендуемые публикации'
+                        font_size: 18
+                    MDFlatButton:
+                        text: 'Рекомендуемые ссылки'
+                        font_size: 18
 
     IsolatedHighriseScreen:
         id: isolated_highrise_screen
