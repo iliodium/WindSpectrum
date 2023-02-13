@@ -35,7 +35,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Standalone build with nuitka
-        run: python -m nuitka --standalone --macos-create-app-bundle --assume-yes-for-downloads --disable-console --include-package=kivy --enable-plugin=tk-inter --include-data-dir=GUI/kv=GUI/kv --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data --noinclude-unittest-mode=nofollow --jobs=30 main.py
+        run: python -m nuitka --standalone --assume-yes-for-downloads --include-package=kivy --enable-plugin=tk-inter --include-data-dir=GUI/kv=GUI/kv --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data --noinclude-unittest-mode=nofollow --jobs=30 main.py
 
       - name: Upload standalone build
         uses: actions/upload-artifact@v3
