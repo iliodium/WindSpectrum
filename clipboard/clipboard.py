@@ -1,6 +1,6 @@
 # local imports
-from utils.utils import calculate_cx_cy, calculate_cmz
-from databasetoolkit.databasetoolkit import DataBaseToolkit
+from utils import calculate_cx_cy, calculate_cmz
+from databasetoolkit import DataBaseToolkit
 
 from numpy import array, any
 from typing import Tuple

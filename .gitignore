@@ -16,3 +16,7 @@ pyinstaller.help.txt
 
 main.build/
 main.dist/
+main.onefile-build/
+
+main.exe
+config.toml

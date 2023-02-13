@@ -1,23 +1,19 @@
+import glob
 import os
 import time
-import glob
-import matplotlib.pyplot as plt
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple
+
+import numpy as np
 from docx import Document
-from multiprocessing import Process
-from docx.shared import Inches, Pt, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-
-import utils.utils
-# local imports
-from plot.plot import Plot
-from utils.utils import *
+from docx.shared import Pt, Mm
 
 # local imports
-from clipboard.clipboard import Clipboard
-from plot.plot import Plot
+from clipboard import Clipboard
+from plot import Plot
+# local imports
+from utils import *
 
 
 class Core:
@@ -264,7 +260,7 @@ class Core:
 
     def envelopes_thread(self,
                          alpha: str,
-                         model_scale: str,
+                         model_scale: Tuple[str, str, str],
                          angle: str,
                          path_report: str):
         """Функция для запуска потока генерации графиков огибающих модели и их сохранения."""
