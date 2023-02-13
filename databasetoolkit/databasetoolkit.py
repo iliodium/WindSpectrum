@@ -3,7 +3,7 @@ import time
 # from multiprocessing import Manager
 from psycopg2.pool import ThreadedConnectionPool, PoolError
 from concurrent.futures import ThreadPoolExecutor
-
+import os
 
 class DataBaseToolkit:
     _min_count_connections = 15  # минимальное число соединений с БД
@@ -15,23 +15,11 @@ class DataBaseToolkit:
         # self.manager = None
         self.connection_pool = ThreadedConnectionPool(DataBaseToolkit._min_count_connections,
                                                       DataBaseToolkit._max_count_connections,
-                                                      user='postgres',
-                                                      password='08101430',
-                                                      host='127.0.0.1',
-                                                      port='5432',
-                                                      database='tpu')
-
-        # user = 'postgres',
-        # password = '08101430',
-        # host = '26.148.227.16',
-        # port = '5432',
-        # database = 'tpu')
-
-        # user='postgres',
-        # password='2325070307',
-        # host='127.0.0.1',
-        # port='5432',
-        # database='tpu')
+                                                      user=os.getenv("WINDSPECTRUM_USER"),
+                                                      password=os.getenv("WINDSPECTRUM_PASSWORD"),
+                                                      host=os.getenv("WINDSPECTRUM_HOST"),
+                                                      port=os.getenv("WINDSPECTRUM_PORT"),
+                                                      database=os.getenv("WINDSPECTRUM_DATABASE_NAME"))
 
     def get_connection(self):
         """Запрос свободного подключения к БД с таймаутом 1 секунда"""
