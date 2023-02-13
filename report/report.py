@@ -1,5 +1,7 @@
 import multiprocessing
+
 from matplotlib import pyplot as plt
+
 
 class OpenPlot:
     @staticmethod
