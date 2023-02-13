@@ -17,6 +17,10 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v3
 
+      # https://github.com/marketplace/actions/ccache-for-gh-actions
+      - name: Ccache for gh actions
+        uses: hendrikmuhs/ccache-action@v1.2.8
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -31,7 +35,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build with nuitka
-        run: python -m nuitka --standalone --assume-yes-for-downloads --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data main.py
+        run: python -m nuitka --standalone --assume-yes-for-downloads --disable-console --include-package=kivy --enable-plugin=tk-inter --include-data-dir=GUI/kv=GUI/kv --include-data-dir=uix=kivymd/uix --include-data-dir=data=kivymd/data --noinclude-unittest-mode=nofollow --jobs=30 main.py
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
