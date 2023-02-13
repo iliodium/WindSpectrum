@@ -6,7 +6,7 @@ from typing import Tuple
 
 import numpy as np
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT as WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, Mm
 
 # local imports
