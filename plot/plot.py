@@ -1,25 +1,19 @@
-import matplotlib.pyplot as plt
 import time
+from typing import Tuple
 
-# plt.switch_backend('Qt5Agg')
+import numpy as np
+from scipy.signal import welch
+import matplotlib.pyplot as plt
+
 plt.switch_backend('Agg')
-
-from scipy.fft import fft, rfftfreq
-from scipy.signal import argrelextrema, welch
-from matplotlib.colors import Normalize
+import matplotlib.cm as cm
+import matplotlib.tri as mtri
 from matplotlib.axis import rcParams
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import Normalize
 from matplotlib.ticker import MultipleLocator, ScalarFormatter
 
 from utils.utils import interpolator as intp
-
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
-import matplotlib.tri as mtri
-import numpy as np
-from matplotlib.colors import Normalize
-from scipy.signal import welch
-from typing import Tuple
 
 
 class Plot:
@@ -103,7 +97,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def integral_isofield(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle,
+    def integral_isofield(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle: str,
                           pressure_coefficients,
                           coordinates):
         """Отрисовка интегральных изополей"""
@@ -264,8 +258,8 @@ class Plot:
             ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
 
             ax[i].clabel(aq, fontsize=10)
-            if breadth == depth == height:
-                ax[i].set_aspect('equal')
+            # if breadth == depth == height:
+            #     ax[i].set_aspect('equal')
 
             ax[i].set_ylim([0, h_scaled])
             ax[i].set_yticks(np.arange(0, h_scaled + h_scaled * 0.01, h_scaled * 0.2))
@@ -357,6 +351,7 @@ class Plot:
     def model_pic(model_size, model_scale, coordinates):
         """Отрисовка развертки модели"""
         breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        breadth_db, depth_db, height_db = int(model_scale[0]), int(model_scale[1]), int(model_scale[2])
 
         size_x = 2 * (breadth_real + depth_real)
         x, z = coordinates

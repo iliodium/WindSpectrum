@@ -1,9 +1,9 @@
-import dataclasses
+import os
 import enum
 import json
-import os
-import os.path as path
+import dataclasses
 import subprocess
+import os.path as path
 from typing import List
 
 import numpy as np

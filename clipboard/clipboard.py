@@ -1,53 +1,84 @@
+import os
+import pickle
+import logging
+from typing import Tuple
+from multiprocessing import Manager
+
+from numpy import array, any
+
 # local imports
 from utils.utils import calculate_cx_cy, calculate_cmz
 from databasetoolkit.databasetoolkit import DataBaseToolkit
 
-from numpy import array, any
-from typing import Tuple
-
 
 class Clipboard:
-    def __init__(self):
-        self.clipboard_dict = None
+    logger = logging.getLogger('Clipboard'.ljust(15, ' '))
+    logger.setLevel(logging.INFO)
+
+    # настройка обработчика и форматировщика
+    py_handler = logging.FileHandler("log.log", mode='a')
+    py_formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s %(message)s")
+
+    # добавление форматировщика к обработчику
+    py_handler.setFormatter(py_formatter)
+    # добавление обработчика к логгеру
+    logger.addHandler(py_handler)
+
+    def __init__(self, ex_clipboard = None):
+        self.logger.info('Создание буфера')
         self.database_obj = DataBaseToolkit()
-        # self.manager = self.database_obj.manager
-        self.init_clipboard_dict()
+        if ex_clipboard:
+            self.clipboard_dict = ex_clipboard
+            self.logger.info('Буфер создан на основе переданного')
+
+        elif os.path.exists('clipboard\\clipboard.pkl'):
+            self.clipboard_dict = dict()
+            file = open('clipboard\\clipboard.pkl', 'rb')
+            local_clipboard = pickle.load(file)
+            self.clipboard_dict.update(local_clipboard)
+            file.close()
+            self.logger.info('Буфер создан на основе локального файла')
+
+        else:
+            self.manager = Manager()
+            self.init_clipboard_dict()
+            self.logger.info('Буфер успешно создан')
 
     def init_clipboard_dict(self):
         """Создание буфера"""
-        self.clipboard_dict = dict({'4': dict(),
-                                    '6': dict()
-                                    })
-
-        experiments = self.database_obj.get_experiments()
+        self.clipboard_dict = self.manager.dict({'4': self.manager.dict(),
+                                                 '6': self.manager.dict()
+                                                 })
+        experiments = self.database_obj.get_experiments(self.manager.dict)
         self.clipboard_dict['4'] = experiments['4']
         self.clipboard_dict['6'] = experiments['6']
 
         for alpha in self.clipboard_dict.keys():
             for model_name in self.clipboard_dict[alpha].keys():
                 for angle in self.clipboard_dict[alpha][model_name].keys():
-                    self.clipboard_dict[alpha][model_name][angle] = dict()
+                    self.clipboard_dict[alpha][model_name][angle] = self.manager.dict()
 
-                self.clipboard_dict[alpha][model_name]['const_parameters'] = dict()
-                self.clipboard_dict[alpha][model_name]['model_attributes'] = dict()
+                self.clipboard_dict[alpha][model_name]['const_parameters'] = self.manager.dict()
+                self.clipboard_dict[alpha][model_name]['model_attributes'] = self.manager.dict()
 
     def get_pressure_coefficients(self, alpha: str, model_name: str, angle: str):
         """Возвращает коэффициенты давления из буфера"""
-        print(f"Запрос коэффициентов давления модель = {model_name} альфа = {alpha} угол = {angle} из буфера")
+        self.logger.info(f"Запрос коэффициентов давления "
+                         f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
         if not any(self.clipboard_dict[alpha][model_name][angle].get('pressure_coefficients')):
             self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] = \
                 array(self.database_obj.get_pressure_coefficients(alpha, model_name, angle))
         pressure_coefficients = self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] / 1000
 
-        print(f"Запрос коэффициентов давления "
-              f"модель = {model_name} альфа = {alpha} угол = {angle} из буфера успешно выполнен")
+        self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
+                         f"альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
         return pressure_coefficients
 
     def get_coordinates(self, alpha: str, model_scale: str):
         """Возвращает координаты датчиков из буфера"""
-        print(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
+        self.logger.info(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
 
         if not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('x') or \
                 not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('z'):
@@ -55,38 +86,40 @@ class Clipboard:
             self.clipboard_dict[alpha][model_scale]['const_parameters']['z'] = \
                 self.database_obj.get_coordinates(alpha, model_scale)
 
-        print(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} из буфера успешно выполнен")
+        self.logger.info(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} из буфера успешно выполнен")
 
         return self.clipboard_dict[alpha][model_scale]['const_parameters']['x'], \
                self.clipboard_dict[alpha][model_scale]['const_parameters']['z']
 
     def get_uh_average_wind_speed(self, alpha: str, model_name: str):
         """Возвращает среднюю скорость ветра из буфера"""
-        print(f"Запрос средней скорости ветра модель = {model_name} альфа = {alpha} из буфера")
+        self.logger.info(f"Запрос средней скорости ветра модель = {model_name} альфа = {alpha} из буфера")
 
         if not self.clipboard_dict[alpha][model_name]['const_parameters'].get('uh_average_wind_speed'):
             self.clipboard_dict[alpha][model_name]['const_parameters']['uh_average_wind_speed'] = \
                 self.database_obj.get_uh_average_wind_speed(alpha, model_name)
 
-        print(f"Запрос редней скорости ветра модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
+        self.logger.info(f"Запрос редней скорости ветра "
+                         f"модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
 
         return self.clipboard_dict[alpha][model_name]['const_parameters']['uh_average_wind_speed']
 
     def get_face_number(self, alpha: str, model_name: str):
         """Возвращает нумерацию датчиков из буфера"""
-        print(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера")
+        self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера")
 
         if not self.clipboard_dict[alpha][model_name]['const_parameters'].get('face_number'):
             self.clipboard_dict[alpha][model_name]['const_parameters']['face_number'] = \
                 self.database_obj.get_face_number(alpha, model_name)
 
-        print(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
+        self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
 
         return self.clipboard_dict[alpha][model_name]['const_parameters']['face_number']
 
     def get_cx_cy(self, alpha: str, model_name: str, angle: str):
         """Возвращает суммарные коэффициенты Cx Cy из буфера"""
-        print(f"Запрос суммарных коэффициентов Cx Cy модель = {model_name} альфа = {alpha} угол = {angle} из буфера")
+        self.logger.info(f"Запрос суммарных коэффициентов Cx Cy "
+                         f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
         if not any(self.clipboard_dict[alpha][model_name][angle].get('Cx')) or \
                 not any(self.clipboard_dict[alpha][model_name][angle].get('Cy')):
@@ -95,29 +128,29 @@ class Clipboard:
             self.clipboard_dict[alpha][model_name][angle]['Cx'] = cx
             self.clipboard_dict[alpha][model_name][angle]['Cy'] = cy
 
-        print(f"Запрос суммарных коэффициентов Cx Cy "
-              f"модель = {model_name} альфа = {alpha} угол = {angle} из буфера успешно выполнен")
+        self.logger.info(f"Запрос суммарных коэффициентов Cx Cy модель = {model_name} альфа = {alpha} "
+                         f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
         return self.clipboard_dict[alpha][model_name][angle]['Cx'], self.clipboard_dict[alpha][model_name][angle]['Cy']
 
-    def get_cmz(self, alpha: str, model_name: str, angle: str, model_size: Tuple[str, str, str]):
+    def get_cmz(self, alpha: str, model_name: str, angle: str):
         """Возвращает CMz из буфера"""
-        print(f"Запрос CMz модель = {model_name} размеры = {' '.join(model_size)} "
-              f"альфа = {alpha} угол = {angle} из буфера")
+        self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
         if not any(self.clipboard_dict[alpha][model_name][angle].get('CMz')):
             coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
             coordinates = self.get_coordinates(alpha, model_name)
-            cmz = calculate_cmz(model_name, model_size, coefficients, coordinates, int(angle))
+            cmz = calculate_cmz(model_name, coefficients, coordinates)
             self.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
 
-        print(f"Запрос CMz модель = {model_name} размеры = {' '.join(model_size)} "
-              f"альфа = {alpha} угол = {angle} из буфера успешно выполнен")
+        self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} "
+                         f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
         return self.clipboard_dict[alpha][model_name][angle]['CMz']
 
 
 if __name__ == '__main__':
+    print('4'.rjust(2, '0'))
     # from concurrent.futures import ThreadPoolExecutor
     #
     # d = Clipboard()
@@ -129,4 +162,4 @@ if __name__ == '__main__':
     # print(len(q))
     # print(q[0])
     # print(q[1])
-    print(len([str(i) for i in range(0, 50, 5)]))
+    1

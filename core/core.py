@@ -1,31 +1,48 @@
 import os
 import time
 import glob
-import matplotlib.pyplot as plt
-import numpy as np
+import pickle
+import logging
 from typing import Tuple
-from docx import Document
 from multiprocessing import Process
-from docx.shared import Inches, Pt, Mm
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
+from docx import Document
+from docx.shared import Pt, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-import utils.utils
-# local imports
+# Local imports
 from plot.plot import Plot
-from utils.utils import *
-
-# local imports
 from clipboard.clipboard import Clipboard
-from plot.plot import Plot
+from utils.utils import get_model_and_scale_factors, rms, rach, obes_m, obes_p, converter_coordinates_to_real, \
+    converter_coordinates, generate_directory_for_report
 
 
 class Core:
-    _count_threads = 15  # количество запускаемых потоков при работе
+    logger = logging.getLogger('Core'.ljust(15, ' '))
+    logger.setLevel(logging.INFO)
 
-    def __init__(self):
+    # настройка обработчика и форматировщика
+    py_handler = logging.FileHandler("log.log", mode='a')
+    py_formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s %(message)s")
+
+    # добавление форматировщика к обработчику
+    py_handler.setFormatter(py_formatter)
+    # добавление обработчика к логгеру
+    logger.addHandler(py_handler)
+    _count_threads = 20  # количество запускаемых потоков при работе
+
+    def __init__(self, ex_clipboard = None):
         """Создание объекта для работы с буфером"""
-        self.clipboard_obj = Clipboard()
+        self.logger.info('Создание ядра')
+        self.clipboard_obj = Clipboard(ex_clipboard)
+        self.logger.info('Ядро успешно создано')
+
+    def save_clipboard(self):
+        output = open(f'{os.getcwd()}\\clipboard\\clipboard.pkl', 'wb')
+        pickle.dump(self.clipboard_obj.clipboard_dict, output)
+        output.close()
 
     def get_plot_isofields(self,
                            alpha: str,
@@ -36,8 +53,8 @@ class Core:
         """Функция возвращает изополя.
         Если изополя отсутствуют в буфере, запускается отрисовка.
         """
-        print(f'Запрос {type_plot} альфа = {alpha} '
-              f'размер = {" ".join(model_size)} угол = {angle} режим = {mode} из буфера')
+        self.logger.info(f'Запрос {type_plot} альфа = {alpha} '
+                         f'размер = {" ".join(model_size)} угол = {angle.rjust(2, "0")} режим = {mode} из буфера')
 
         fig = None
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
@@ -45,8 +62,8 @@ class Core:
         id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            print(f'Отрисовка {type_plot} альфа = {alpha} '
-                  f'размер = {" ".join(model_size)} угол = {angle} режим = {mode}')
+            self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} '
+                             f'размер = {" ".join(model_size)} угол = {angle.rjust(2, "0")} режим = {mode}')
             pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
             coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
 
@@ -67,8 +84,8 @@ class Core:
 
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
 
-        print(f'Запрос {type_plot} альфа = {alpha} '
-              f'размер = {" ".join(model_size)} угол = {angle} режим = {mode} из буфера успешно выполнен')
+        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                         f'угол = {angle.rjust(2, "0")} режим = {mode} из буфера успешно выполнен')
 
         return fig
 
@@ -83,15 +100,15 @@ class Core:
         Если графики суммарных спектров отсутствуют в буфере, запускается отрисовка.
         """
         message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
-        print(f'Запрос суммарных спектров {message} из буфера')
+        self.logger.info(f'Запрос суммарных спектров {message} из буфера')
 
         mode = mode.replace(' ', '_')
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
         id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
         data = dict()
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            print(f'Отрисовка суммарных спектров {message}')
+            self.logger.info(f'Отрисовка суммарных спектров {message}')
 
             if 'Cx' in mode or 'Cy' in mode:
                 cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
@@ -101,13 +118,13 @@ class Core:
                     data['Cy'] = cy
 
             if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle, model_size)
+                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
 
             fig = Plot.welch_graphs(data, model_size, alpha, angle)
             self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
 
-        print(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+        self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
 
         return fig
 
@@ -119,16 +136,17 @@ class Core:
         """Функция возвращает графики суммарных коэффициентов.
         Если графики суммарных коэффициентов отсутствуют в буфере, запускается отрисовка.
         """
-        print(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-              f'альфа = {alpha} угол = {int(angle):02}  режим = {mode} из буфера')
+        self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
+                         f'альфа = {alpha} угол = {angle.rjust(2, "0")}  режим = {mode} из буфера')
 
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
         type_plot = 'summary_coefficients'
         id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
         data = dict()
 
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            print(f'Отрисовка суммарных коэффициентов {" ".join(list(model_size))} {alpha} {int(angle):02} {mode}')
+            self.logger.info(f'Отрисовка суммарных коэффициентов '
+                             f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}')
             if 'Cx' in mode or 'Cy' in mode:
                 cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
                 if 'Cx' in mode:
@@ -137,15 +155,15 @@ class Core:
                     data['Cy'] = cy
 
             if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle, model_size)
+                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
 
             fig = Plot.summary_coefficients(data, model_scale, alpha, angle)
             self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
 
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
 
-        print(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-              f'альфа = {alpha} угол = {int(angle):02}  режим = {mode} из буфера успешно выполнен')
+        self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
+                         f'альфа = {alpha} угол = {int(angle):02}  режим = {mode} из буфера успешно выполнен')
 
         return fig
 
@@ -158,8 +176,9 @@ class Core:
         """Функция возвращает графики суммарных коэффициентов в полярной системе координат.
         Если графики суммарных коэффициентов в полярной системе координат отсутствуют в буфере, запускается отрисовка.
         """
-        print(f'Запрос суммарных коэффициентов в полярной системе координат размеры = {" ".join(list(model_size))} '
-              f'альфа = {alpha} режим = {mode} из буфера')
+        self.logger.info(f'Запрос суммарных коэффициентов в '
+                         f'полярной системе координат размеры = {" ".join(list(model_size))} '
+                         f'альфа = {alpha} режим = {mode} из буфера')
 
         mods = {
             'MEAN': np.mean,
@@ -174,7 +193,7 @@ class Core:
 
         plot_name = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'].get(plot_name):
-            args_cmz = [(alpha, model_scale, str(angle), model_size) for angle in range(0, angle_border, 5)]
+            args_cmz = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
                 list_cmz = list(executor.map(lambda i: self.clipboard_obj.get_cmz(*i), args_cmz))
 
@@ -203,25 +222,22 @@ class Core:
 
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'].get(plot_name)
 
-        print(f'Запрос суммарных коэффициентов в полярной системе координат размеры = {" ".join(list(model_size))} '
-              f'альфа = {alpha} режим = {mode} из буфера успешно выполнен')
+        self.logger.info(f'Запрос суммарных коэффициентов в полярной системе координат размеры = '
+                         f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode} из буфера успешно выполнен')
 
         return fig
 
     def get_envelopes(self,
                       alpha: str,
-                      model_size: Tuple[str, str, str],
+                      model_scale: str,
                       angle: str):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
-
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-
-        print(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-              f'альфа = {alpha} угол = {int(angle):02} из буфера')
+        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get('envelopes'):
-            print(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
+            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
 
             pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
             figs = Plot.envelopes(pressure_coefficients, alpha, model_scale, angle)
@@ -229,7 +245,7 @@ class Core:
             for ind, val in enumerate(figs):
                 self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{ind}'] = val
             self.clipboard_obj.clipboard_dict[alpha][model_scale][angle]['envelopes'] = True
-            print(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
+            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
 
         figs = []
         i = 0
@@ -240,8 +256,8 @@ class Core:
                 figs.append(self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{i}'])
                 i += 1
 
-        print(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-              f'альфа = {alpha} угол = {int(angle):02} из буфера успешно выполнен')
+        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера успешно выполнен')
 
         return figs
 
@@ -253,14 +269,14 @@ class Core:
         """Функция запускает отрисовку всех огибающих выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        print(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha}')
 
         args_envelopes = [(alpha, model_scale, str(angle), path_report) for angle in range(0, angle_border, 5)]
 
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.envelopes_thread(*i), args_envelopes)
 
-        print(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
 
     def envelopes_thread(self,
                          alpha: str,
@@ -288,7 +304,8 @@ class Core:
         """Функция запускает отрисовку всех граффиков спектральной плотности мощности для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        print(f'Отрисовка спектров суммарных коэффициентов параметры = {" ".join(model_scale)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка спектров суммарных коэффициентов '
+                         f'параметры = {" ".join(model_scale)} альфа = {alpha}')
 
         args_welch_graphs = [(alpha, model_scale, str(angle), model_size, path_report)
                              for angle in range(0, angle_border, 5)]
@@ -296,8 +313,8 @@ class Core:
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.welch_graphs_thread(*i), args_welch_graphs)
 
-        print(f'Отрисовка спектров суммарных коэффициентов '
-              f'параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка спектров суммарных коэффициентов '
+                         f'параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
 
     def welch_graphs_thread(self,
                             alpha: str,
@@ -321,7 +338,7 @@ class Core:
         """Функция запускает отрисовку всех изополей выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        print(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha}')
 
         mods = ('max',
                 'mean',
@@ -335,7 +352,7 @@ class Core:
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.isofields_thread(*i), args_isofields)
 
-        print(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
     def isofields_thread(self,
                          alpha: str,
@@ -361,33 +378,32 @@ class Core:
                    alpha: str,
                    model_size: Tuple[str, str, str],
                    model_scale: str,
-                   path_report: str,
-                   scale_factors: Tuple[float, float, float]):
+                   path_report: str, ):
         """Функция запускает отрисовку  выбранной модели.
         - развертка модели
         - модель в полярной системе координат
         - модель в трехмерном виде
         """
-        print(f'Отрисовка модели размеры = {" ".join(model_size)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка модели размеры = {" ".join(model_size)} альфа = {alpha}')
 
-        print('Генерация развертки модели')
+        self.logger.info('Генерация развертки модели')
         coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
-        coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale, scale_factors)
+        coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale)
         fig = Plot.model_pic(model_size, model_scale, coordinates)
         fig.savefig(f'{path_report}\\Модель\\Развертка модели.png')
-        print('Генерация развертки модели завершена')
+        self.logger.info('Генерация развертки модели завершена')
 
-        print('Генерация модели в полярной системе координат')
+        self.logger.info('Генерация модели в полярной системе координат')
         fig = Plot.model_polar(model_size)
         fig.savefig(f'{path_report}\\Модель\\Модель в полярной системе координат.png')
-        print('Генерация модели в полярной системе координат завершена')
+        self.logger.info('Генерация модели в полярной системе координат завершена')
 
-        print('Генерация модели в трехмерном виде')
+        self.logger.info('Генерация модели в трехмерном виде')
         fig = Plot.model_cube(model_size)
         fig.savefig(f'{path_report}\\Модель\\Модель 3D')
-        print('Генерация модели в трехмерном виде завершена')
+        self.logger.info('Генерация модели в трехмерном виде завершена')
 
-        print(f'Отрисовка модели размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка модели размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
     def draw_summary_coefficients(self,
                                   alpha: str,
@@ -397,7 +413,7 @@ class Core:
         """Функция запускает отрисовку всех графиков суммарных коэффициентов для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        print(f'Отрисовка суммарных коэффициентов размеры = {" ".join(model_size)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка суммарных коэффициентов размеры = {" ".join(model_size)} альфа = {alpha}')
 
         args_summary_coefficients = [(alpha, model_size, str(angle), path_report)
                                      for angle in range(0, angle_border, 5)]
@@ -405,7 +421,8 @@ class Core:
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.summary_coefficients_thread(*i), args_summary_coefficients)
 
-        print(f'Отрисовка суммарных коэффициентов размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка суммарных коэффициентов '
+                         f'размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
     def summary_coefficients_thread(self,
                                     alpha: str,
@@ -432,8 +449,8 @@ class Core:
         """Функция запускает отрисовку всех графиков суммарных коэффициентов в полярной системе для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        print(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
-              f'размеры = {" ".join(model_size)} альфа = {alpha}')
+        self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
+                         f'размеры = {" ".join(model_size)} альфа = {alpha}')
         mods = {
             'MEAN': np.mean,
             'RMS': rms,
@@ -457,8 +474,8 @@ class Core:
             plot.savefig(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
                          f'{file_name}')
 
-        print(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
-              f'размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+        self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
+                         f'размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
     def get_sensor_statistics(self,
                               alpha: str,
@@ -518,14 +535,13 @@ class Core:
                                             angle_border: int,
                                             alpha: str,
                                             model_name: str,
-                                            model_size: Tuple[str, str, str]
                                             ):
         accuracy_values = 3
         statistics = []
 
         for angle in range(0, angle_border, 5):
             list_cmz_cx_cy = []
-            cmz = self.clipboard_obj.get_cmz(alpha, model_name, str(angle), model_size)
+            cmz = self.clipboard_obj.get_cmz(alpha, model_name, str(angle))
             cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_name, str(angle))
             for data, name in zip((cx, cy, cmz), ('Cx', 'Cy', 'CMz')):
                 list_cmz_cx_cy.append([
@@ -544,35 +560,24 @@ class Core:
 
         return statistics
 
-    def report_process(self, alpha: str, model_size: Tuple[str, str, str]):
-        '''
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+    @staticmethod
+    def run_proc_report(clipboard_dict, alpha, model_size):
+        new_core = Core(clipboard_dict)
+        new_core.report(alpha, model_size)
 
-        if model_scale[0] == model_scale[1]:
-            angle_border = 50
-        else:
-            angle_border = 95
+    @staticmethod
+    def check_alive_proc(proc, button):
+        while proc.is_alive():
+            time.sleep(3.993)
 
-        # Запрос данных из БД
-        self.clipboard_obj.get_coordinates(alpha, model_scale)
-        self.clipboard_obj.get_face_number(alpha, model_scale)
+        button.disabled = False
 
-        executor = ThreadPoolExecutor(max_workers=Core._count_threads)
+    def report_process(self, alpha: str, model_size: Tuple[str, str, str], button):
+        proc = Process(target=Core.run_proc_report, args=(self.clipboard_obj.clipboard_dict, alpha, model_size))
+        proc.start()
 
-        args_pressure_coefficients = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
-
-        with executor:
-            executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(*i), args_pressure_coefficients)
-
-        args_cmz = [(alpha, model_scale, str(angle), model_size) for angle in range(0, angle_border, 5)]
-        executor.map(lambda i: self.clipboard_obj.get_cmz(*i), args_cmz)
-
-        args_cx_cy = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
-        executor.map(lambda i: self.clipboard_obj.get_cx_cy(*i), args_cx_cy)
-
-        Process(target=self.report, args=((alpha, model_size),)).start()
-        '''
-        self.report(alpha, model_size)
+        executor = ThreadPoolExecutor(max_workers=1)
+        executor.map(lambda i: Core.check_alive_proc(*i), ((proc, button),))
 
     def report(self, alpha: str, model_size: Tuple[str, str, str]):
         """Создание отчёта для выбранной конфигурации.
@@ -585,7 +590,7 @@ class Core:
             - спектральная плотность мощности суммарных аэродинамических коэффициентов
             - характеристика по датчикам
         """
-        print(f'Начало формирования отчета размеры = {" ".join(model_size)} альфа = {alpha}')
+        self.logger.info(f'Начало формирования отчета размеры = {" ".join(model_size)} альфа = {alpha}')
 
         folder = os.getcwd()
 
@@ -601,9 +606,10 @@ class Core:
             angle_border = 95
 
         x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
+        self.clipboard_obj.get_pressure_coefficients('6', '111', '0')
 
         # Отображение модели
-        self.draw_model(alpha, model_size, model_scale, path_report, scale_factors)
+        self.draw_model(alpha, model_size, model_scale, path_report)
 
         # Изополя
         self.draw_isofields(alpha, model_size, angle_border, path_report)
@@ -717,7 +723,7 @@ class Core:
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 doc.add_paragraph().add_run(
                     f'Рисунок {counter_plots}. Непрерывные изополя {mode} '
-                    f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 counter_plots += 1
 
@@ -735,14 +741,14 @@ class Core:
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 doc.add_paragraph().add_run(
                     f'Рисунок {counter_plots}. Непрерывные изополя {mode} '
-                    f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 counter_plots += 1
         doc.add_page_break()
 
         # 4. Статистика по датчикам в табличном виде
 
-        coordinates = converter_coordinates_to_real(x, z, model_size, model_scale, scale_factors)
+        coordinates = converter_coordinates_to_real(x, z, model_size, model_scale)
         sensor_statistics = self.get_sensor_statistics(alpha,
                                                        model_scale,
                                                        angle_border,
@@ -769,7 +775,7 @@ class Core:
         for angle in range(0, angle_border, 5):
             doc.add_paragraph().add_run(
                 f'\nТаблица {counter_tables}. Аэродинамический коэффициент в датчиках для '
-                f'здания {breadth}x{depth}x{height} угол {angle}º')
+                f'здания {breadth}x{depth}x{height} угол {angle:02}º')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_tables += 1
             table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
@@ -791,7 +797,6 @@ class Core:
         summary_coefficients_statistics = self.get_summary_coefficients_statistics(angle_border,
                                                                                    alpha,
                                                                                    model_scale,
-                                                                                   model_size
                                                                                    )
 
         doc.add_heading().add_run('5. Суммарные значения аэродинамических коэффициентов').font.size = Pt(20)
@@ -813,12 +818,12 @@ class Core:
                 f'Суммарные аэродинамические коэффициенты Cx_Cy_CMz {" ".join(model_size)} {alpha} {angle:02}.png')
             doc.add_paragraph().add_run(
                 f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты '
-                f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_plots += 1
             doc.add_paragraph().add_run(
                 f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
-                f'для здания {breadth}x{depth}x{height} угол {angle}º')
+                f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
             counter_tables += 1
             table_sum = doc.add_table(rows=1, cols=len(header_sum))
             table_sum.style = 'Table Grid'
@@ -865,16 +870,25 @@ class Core:
 
         doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
         # os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
-        print(f'Формирование отчета размеры = {" ".join(model_size)} альфа = {alpha} завершено')
+        self.logger.info(f'Формирование отчета размеры = {" ".join(model_size)} альфа = {alpha} завершено')
 
 
 if __name__ == '__main__':
     c = Core()
+    c.report('4', ('10', '10', '12'))
+    # run_proc(c.clipboard_obj.clipboard_dict, '4', ('1', '1', '1'))
     # fig = c.get_plot_summary_coefficients('6', ('0.1', '0.1', '0.1'), '0', 'Cx Cy CMz')
     # utils.utils.open_fig(fig)
-    t1 = time.time()
-    c.report_process('6', ('1', '4', '8'))
-    print(time.time() - t1)
+    # t1 = time.time()
+    # c.report_process('6', ('1', '4', '8'))
+    # c.get_plot_isofields('6', ('1', '1', '1'),'0','mean','integral_isofields')
+    # c.save_clipboard()
+    # c.report_process('6', ('1', '1', '1'))
+    # print(time.time() - t1)
     # print('=========================================')
-    # c.report('6', ('2', '2', '2'))
+    # c.report('6', ('2', '2', '2')) alpha: str,
+    #                            model_size: Tuple[str, str, str],
+    #                            angle: str,
+    #                            mode: str,
+    #                            type_plot: str):
     # print(os.listdir('D:\\'))

@@ -1,23 +1,16 @@
 import os
-import scipy.interpolate
-import numpy as np
 import multiprocessing
-import matplotlib.pyplot as plt
 from typing import Tuple
 
+import numpy as np
+import scipy.interpolate
+import matplotlib.pyplot as plt
 
-def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, coordinates, angle: int):
+
+def calculate_cmz(model_name: str, pr_coeff, coordinates):
     """Вычисление моментов сил CMz"""
     cmz = []
-    breadth_db, depth_db, _ = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
-    breadth_real, depth_real, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
-
-    sin = np.sin(angle * np.pi / 180)
-
-    center_1 = breadth_real / 2
-    center_2 = breadth_real + depth_real / 2
-    center_3 = breadth_real + depth_real + depth_real / 2
-    center_4 = breadth_real + 2 * depth_real + breadth_real / 2
+    breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
 
     count_sensors_on_model = len(pr_coeff[0])
     count_sensors_on_middle = int(model_name[0]) * 5
@@ -34,24 +27,25 @@ def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, c
 
     del x[4]
 
-    x[0] *= breadth_real / breadth_db
+    mid13_x = breadth / 2
+    mid24_x = depth / 2
 
-    x[1] -= breadth_db
-    x[1] *= depth_real / depth_db
-    x[1] += breadth_real
+    v2 = breadth
+    v3 = breadth + depth
+    v4 = 2 * breadth + depth
+    x[1] -= v2
+    x[2] -= v3
+    x[3] -= v4
 
-    x[2] -= breadth_db + depth_db
-    x[2] *= breadth_real / breadth_db
-    x[2] += breadth_real + depth_real
+    mx13 = np.array([
+        abs(x[0] - mid13_x),
+        abs(x[2] - mid13_x),
+    ])
 
-    x[3] -= 2 * breadth_db + depth_db
-    x[3] *= depth_real / depth_db
-    x[3] += 2 * breadth_real + depth_real
-
-    mx1 = np.array([abs(x[0] - center_1)])
-    mx2 = np.array([abs(x[1] - center_2)])
-    mx3 = np.array([abs(x[2] - center_3)])
-    mx4 = np.array([abs(x[3] - center_4)])
+    mx24 = np.array([
+        abs(x[1] - mid24_x),
+        abs(x[3] - mid24_x),
+    ])
 
     coeffs_norm_13 = [1 if i <= count_sensors_on_middle // 2 else -1 for i in range(count_sensors_on_middle)]
     coeffs_norm_24 = [1 if i <= count_sensors_on_side // 2 else -1 for i in range(count_sensors_on_side)]
@@ -71,11 +65,10 @@ def calculate_cmz(model_name: str, model_size: Tuple[str, str, str], pr_coeff, c
             else:
                 coeff[i] *= coeffs_norm_24
 
-        t_cmz += np.sum(mx1 * coeff[0])
-        t_cmz += np.sum(mx2 * coeff[1])
-        t_cmz += np.sum(mx3 * coeff[2])
-        t_cmz += np.sum(mx4 * coeff[3])
-        # t_cmz *= sin
+        t_cmz += np.sum(mx13[0] * coeff[0])
+        t_cmz += np.sum(mx24[0] * coeff[1])
+        t_cmz += np.sum(mx13[1] * coeff[2])
+        t_cmz += np.sum(mx24[1] * coeff[3])
 
         cmz = np.append(cmz, t_cmz)
 
@@ -137,7 +130,7 @@ def obes_m(data):
 
 
 def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tuple):
-    """Вычисление ближайшей модели из БД и коэффициентов масштабирования"""
+    """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели"""
     x, y, z = float(x), float(y), float(z)
     min_size = min(x, y, z)
 
@@ -265,13 +258,13 @@ def converter_coordinates(x_old, breadth: float, depth: float, face_number, coun
     return x, y
 
 
-def converter_coordinates_to_real(x, z, model_size, model_scale, scale_factors: Tuple[float, float, float]):
+def converter_coordinates_to_real(x, z, model_size, model_scale):
     breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
     breadth_db, depth_db, height_db = int(model_scale[0]) / 10, int(model_scale[1]) / 10, int(model_scale[2]) / 10
 
-    x_scale_factor = scale_factors[0]
-    y_scale_factor = scale_factors[1]
-    z_scale_factor = scale_factors[2]
+    x_scale_factor = breadth_real / breadth_db
+    y_scale_factor = depth_real / depth_db
+    z_scale_factor = height_real / height_db
 
     count_sensors_on_model = len(x)
     count_sensors_on_middle = int(model_scale[0]) * 5

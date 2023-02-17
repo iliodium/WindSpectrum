@@ -46,10 +46,13 @@
                         font_size: 10
                         font_style: 'Caption'
                         text: '[Климатическая карта России]'
+
                 MDFlatButton:
+                    id: wind_district_button
                     text: 'Выбор'
                     font_size: 18
-
+                    on_release:
+                        app.wind_district.open()
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -63,8 +66,11 @@
                         font_style: 'Caption'
                         text: '[Описание]'
                 MDFlatButton:
+                    id: type_district_button
                     text: 'Выбор'
                     font_size: 18
+                    on_release:
+                        app.type_district.open()
 
 
                 MDBoxLayout:
@@ -172,13 +178,18 @@
                     text: 'СП20.13330.2016'
                     font_size: 18
 
-                MDFlatButton:
+                MDRaisedButton:
+                    id: report_button
                     text: 'Отчет'
                     font_size: 18
                     on_release:
+                        self.disabled = True
                         app.report()
-                MDFlatButton:
-                    disabled: True
+
+                MDSpinner:
+                    size_hint: None, None
+                    size: dp(46), dp(46)
+                    active: True if report_button.disabled else False
 
                 MDRaisedButton:
                     adaptive_size: True
@@ -188,5 +199,15 @@
                     on_release:
                         app.menu.open()
                 MDFlatButton:
-                    id: plots_fa
+                    disabled: True
+
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: button_clipboard
+                    font_size: 18
+                    text: 'Сохранить буфер'
+                    on_release:
+                        app.save_clipboard()
+                    disabled: True
+                MDFlatButton:
                     disabled: True
