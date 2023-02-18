@@ -90,7 +90,7 @@
                     id: angle
                     hint_text: 'RUMB'
                     helper_text: "углы кратные 5"
-                    text: '0' ######
+                    text: '0'
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
@@ -115,7 +115,7 @@
                     id: model_size
                     hint_text: 'X Y Z'
                     helper_text: "через пробел"
-                    text:'0.1 0.1 0.1' ######
+                    text:'1 1 1'
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
@@ -179,19 +179,6 @@
                     font_size: 18
 
                 MDRaisedButton:
-                    id: report_button
-                    text: 'Отчет'
-                    font_size: 18
-                    on_release:
-                        self.disabled = True
-                        app.report()
-
-                MDSpinner:
-                    size_hint: None, None
-                    size: dp(46), dp(46)
-                    active: True if report_button.disabled else False
-
-                MDRaisedButton:
                     adaptive_size: True
                     id: plots
                     font_size: 18
@@ -211,3 +198,16 @@
                     disabled: True
                 MDFlatButton:
                     disabled: True
+
+                MDRaisedButton:
+                    id: report_button
+                    text: 'Отчет'
+                    font_size: 18
+                    on_release:
+                        self.disabled = True
+                        app.report()
+
+                MDSpinner:
+                    size_hint: None, None
+                    size: dp(46), dp(46)
+                    active: True if report_button.disabled else False

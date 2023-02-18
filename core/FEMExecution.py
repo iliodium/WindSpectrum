@@ -1,8 +1,8 @@
 import os
 import enum
 import json
-import dataclasses
 import subprocess
+import dataclasses
 import os.path as path
 from typing import List
 
@@ -41,7 +41,7 @@ class DynamicsExecutionUnit:
             self.elements.append(other)
             return self
         else:
-            raise ValueError(f"Unsupported operand of addition of type: {None if other == None else other.__class__}")
+            raise ValueError(f"Unsupported operand of addition of type: {None if other is None else other.__class__}")
 
     def __len__(self):
         return len(self.elements)

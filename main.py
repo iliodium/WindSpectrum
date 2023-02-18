@@ -269,7 +269,7 @@ class MainApp(MDApp):
             {
                 "text": f'{district} {val}',
                 "viewclass": "OneLineListItem",
-                # "on_release": menu_view_isofields.open,
+
             }
             for district, val in zip(districts, vals)
         ]
@@ -292,7 +292,7 @@ class MainApp(MDApp):
             {
                 "text": f'{typ} α {alpha} κ {k} ζ {z}',
                 "viewclass": "OneLineListItem",
-                # "on_release": menu_view_isofields.open,
+
             }
             for typ, alpha, k, z in zip(types, alphas, ks, zs)
         ]

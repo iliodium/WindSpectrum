@@ -7,6 +7,102 @@ import scipy.interpolate
 import matplotlib.pyplot as plt
 
 
+def get_base_angle(angle: int, permutation_view: str):
+    return 90 * (angle // 90 + 1) - angle if permutation_view == "reverse" else angle % 90
+
+
+def changer_sequence_data(coefficients,
+                          permutation_view: str,
+                          model_name: str,
+                          sequence_permutation: Tuple[int, int, int, int]):
+    """Меняет порядок следования датчиков тем самым генерируя не существующие углы"""
+
+    f1, f2, f3, f4 = sequence_permutation
+    count_sensors_on_middle = int(model_name[0]) * 5
+    count_sensors_on_side = int(model_name[1]) * 5
+    count_sensors_on_model = len(coefficients[0])
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+    if permutation_view == 'forward':
+        for i in range(len(coefficients)):
+            arr = np.array(coefficients[i]).reshape((count_row, -1))
+            arr = np.split(arr, [count_sensors_on_middle,
+                                 count_sensors_on_middle + count_sensors_on_side,
+                                 2 * count_sensors_on_middle + count_sensors_on_side,
+                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+                                 ], axis=1)
+
+            coefficients[i] = np.concatenate((arr[f1],
+                                              arr[f2],
+                                              arr[f3],
+                                              arr[f4]), axis=1).reshape(count_sensors_on_model)
+    else:
+        for i in range(len(coefficients)):
+            arr = np.array(coefficients[i]).reshape((count_row, -1))
+            arr = np.split(arr, [count_sensors_on_middle,
+                                 count_sensors_on_middle + count_sensors_on_side,
+                                 2 * count_sensors_on_middle + count_sensors_on_side,
+                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+                                 ], axis=1)
+
+            coefficients[i] = np.concatenate((np.flip(arr[f1], axis=1),
+                                              np.flip(arr[f2], axis=1),
+                                              np.flip(arr[f3], axis=1),
+                                              np.flip(arr[f4], axis=1)), axis=1).reshape(count_sensors_on_model)
+
+    return coefficients
+
+
+def get_sequence_permutation_data(type_base: str, permutation_view: str, angle: int):
+    """Определяет как менять расстановку датчиков и вызывает расстановщика"""
+
+    # определение порядка данных
+    sequence = {
+        'square': {  # квадрат в основании
+            'reverse': {
+                45 < angle < 90: (1, 0, 3, 2),
+                135 < angle < 180: (2, 1, 0, 3),
+                225 < angle < 270: (3, 2, 1, 0),
+                315 < angle < 360: (0, 3, 1, 2)
+            },
+            'forward': {
+                0 <= angle <= 45: (0, 1, 2, 3),
+                90 <= angle <= 135: (3, 0, 1, 2),
+                180 <= angle <= 225: (2, 3, 0, 1),
+                270 <= angle <= 315: (1, 2, 3, 0)
+            }},
+        'rectangle': {  # прямоугольник в основании
+            'reverse': {
+                90 < angle < 180: (2, 1, 0, 3),
+                270 < angle < 360: (0, 3, 2, 1),
+            },
+            'forward': {
+                0 <= angle <= 90: (0, 1, 2, 3),
+                180 <= angle <= 270: (2, 3, 0, 1)
+            }}
+    }
+
+    return sequence[type_base][permutation_view][True]
+
+
+def get_view_permutation_data(type_base: str, angle: int):
+    """Определяет порядок данных для перестановки.
+    reverse = нужно перевернуть [1, 2, 3] -> [3, 2, 1]
+    forward = не нужно перевернуть [1, 2, 3] -> [1, 2, 3]"""
+
+    if type_base == 'square':  # в основании квадрат
+        if any([45 < angle < 90, 135 < angle < 180, 225 < angle < 270, 315 < angle < 360]):
+            return 'reverse'
+        else:
+            return 'forward'
+
+    else:  # в основании прямоугольник
+        if any([90 < angle < 180, 270 < angle < 360]):
+            return 'reverse'
+        else:
+            return 'forward'
+
+
 def calculate_cmz(model_name: str, pr_coeff, coordinates):
     """Вычисление моментов сил CMz"""
     cmz = []
@@ -149,7 +245,7 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     index_x = difference_x.argmin()
     x_nearest = x_from_db[index_x]
 
-    # Проверка тк в БД отсутствует z == 1 для x == 2 | x == 3
+    # Проверка тк в БД отсутствует z == 1 для x == 2 и x == 3
     if x_nearest in [2, 3]:
         z_from_db = np.array([2, 3, 4, 5])
     else:

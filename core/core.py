@@ -16,7 +16,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from plot.plot import Plot
 from clipboard.clipboard import Clipboard
 from utils.utils import get_model_and_scale_factors, rms, rach, obes_m, obes_p, converter_coordinates_to_real, \
-    converter_coordinates, generate_directory_for_report
+    converter_coordinates, generate_directory_for_report, get_view_permutation_data, get_sequence_permutation_data, \
+    changer_sequence_data, get_base_angle
 
 
 class Core:
@@ -53,19 +54,32 @@ class Core:
         """Функция возвращает изополя.
         Если изополя отсутствуют в буфере, запускается отрисовка.
         """
-        self.logger.info(f'Запрос {type_plot} альфа = {alpha} '
-                         f'размер = {" ".join(model_size)} угол = {angle.rjust(2, "0")} режим = {mode} из буфера')
+        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                         f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера')
 
         fig = None
+
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
 
-        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+        if model_scale[0] == model_scale[1]:
+            angle_border = 45
+            type_base = 'square'
+        else:
+            angle_border = 90
+            type_base = 'rectangle'
 
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} '
-                             f'размер = {" ".join(model_size)} угол = {angle.rjust(2, "0")} режим = {mode}')
-            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+        if int(angle) > angle_border:
+            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            base_angle = get_base_angle(int(angle), permutation_view)
+            sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
+
+            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(base_angle))
             coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+
+            pressure_coefficients = changer_sequence_data(pressure_coefficients,
+                                                          permutation_view,
+                                                          model_scale,
+                                                          sequence_permutation)
 
             if type_plot == 'discrete_isofields':
                 fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
@@ -79,13 +93,35 @@ class Core:
                                              pressure_coefficients,
                                              coordinates,
                                              )
+        else:
 
-            self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
 
-        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+                self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
+                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+                coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
 
-        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                         f'угол = {angle.rjust(2, "0")} режим = {mode} из буфера успешно выполнен')
+                if type_plot == 'discrete_isofields':
+                    fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
+                elif type_plot == 'integral_isofields':
+                    fig = Plot.integral_isofield(model_scale,
+                                                 model_size,
+                                                 scale_factors,
+                                                 alpha,
+                                                 mode,
+                                                 angle,
+                                                 pressure_coefficients,
+                                                 coordinates,
+                                                 )
+
+                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+
+            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+
+            self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
 
         return fig
 
@@ -100,31 +136,55 @@ class Core:
         Если графики суммарных спектров отсутствуют в буфере, запускается отрисовка.
         """
         message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
-        self.logger.info(f'Запрос суммарных спектров {message} из буфера')
+        self.logger.info(f'Отрисовка суммарных спектров {message}')
 
         mode = mode.replace(' ', '_')
         model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
         id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
         data = dict()
 
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            self.logger.info(f'Отрисовка суммарных спектров {message}')
+        if model_scale[0] == model_scale[1]:
+            angle_border = 45
+            type_base = 'square'
+        else:
+            angle_border = 90
+            type_base = 'rectangle'
+
+        if int(angle) > angle_border:
+            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            base_angle = get_base_angle(int(angle), permutation_view)
 
             if 'Cx' in mode or 'Cy' in mode:
-                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
+                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, str(base_angle))
                 if 'Cx' in mode:
                     data['Cx'] = cx
                 if 'Cy' in mode:
                     data['Cy'] = cy
 
             if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
+                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, str(base_angle))
 
-            fig = Plot.welch_graphs(data, model_size, alpha, angle)
-            self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+            fig = Plot.welch_graphs(data, model_size, alpha, str(base_angle))
 
-        self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+        else:
+            self.logger.info(f'Запрос суммарных спектров {message} из буфера')
+            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+
+                if 'Cx' in mode or 'Cy' in mode:
+                    cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
+                    if 'Cx' in mode:
+                        data['Cx'] = cx
+                    if 'Cy' in mode:
+                        data['Cy'] = cy
+
+                if 'CMz' in mode:
+                    data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
+
+                fig = Plot.welch_graphs(data, model_size, alpha, angle)
+                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+
+            self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
 
         return fig
 
@@ -136,34 +196,58 @@ class Core:
         """Функция возвращает графики суммарных коэффициентов.
         Если графики суммарных коэффициентов отсутствуют в буфере, запускается отрисовка.
         """
-        self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-                         f'альфа = {alpha} угол = {angle.rjust(2, "0")}  режим = {mode} из буфера')
 
         model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
         type_plot = 'summary_coefficients'
         id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
         data = dict()
+        if model_scale[0] == model_scale[1]:
+            angle_border = 45
+            type_base = 'square'
+        else:
+            angle_border = 90
+            type_base = 'rectangle'
 
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            self.logger.info(f'Отрисовка суммарных коэффициентов '
-                             f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}')
+        if int(angle) > angle_border:
+            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            base_angle = get_base_angle(int(angle), permutation_view)
+
             if 'Cx' in mode or 'Cy' in mode:
-                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
+                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, str(base_angle))
                 if 'Cx' in mode:
                     data['Cx'] = cx
                 if 'Cy' in mode:
                     data['Cy'] = cy
 
             if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
+                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, str(base_angle))
 
-            fig = Plot.summary_coefficients(data, model_scale, alpha, angle)
-            self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            fig = Plot.summary_coefficients(data, model_scale, alpha, str(base_angle))
 
-        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+        else:
+            self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
+                             f'альфа = {alpha} угол = {angle.rjust(2, "0")}  режим = {mode.ljust(4, " ")} из буфера')
+            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+                self.logger.info(f'Отрисовка суммарных коэффициентов '
+                                 f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode.ljust(4, " ")}')
+                if 'Cx' in mode or 'Cy' in mode:
+                    cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
+                    if 'Cx' in mode:
+                        data['Cx'] = cx
+                    if 'Cy' in mode:
+                        data['Cy'] = cy
 
-        self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-                         f'альфа = {alpha} угол = {int(angle):02}  режим = {mode} из буфера успешно выполнен')
+                if 'CMz' in mode:
+                    data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
+
+                fig = Plot.summary_coefficients(data, model_scale, alpha, angle)
+                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+
+            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
+
+            self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
+                             f'альфа = {alpha} угол = {int(angle):02}  '
+                             f'режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
 
         return fig
 
@@ -178,7 +262,7 @@ class Core:
         """
         self.logger.info(f'Запрос суммарных коэффициентов в '
                          f'полярной системе координат размеры = {" ".join(list(model_size))} '
-                         f'альфа = {alpha} режим = {mode} из буфера')
+                         f'альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера')
 
         mods = {
             'MEAN': np.mean,
@@ -223,41 +307,60 @@ class Core:
         fig = self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'].get(plot_name)
 
         self.logger.info(f'Запрос суммарных коэффициентов в полярной системе координат размеры = '
-                         f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode} из буфера успешно выполнен')
+                         f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
 
         return fig
 
     def get_envelopes(self,
                       alpha: str,
-                      model_scale: str,
+                      model_size: Tuple[str, str, str],
                       angle: str):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
-        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get('envelopes'):
-            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
 
-            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+        self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
+
+        if model_scale[0] == model_scale[1]:
+            angle_border = 45
+            type_base = 'square'
+        else:
+            angle_border = 90
+            type_base = 'rectangle'
+
+        if int(angle) > angle_border:
+            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            base_angle = get_base_angle(int(angle), permutation_view)
+
+            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(base_angle))
             figs = Plot.envelopes(pressure_coefficients, alpha, model_scale, angle)
 
-            for ind, val in enumerate(figs):
-                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{ind}'] = val
-            self.clipboard_obj.clipboard_dict[alpha][model_scale][angle]['envelopes'] = True
-            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
+        else:
+            self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                             f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
 
-        figs = []
-        i = 0
-        while True:
-            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(f'envelopes_{i}'):
-                break
-            else:
-                figs.append(self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{i}'])
-                i += 1
+            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get('envelopes'):
 
-        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера успешно выполнен')
+                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+                figs = Plot.envelopes(pressure_coefficients, alpha, model_scale, angle)
+
+                for ind, val in enumerate(figs):
+                    self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{ind}'] = val
+                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle]['envelopes'] = True
+                self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
+
+            figs = []
+            i = 0
+            while True:
+                if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(f'envelopes_{i}'):
+                    break
+                else:
+                    figs.append(self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{i}'])
+                    i += 1
+
+            self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                             f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера успешно выполнен')
 
         return figs
 

@@ -280,13 +280,13 @@ class Plot:
         return fig
 
     @staticmethod
-    def summary_coefficients(data, model_name: str, alpha: str, angle: str):
+    def summary_coefficients(data, model_scale: str, alpha: str, angle: str):
         """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
         data = {name:array,
                 ...
                 }
         """
-        num_fig = f'Суммарные коэффициенты декартовая система координат {model_name} {alpha} {angle}'
+        num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {alpha} {angle}'
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
         ax.grid()
         ax.set_xlim(0, 32.768)
@@ -544,6 +544,7 @@ class Plot:
     @staticmethod
     def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle: str):
         """Отрисовка огибающих"""
+
         figs = []  # массив для графиков так как на 1 графике максимум 100 датчиков
         step_x = 20
         step_x_minor = 5
@@ -552,8 +553,10 @@ class Plot:
         step_sens = 100
         count_sensors_plot = len(pressure_coefficients[0])
 
-        for q in range(0, count_sensors_plot, step_sens):
-            num_fig = f'Огибающие {model_scale} {alpha} {angle} {q + 1} до {q + step_sens + 1}'
+        sensors = list(range(0, count_sensors_plot, step_sens))
+
+        for q in sensors:
+            num_fig = f'Огибающие {model_scale} {alpha} {angle} {q}'
             fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
             ax.grid(visible=True, which='minor', color='black', linestyle='--')
             ax.grid(visible=True, which='major', color='black', linewidth=1.5)
@@ -565,17 +568,23 @@ class Plot:
             max_pr = np.max(coefficients, axis=0).round(4)
             min_pr = np.min(coefficients, axis=0).round(4)
 
-            ox = [i for i in range(q + 1, q + step_sens + 1)]
+            if q == sensors[-1]:
+                len_data = len(min_pr)
+            else:
+                len_data = step_sens
+
+            ox = [i for i in range(q + 1, q + len_data + 1)]
+
             for i, j, c in zip((mean_pr, rms_pr, std_pr, max_pr, min_pr), ('MEAN', 'RMS', 'STD', 'MAX', 'MIN'),
                                ('b', 'g', 'r', 'c', 'y')):
                 ax.plot(ox, i, '-', label=j, linewidth=3, color=c)
 
-            ax.set_xlim([q + 1, q + step_sens])
+            ax.set_xlim([q + 1, q + len_data])
             yticks = np.arange(np.min(min_pr) - step_y, np.max(max_pr) + step_y, step_y).round(2)
             ax.set_ylim(np.min(yticks) + 0.2, np.max(yticks) + 0.2)
             ax.set_yticks(yticks)
 
-            ax.set_xticks([q + 1] + [i for i in range(q + step_x, q + step_sens + 1, 20)])
+            ax.set_xticks([q + 1] + [i for i in range(q + step_x, q + len_data + 1, 20)])
 
             ax.xaxis.set_minor_locator(MultipleLocator(step_x_minor))
             ax.xaxis.set_minor_formatter(ScalarFormatter())
