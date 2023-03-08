@@ -7,7 +7,7 @@ from multiprocessing import Manager
 from numpy import array, any
 
 # local imports
-from utils.utils import calculate_cx_cy, calculate_cmz
+from utils.utils import calculate_cx_cy, calculate_cmz, changer_sequence_numbers, changer_sequence_coefficients
 from databasetoolkit.databasetoolkit import DataBaseToolkit
 
 
@@ -50,6 +50,8 @@ class Clipboard:
                                                  '6': self.manager.dict()
                                                  })
         experiments = self.database_obj.get_experiments(self.manager.dict)
+        # print(experiments['4'])
+        # print(experiments['6'])
         self.clipboard_dict['4'] = experiments['4']
         self.clipboard_dict['6'] = experiments['6']
 
@@ -66,6 +68,14 @@ class Clipboard:
         self.logger.info(f"Запрос коэффициентов давления "
                          f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
+        model_name_n = None
+        f = False
+
+        if model_name[1] in ['2', '3']:
+            model_name_n = model_name
+            model_name = model_name[1] + model_name[0] + model_name[2]
+            f = True
+
         if not any(self.clipboard_dict[alpha][model_name][angle].get('pressure_coefficients')):
             self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] = \
                 array(self.database_obj.get_pressure_coefficients(alpha, model_name, angle))
@@ -73,12 +83,18 @@ class Clipboard:
 
         self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
                          f"альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+        if f:
+            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, 'forward', model_name_n,
+                                                                  (3, 0, 1, 2), f)
 
         return pressure_coefficients
 
     def get_coordinates(self, alpha: str, model_scale: str):
         """Возвращает координаты датчиков из буфера"""
         self.logger.info(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
+
+        if model_scale[1] in ['2', '3']:
+            model_scale = model_scale[1] + model_scale[0] + model_scale[2]
 
         if not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('x') or \
                 not self.clipboard_dict[alpha][model_scale]['const_parameters'].get('z'):
@@ -88,8 +104,8 @@ class Clipboard:
 
         self.logger.info(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} из буфера успешно выполнен")
 
-        return self.clipboard_dict[alpha][model_scale]['const_parameters']['x'], \
-               self.clipboard_dict[alpha][model_scale]['const_parameters']['z']
+        return [self.clipboard_dict[alpha][model_scale]['const_parameters']['x'],
+                self.clipboard_dict[alpha][model_scale]['const_parameters']['z']]
 
     def get_uh_average_wind_speed(self, alpha: str, model_name: str):
         """Возвращает среднюю скорость ветра из буфера"""
@@ -108,13 +124,26 @@ class Clipboard:
         """Возвращает нумерацию датчиков из буфера"""
         self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера")
 
+        model_name_n = None
+        f = False
+
+        if model_name[1] in ['2', '3']:
+            model_name_n = model_name
+            model_name = model_name[1] + model_name[0] + model_name[2]
+            f = True
+
         if not self.clipboard_dict[alpha][model_name]['const_parameters'].get('face_number'):
             self.clipboard_dict[alpha][model_name]['const_parameters']['face_number'] = \
                 self.database_obj.get_face_number(alpha, model_name)
 
         self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
 
-        return self.clipboard_dict[alpha][model_name]['const_parameters']['face_number']
+        numbers = self.clipboard_dict[alpha][model_name]['const_parameters']['face_number']
+
+        if f:
+            numbers = changer_sequence_numbers(numbers, model_name_n, (3, 0, 1, 2))
+
+        return numbers
 
     def get_cx_cy(self, alpha: str, model_name: str, angle: str):
         """Возвращает суммарные коэффициенты Cx Cy из буфера"""
@@ -150,7 +179,9 @@ class Clipboard:
 
 
 if __name__ == '__main__':
-    print('4'.rjust(2, '0'))
+    c = Clipboard()
+    # print(c.get_face_number('4','111'))
+    print(c.get_face_number('4', '132'))
     # from concurrent.futures import ThreadPoolExecutor
     #
     # d = Clipboard()

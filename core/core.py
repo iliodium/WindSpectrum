@@ -17,7 +17,7 @@ from plot.plot import Plot
 from clipboard.clipboard import Clipboard
 from utils.utils import get_model_and_scale_factors, rms, rach, obes_m, obes_p, converter_coordinates_to_real, \
     converter_coordinates, generate_directory_for_report, get_view_permutation_data, get_sequence_permutation_data, \
-    changer_sequence_data, get_base_angle
+    changer_sequence_coefficients, get_base_angle
 
 
 class Core:
@@ -61,25 +61,30 @@ class Core:
 
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
 
+        model_scale_n = model_scale
+
         if model_scale[0] == model_scale[1]:
             angle_border = 45
             type_base = 'square'
+
         else:
             angle_border = 90
             type_base = 'rectangle'
 
+        if model_scale[1] in ['2', '3']:
+            model_scale_n = model_scale[1] + model_scale[0] + model_scale[2]
+            angle = str((int(angle) - 90)) if int(angle) - 90 > 0 else str(360 + int(angle) - 90)
+
         if int(angle) > angle_border:
             permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view)
+            base_angle = get_base_angle(int(angle), permutation_view, type_base)
             sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
 
             pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(base_angle))
-            coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+            coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale_n)
 
-            pressure_coefficients = changer_sequence_data(pressure_coefficients,
-                                                          permutation_view,
-                                                          model_scale,
-                                                          sequence_permutation)
+            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
+                                                                  model_scale_n, sequence_permutation)
 
             if type_plot == 'discrete_isofields':
                 fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
@@ -100,8 +105,9 @@ class Core:
             if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
                 self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
                                  f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
-                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
-                coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+
+                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale_n, angle)
+                coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale_n)
 
                 if type_plot == 'discrete_isofields':
                     fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
@@ -314,12 +320,13 @@ class Core:
     def get_envelopes(self,
                       alpha: str,
                       model_size: Tuple[str, str, str],
-                      angle: str):
+                      angle: str,
+                      model_scale: str = ''):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
-
-        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+        if model_scale == '':
+            model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
         self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
 
         if model_scale[0] == model_scale[1]:
@@ -392,7 +399,7 @@ class Core:
         if not os.path.exists(path_folder):
             os.mkdir(path_folder)
 
-        figs = self.get_envelopes(alpha, model_scale, angle)
+        figs = self.get_envelopes(alpha, ('1', '1', '1'), angle, model_scale)
 
         for i in range(len(figs)):
             file_name = f'Огибающие {model_scale} {alpha} {int(angle):02} {i * 100} - {(i + 1) * 100}.png'
@@ -709,7 +716,6 @@ class Core:
             angle_border = 95
 
         x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
-        self.clipboard_obj.get_pressure_coefficients('6', '111', '0')
 
         # Отображение модели
         self.draw_model(alpha, model_size, model_scale, path_report)

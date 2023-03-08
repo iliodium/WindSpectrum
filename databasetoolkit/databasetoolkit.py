@@ -70,8 +70,19 @@ class DataBaseToolkit:
                             select model_name
                             from experiments_alpha_4
                             """)
-        experiments['4'] = manager({str(i[0]): manager() for i in cursor.fetchall()})
+        exp = [str(i[0]) for i in cursor.fetchall()]
+
+        for i in exp:
+            if i[0] in ['2', '3']:
+                exp.append(i[1]+i[0]+i[2])
+
+        experiments['4'] = manager({i: manager() for i in exp})
         for model_name in experiments['4'].keys():
+            model_name_n = None
+            if model_name[1] in ['2', '3']:
+                model_name_n = model_name
+                model_name = model_name[1]+model_name[0]+model_name[2]
+
             cursor.execute("""
                                 select angle
                                 from models_alpha_4
@@ -81,14 +92,27 @@ class DataBaseToolkit:
                                 from experiments_alpha_4
                                 where model_name = (%s))
                                 """, (model_name,))
-            experiments['4'][model_name] = manager({str(i[0]): manager() for i in cursor.fetchall()})
+            db_return = cursor.fetchall()
+            experiments['4'][model_name] = manager({str(i[0]): manager() for i in db_return})
+            if model_name_n:
+                experiments['4'][model_name_n] = manager({str(i[0]): manager() for i in db_return})
 
         cursor.execute("""
                             select model_name
                             from experiments_alpha_6
                             """)
-        experiments['6'] = manager({str(i[0]): manager() for i in cursor.fetchall()})
+        exp = [str(i[0]) for i in cursor.fetchall()]
+
+        for i in exp:
+            if i[0] in ['2', '3']:
+                exp.append(i[1] + i[0] + i[2])
+
+        experiments['6'] = manager({i: manager() for i in exp})
         for model_name in experiments['6'].keys():
+            model_name_n = None
+            if model_name[1] in ['2', '3']:
+                model_name_n = model_name
+                model_name = model_name[1]+model_name[0]+model_name[2]
             cursor.execute("""
                                 select angle
                                 from models_alpha_6
@@ -98,7 +122,10 @@ class DataBaseToolkit:
                                 from experiments_alpha_6
                                 where model_name = (%s))
                                 """, (model_name,))
-            experiments['6'][model_name] = manager({str(i[0]): manager() for i in cursor.fetchall()})
+            db_return = cursor.fetchall()
+            experiments['6'][model_name] = manager({str(i[0]): manager() for i in db_return})
+            if model_name_n:
+                experiments['6'][model_name_n] = manager({str(i[0]): manager() for i in db_return})
 
         self.logger.info("Запрос экспериментов из БД успешно выполнен")
 

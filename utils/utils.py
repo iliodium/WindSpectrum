@@ -1,25 +1,38 @@
 import os
 import multiprocessing
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 import scipy.interpolate
 import matplotlib.pyplot as plt
 
 
-def get_base_angle(angle: int, permutation_view: str):
-    return 90 * (angle // 90 + 1) - angle if permutation_view == "reverse" else angle % 90
+def get_base_angle(angle: int, permutation_view: str, type_base: str = 'square'):
+    if permutation_view == "reverse":
+        return 90 * (angle // 90 + 1) - angle
+    else:
+        if type_base == 'square':
+            return angle % 90
+        elif type_base == 'rectangle' and angle == 270:
+            return 90
+        else:
+            return angle % 90
 
 
-def changer_sequence_data(coefficients,
-                          permutation_view: str,
-                          model_name: str,
-                          sequence_permutation: Tuple[int, int, int, int]):
+def changer_sequence_coefficients(coefficients,
+                                  permutation_view: str,
+                                  model_name: str,
+                                  sequence_permutation: Tuple[int, int, int, int],
+                                  flag_turn_model: bool = False):
     """Меняет порядок следования датчиков тем самым генерируя не существующие углы"""
-
     f1, f2, f3, f4 = sequence_permutation
-    count_sensors_on_middle = int(model_name[0]) * 5
-    count_sensors_on_side = int(model_name[1]) * 5
+    if flag_turn_model:
+        count_sensors_on_middle = int(model_name[1]) * 5
+        count_sensors_on_side = int(model_name[0]) * 5
+    else:
+        count_sensors_on_middle = int(model_name[0]) * 5
+        count_sensors_on_side = int(model_name[1]) * 5
+
     count_sensors_on_model = len(coefficients[0])
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
@@ -53,8 +66,35 @@ def changer_sequence_data(coefficients,
     return coefficients
 
 
+def changer_sequence_numbers(numbers: List[int],
+                             model_name: str,
+                             sequence_permutation: Tuple[int, int, int, int]):
+    print(numbers, model_name)
+
+    f1, f2, f3, f4 = sequence_permutation
+    count_sensors_on_middle = int(model_name[1]) * 5
+    count_sensors_on_side = int(model_name[0]) * 5
+    count_sensors_on_model = len(numbers)
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+    arr = np.array(numbers).reshape((count_row, -1))
+    arr = np.split(arr, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+
+    numbers = np.concatenate((arr[f1],
+                              arr[f2],
+                              arr[f3],
+                              arr[f4]), axis=1).reshape(count_sensors_on_model)
+
+    print(numbers)
+    return numbers
+
+
 def get_sequence_permutation_data(type_base: str, permutation_view: str, angle: int):
-    """Определяет как менять расстановку датчиков и вызывает расстановщика"""
+    """Определяет как менять расстановку датчиков"""
 
     # определение порядка данных
     sequence = {
@@ -232,21 +272,32 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
 
     # Относительный масштаб фигуры
     x_scale = x / min_size
+    y_scale = y / min_size
     z_scale = z / min_size
 
     # Масштабы из базы данных
     if alpha == '4':
         x_from_db = np.array([1, 2, 3])
+        y_from_db = np.array([1, 2, 3])
     else:
         x_from_db = np.array([1, 3])
+        y_from_db = np.array([1, 3])
 
     # Расчет коэффициента для X
     difference_x = np.absolute(x_from_db - x_scale)
     index_x = difference_x.argmin()
     x_nearest = x_from_db[index_x]
 
+    # Расчет коэффициента для Y
+    if x_nearest == 1:
+        difference_y = np.absolute(y_from_db - y_scale)
+        index_y = difference_y.argmin()
+        y_nearest = y_from_db[index_y]
+    else:
+        y_nearest = 1
+
     # Проверка тк в БД отсутствует z == 1 для x == 2 и x == 3
-    if x_nearest in [2, 3]:
+    if x_nearest in [2, 3] or y_nearest in [2, 3]:
         z_from_db = np.array([2, 3, 4, 5])
     else:
         z_from_db = np.array([1, 2, 3, 4, 5])
@@ -258,10 +309,10 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
 
     # Коэффициенты масштабирования
     x_scale_factor = x / x_nearest
-    y_scale_factor = y
+    y_scale_factor = y / y_nearest
     z_scale_factor = z / z_nearest
 
-    model_from_db = ''.join(map(str, (x_nearest, 1, z_nearest)))  # Модель из БД
+    model_from_db = ''.join(map(str, (x_nearest, y_nearest, z_nearest)))  # Модель из БД
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors
@@ -403,4 +454,4 @@ def converter_coordinates_to_real(x, z, model_size, model_scale):
 
 
 if __name__ == '__main__':
-    print(get_model_and_scale_factors('3', '5', '10', '4'))
+    print(get_model_and_scale_factors('1', '10', '1', '4'))

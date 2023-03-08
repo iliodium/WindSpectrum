@@ -309,3 +309,7 @@ class MainApp(MDApp):
 
 if __name__ == "__main__":
     MainApp().run()
+    # a = MainApp()
+    # for i in range(85,365,5):
+    #     print(i)
+    #     a.plot_isofields('Непрерывные', 'mean', i)
