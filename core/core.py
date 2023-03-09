@@ -7,6 +7,7 @@ from typing import Tuple
 from multiprocessing import Process
 from concurrent.futures import ThreadPoolExecutor
 
+import toml
 import numpy as np
 from docx import Document
 from docx.shared import Pt, Mm
@@ -21,6 +22,8 @@ from utils.utils import get_model_and_scale_factors, rms, rach, obes_m, obes_p, 
 
 
 class Core:
+    config = toml.load('config.toml')
+
     logger = logging.getLogger('Core'.ljust(15, ' '))
     logger.setLevel(logging.INFO)
 
@@ -32,13 +35,15 @@ class Core:
     py_handler.setFormatter(py_formatter)
     # добавление обработчика к логгеру
     logger.addHandler(py_handler)
-    _count_threads = 20  # количество запускаемых потоков при работе
 
-    def __init__(self, ex_clipboard = None):
+    _count_threads = config['core']['_count_threads']  # количество запускаемых потоков при создании отчета
+
+    def __init__(self, ex_clipboard = None, save_mode_fig = True):
         """Создание объекта для работы с буфером"""
         self.logger.info('Создание ядра')
-        self.clipboard_obj = Clipboard(ex_clipboard)
+        self.clipboard_obj = Clipboard(ex_clipboard=ex_clipboard, save_mode=True)
         self.logger.info('Ядро успешно создано')
+        self.save_mode_fig = save_mode_fig
 
     def save_clipboard(self):
         output = open(f'{os.getcwd()}\\clipboard\\clipboard.pkl', 'wb')
@@ -87,17 +92,17 @@ class Core:
                                                                   model_scale_n, sequence_permutation)
 
             if type_plot == 'discrete_isofields':
-                fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
+                fig = Plot.discrete_isofields(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
             elif type_plot == 'integral_isofields':
-                fig = Plot.integral_isofield(model_scale,
-                                             model_size,
-                                             scale_factors,
-                                             alpha,
-                                             mode,
-                                             angle,
-                                             pressure_coefficients,
-                                             coordinates,
-                                             )
+                fig = Plot.integral_isofields(model_scale,
+                                              model_size,
+                                              scale_factors,
+                                              alpha,
+                                              mode,
+                                              angle,
+                                              pressure_coefficients,
+                                              coordinates,
+                                              )
         else:
 
             id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
@@ -110,17 +115,17 @@ class Core:
                 coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale_n)
 
                 if type_plot == 'discrete_isofields':
-                    fig = Plot.discrete_isofield(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
+                    fig = Plot.discrete_isofields(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
                 elif type_plot == 'integral_isofields':
-                    fig = Plot.integral_isofield(model_scale,
-                                                 model_size,
-                                                 scale_factors,
-                                                 alpha,
-                                                 mode,
-                                                 angle,
-                                                 pressure_coefficients,
-                                                 coordinates,
-                                                 )
+                    fig = Plot.integral_isofields(model_scale,
+                                                  model_size,
+                                                  scale_factors,
+                                                  alpha,
+                                                  mode,
+                                                  angle,
+                                                  pressure_coefficients,
+                                                  coordinates,
+                                                  )
 
                 self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
 
@@ -282,7 +287,7 @@ class Core:
         }
 
         plot_name = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'].get(plot_name):
+        if not self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_parameters'].get(plot_name):
             args_cmz = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
                 list_cmz = list(executor.map(lambda i: self.clipboard_obj.get_cmz(*i), args_cmz))
@@ -308,9 +313,9 @@ class Core:
             }
 
             fig = Plot.polar_plot(data, mode, model_size, alpha)
-            self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'][plot_name] = fig
+            self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_parameters'][plot_name] = fig
 
-        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale]['model_attributes'].get(plot_name)
+        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_parameters'].get(plot_name)
 
         self.logger.info(f'Запрос суммарных коэффициентов в полярной системе координат размеры = '
                          f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')

@@ -1,0 +1,40 @@
+[clipboard]
+[clipboard.plots]
+all = true  # all стоит в приоритете, перед отдельными параметрами
+
+discrete_isofields = true
+integral_isofields = true
+
+summary_spectres_cx = true
+summary_spectres_cy = true
+summary_spectres_cmz = true
+
+summary_coefficients_cx = true
+summary_coefficients_cy = true
+summary_coefficients_cmz = true
+
+summary_coefficients_polar = true
+
+envelopes = true
+
+[clipboard.data_from_db]
+all = true  # all стоит в приоритете, перед отдельными параметрами
+
+pressure_coefficients = true
+coordinates = true
+average_wind_speed = true
+face_number = true
+cx = true
+cy = true
+cmz = true
+
+[plots]
+dpi = 200  # Качество отрисовки графиков
+
+[core]
+count_threads = 20  # Количество запускаемых потоков при создании отчета
+
+[databasetoolkit]
+min_count_connections = 5
+max_count_connections = 15
+time_sleep = 1  # Время между запросами нового подлючения если доступных нет, в секундах

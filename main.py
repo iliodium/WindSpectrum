@@ -6,6 +6,8 @@ import logging
 from core import Core
 from utils import open_fig
 
+__version__ = "0.0.1"
+
 if __name__ == '__main__':
     from kivy.metrics import dp
     from kivy.uix.popup import Popup
@@ -39,7 +41,7 @@ class MainApp(MDApp):
     def __init__(self, **kwargs):
         self.logger.info("Создание графического интерфейса")
         super().__init__(**kwargs)
-        self.core = Core()
+        self.core = Core(save_mode_fig=True)
         self.alpha = None
         self.angle = None
         self.model_size = None

@@ -2,10 +2,14 @@ import os
 import time
 import logging
 
+import toml
 from psycopg2.pool import ThreadedConnectionPool, PoolError
 
 
 class DataBaseToolkit:
+    """Класс для запросов в БД"""
+    config = toml.load('config.toml')
+
     logger = logging.getLogger('DataBaseToolkit'.ljust(15, ' '))
     logger.setLevel(logging.INFO)
 
@@ -18,8 +22,9 @@ class DataBaseToolkit:
     # добавление обработчика к логгеру
     logger.addHandler(py_handler)
 
-    _min_count_connections = 5  # минимальное число соединений с БД
-    _max_count_connections = 15  # максимальное число соединений с БД
+    _min_count_connections = config['databasetoolkit']['min_count_connections']  # минимальное число соединений с БД
+    _max_count_connections = config['databasetoolkit']['max_count_connections']   # максимальное число соединений с БД
+    _time_sleep = config['databasetoolkit']['time_sleep']
 
     def __init__(self,
                  min_conn = None,
@@ -48,7 +53,7 @@ class DataBaseToolkit:
             connection = self.connection_pool.getconn()
         except PoolError:
             self.logger.info("Ожидание свободного подключения")
-            time.sleep(1)
+            time.sleep(self._time_sleep)
             connection = self.get_connection()
 
         return connection

@@ -1,11 +1,11 @@
 import time
 from typing import Tuple
 
+import toml
 import numpy as np
 from scipy.signal import welch
 import matplotlib.pyplot as plt
 
-plt.switch_backend('Agg')
 import matplotlib.cm as cm
 import matplotlib.tri as mtri
 from matplotlib.axis import rcParams
@@ -14,6 +14,8 @@ from matplotlib.colors import Normalize
 from matplotlib.ticker import MultipleLocator, ScalarFormatter
 
 from utils.utils import interpolator as intp
+
+plt.switch_backend('Agg')
 
 
 class Plot:
@@ -38,10 +40,12 @@ class Plot:
        num = alpha_model_name_angle_mode
        """
 
-    dpi = 200  # качество графиков
+    config = toml.load('config.toml')
+
+    dpi = config['plots']['dpi']  # качество графиков
 
     @staticmethod
-    def discrete_isofield(model_name: str, mode: str, angle: str, alpha: str, pressure_coefficients, coordinates):
+    def discrete_isofields(model_name: str, mode: str, angle: str, alpha: str, pressure_coefficients, coordinates):
         """Отрисовка дискретных изополей"""
         # Виды изополей
         mods = {
@@ -97,9 +101,9 @@ class Plot:
         return fig
 
     @staticmethod
-    def integral_isofield(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle: str,
-                          pressure_coefficients,
-                          coordinates):
+    def integral_isofields(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle: str,
+                           pressure_coefficients,
+                           coordinates):
         """Отрисовка интегральных изополей"""
         # Виды изополей
         mods = {
