@@ -66,66 +66,31 @@ class DataBaseToolkit:
         experiments = manager({'4': manager(),
                                '6': manager()
                                })
+        # Альфа 4
         cursor.execute("""
-                            select model_name
+                            select experiments_alpha_4.model_name, models_alpha_4.angle
                             from experiments_alpha_4
-                            """)
-        exp = [str(i[0]) for i in cursor.fetchall()]
+                            join models_alpha_4 on experiments_alpha_4.model_id = models_alpha_4.model_id
+                                """)
+        model_names_angles_4 = cursor.fetchall()
 
-        for i in exp:
-            if i[0] in ['2', '3']:
-                exp.append(i[1]+i[0]+i[2])
+        for model_name, angel in model_names_angles_4:
+            if not experiments['4'].get(str(model_name)):
+                experiments['4'][str(model_name)] = manager()
+            experiments['4'][str(model_name)][str(angel)] = manager()
 
-        experiments['4'] = manager({i: manager() for i in exp})
-        for model_name in experiments['4'].keys():
-            model_name_n = None
-            if model_name[1] in ['2', '3']:
-                model_name_n = model_name
-                model_name = model_name[1]+model_name[0]+model_name[2]
-
-            cursor.execute("""
-                                select angle
-                                from models_alpha_4
-                                where
-                                model_id = (
-                                    select model_id
-                                from experiments_alpha_4
-                                where model_name = (%s))
-                                """, (model_name,))
-            db_return = cursor.fetchall()
-            experiments['4'][model_name] = manager({str(i[0]): manager() for i in db_return})
-            if model_name_n:
-                experiments['4'][model_name_n] = manager({str(i[0]): manager() for i in db_return})
-
+        # Альфа 6
         cursor.execute("""
-                            select model_name
+                            select experiments_alpha_6.model_name, models_alpha_6.angle
                             from experiments_alpha_6
-                            """)
-        exp = [str(i[0]) for i in cursor.fetchall()]
+                            join models_alpha_6 on experiments_alpha_6.model_id = models_alpha_6.model_id
+                                        """)
+        model_names_angles_6 = cursor.fetchall()
 
-        for i in exp:
-            if i[0] in ['2', '3']:
-                exp.append(i[1] + i[0] + i[2])
-
-        experiments['6'] = manager({i: manager() for i in exp})
-        for model_name in experiments['6'].keys():
-            model_name_n = None
-            if model_name[1] in ['2', '3']:
-                model_name_n = model_name
-                model_name = model_name[1]+model_name[0]+model_name[2]
-            cursor.execute("""
-                                select angle
-                                from models_alpha_6
-                                where
-                                model_id = (
-                                    select model_id
-                                from experiments_alpha_6
-                                where model_name = (%s))
-                                """, (model_name,))
-            db_return = cursor.fetchall()
-            experiments['6'][model_name] = manager({str(i[0]): manager() for i in db_return})
-            if model_name_n:
-                experiments['6'][model_name_n] = manager({str(i[0]): manager() for i in db_return})
+        for model_name, angel in model_names_angles_6:
+            if not experiments['6'].get(str(model_name)):
+                experiments['6'][str(model_name)] = manager()
+            experiments['6'][str(model_name)][str(angel)] = manager()
 
         self.logger.info("Запрос экспериментов из БД успешно выполнен")
 
@@ -147,21 +112,21 @@ class DataBaseToolkit:
             cursor.execute("""
                                select model_id
                                from experiments_alpha_4
-                               where model_name = (%s)
+                               where model_name = (%s) limit 1
                            """, (model_name,)
                            )
             model_id = str(cursor.fetchall()[0][0])
             cursor.execute("""
                                select pressure_coefficients
                                from models_alpha_4
-                               where model_id = (%s) and angle = (%s)
+                               where model_id = (%s) and angle = (%s) limit 1
                            """, (model_id, angle))
 
         elif alpha == '6':
             cursor.execute("""
                                select model_id
                                from experiments_alpha_6
-                               where model_name = (%s)
+                               where model_name = (%s) limit 1
                            """, (model_name,)
                            )
 
@@ -170,7 +135,7 @@ class DataBaseToolkit:
             cursor.execute("""
                                select pressure_coefficients
                                from models_alpha_6
-                               where model_id = (%s) and angle = (%s)
+                               where model_id = (%s) and angle = (%s) limit 1
                            """, (model_id, angle))
 
         self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
@@ -196,14 +161,14 @@ class DataBaseToolkit:
             cursor.execute("""
                            select x_coordinates, z_coordinates
                            from experiments_alpha_4
-                           where model_name = (%s)
+                           where model_name = (%s) limit 1
                        """, (model_name,))
 
         elif alpha == '6':
             cursor.execute("""
                            select x_coordinates, z_coordinates
                            from experiments_alpha_6
-                           where model_name = (%s)
+                           where model_name = (%s) limit 1
                        """, (model_name,))
 
         self.logger.info(f"Запрос координат датчиков модель = {model_name} альфа = {alpha} из БД успешно выполнен")
@@ -227,14 +192,14 @@ class DataBaseToolkit:
             cursor.execute("""
                         select uh_averagewindspeed
                         from experiments_alpha_4
-                        where model_name = (%s)
+                        where model_name = (%s) limit 1
                     """, (model_name,))
 
         elif alpha == '6':
             cursor.execute("""
                         select uh_averagewindspeed
                         from experiments_alpha_6
-                        where model_name = (%s)
+                        where model_name = (%s) limit 1
                     """, (model_name,))
 
         self.logger.info(f"Запрос средней скорости ветра модель = {model_name} альфа = {alpha} из БД успешно выполнен")
@@ -258,14 +223,14 @@ class DataBaseToolkit:
             cursor.execute("""
                         select face_number
                         from experiments_alpha_4
-                        where model_name = (%s)
+                        where model_name = (%s) limit 1
                     """, (model_name,))
 
         elif alpha == '6':
             cursor.execute("""
                         select face_number
                         from experiments_alpha_6
-                        where model_name = (%s)
+                        where model_name = (%s) limit 1
                     """, (model_name,))
 
         self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} из БД успешно выполнен")
@@ -280,11 +245,14 @@ class DataBaseToolkit:
 
 if __name__ == '__main__':
     d = DataBaseToolkit()
-    d1 = d.get_connection()
-    d1 = d.get_connection()
-    d1 = d.get_connection()
-    d1 = d.get_connection()
-    d1 = d.get_connection()
+
+    # for model_name, angel in a:
+    #     print(model_name, angel)
+    # d1 = d.get_connection()
+    # d1 = d.get_connection()
+    # d1 = d.get_connection()
+    # d1 = d.get_connection()
+    # d1 = d.get_connection()
     # d1 = d.get_connection1(1, '1')
     # d.get_pressure_coefficients('6', '111', '0', d.connection_pool)
     # print(type(d.connection_pool))
