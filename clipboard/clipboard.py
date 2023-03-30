@@ -8,13 +8,16 @@ import toml
 from numpy import array, any
 
 # local imports
-from utils.utils import calculate_cx_cy, calculate_cmz, changer_sequence_numbers, changer_sequence_coefficients
+from plot.plot import Plot
 from databasetoolkit.databasetoolkit import DataBaseToolkit
+from utils.utils import calculate_cx_cy, calculate_cmz, changer_sequence_numbers, changer_sequence_coefficients, \
+    get_model_and_scale_factors, get_view_permutation_data, get_base_angle, get_sequence_permutation_data
 
 
 class Clipboard:
     """Буфер и взаимодействует с DataBaseToolkit.
-    Присутствует возможность отключения сохранения данных в памяти."""
+    Присутствует возможность отключения сохранения данных в памяти.
+    """
 
     config = toml.load('config.toml')
 
@@ -31,7 +34,6 @@ class Clipboard:
     logger.addHandler(py_handler)
 
     # Данные из бд
-    _save_all_data_from_db = config['clipboard']['data_from_db']['all']
     _save_pressure_coefficients = config['clipboard']['data_from_db']['pressure_coefficients']
     _save_coordinates = config['clipboard']['data_from_db']['coordinates']
     _save_average_wind_speed = config['clipboard']['data_from_db']['average_wind_speed']
@@ -41,7 +43,6 @@ class Clipboard:
     _save_cmz = config['clipboard']['data_from_db']['cmz']
 
     # Графики
-    _save_all_plots = config['clipboard']['plots']['all']
     _save_discrete_isofields = config['clipboard']['plots']['discrete_isofields']
     _save_integral_isofields = config['clipboard']['plots']['integral_isofields']
     _save_summary_spectres_cx = config['clipboard']['plots']['summary_spectres_cx']
@@ -70,7 +71,12 @@ class Clipboard:
             self.logger.info('Буфер создан на основе локального файла')
 
         else:
-            self.manager = Manager()
+            # self.manager = Manager()
+            class temp:
+                dict = dict
+
+            self.manager = temp()
+            # self.manager.dict = dict
             self.init_clipboard_dict()
             self.logger.info('Буфер успешно создан')
 
@@ -83,29 +89,69 @@ class Clipboard:
         self.clipboard_dict = self.manager.dict({'4': self.manager.dict(),
                                                  '6': self.manager.dict()
                                                  })
+
         experiments = self.database_obj.get_experiments(self.manager.dict)
+
         self.clipboard_dict['4'] = experiments['4']
+        for key in list(experiments['4'].keys()):
+            if key[0] != key[1]:
+                self.clipboard_dict['4'][key[1] + key[0] + key[2]] = self.manager.dict()
+
         self.clipboard_dict['6'] = experiments['6']
+        for key in list(experiments['6'].keys()):
+            if key[0] != key[1]:
+                self.clipboard_dict['6'][key[1] + key[0] + key[2]] = self.manager.dict()
+
+        angles = range(0, 360, 5)
 
         for alpha in self.clipboard_dict.keys():
             for model_name in self.clipboard_dict[alpha].keys():
-                for angle in self.clipboard_dict[alpha][model_name].keys():
-                    self.clipboard_dict[alpha][model_name][angle] = self.manager.dict()
+                for angle in angles:
+                    self.clipboard_dict[alpha][model_name][str(angle)] = self.manager.dict()
 
                 self.clipboard_dict[alpha][model_name]['const_parameters'] = self.manager.dict()
 
     def get_pressure_coefficients(self, alpha: str, model_name: str, angle: str):
+        model_name_base = model_name
+        turn_flag = False
+
+        if model_name[0] == model_name[1]:
+            angle_border = 45
+            type_base = 'square'
+
+        else:
+            angle_border = 90
+            type_base = 'rectangle'
+
+        if model_name[1] in ['2', '3']:
+            model_name_base = model_name[1] + model_name[0] + model_name[2]
+            angle = str((int(angle) + 270) % 360)
+            turn_flag = True
+
+        # Поворот данных для отображения углов, выходящих за границы имеющихся
+        if int(angle) > angle_border:
+            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            base_angle = get_base_angle(int(angle), permutation_view, type_base)
+            sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
+
+            pressure_coefficients = self.get_pressure_coefficients_from_clipboard(alpha, model_name_base,
+                                                                                  str(base_angle))
+
+            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
+                                                                  model_name, sequence_permutation)
+        else:
+            pressure_coefficients = self.get_pressure_coefficients_from_clipboard(alpha, model_name_base, angle)
+
+        # Поворот модели
+        if turn_flag:
+            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, 'forward', model_name_base,
+                                                                  (3, 0, 1, 2))
+        return pressure_coefficients
+
+    def get_pressure_coefficients_from_clipboard(self, alpha: str, model_name: str, angle: str):
         """Возвращает коэффициенты давления из буфера"""
         self.logger.info(f"Запрос коэффициентов давления "
                          f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
-
-        model_name_n = None
-        f = False
-
-        if model_name[1] in ['2', '3']:
-            model_name_n = model_name
-            model_name = model_name[1] + model_name[0] + model_name[2]
-            f = True
 
         if not any(self.clipboard_dict[alpha][model_name][angle].get('pressure_coefficients')):
             pressure_coefficients = array(self.database_obj.get_pressure_coefficients(alpha, model_name, angle))
@@ -120,10 +166,6 @@ class Clipboard:
                              f"альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
         pressure_coefficients = pressure_coefficients / 1000
-
-        if f:
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, 'forward', model_name_n,
-                                                                  (3, 0, 1, 2), f)
 
         return pressure_coefficients
 
@@ -208,8 +250,9 @@ class Clipboard:
 
         if not any(self.clipboard_dict[alpha][model_name][angle].get('Cx')) or \
                 not any(self.clipboard_dict[alpha][model_name][angle].get('Cy')):
-            coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
-            cx, cy = calculate_cx_cy(model_name, coefficients)
+            pressure_coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
+
+            cx, cy = calculate_cx_cy(model_name, pressure_coefficients)
             if self.save_mode:
                 self.clipboard_dict[alpha][model_name][angle]['Cx'] = cx
                 self.clipboard_dict[alpha][model_name][angle]['Cy'] = cy
@@ -246,6 +289,176 @@ class Clipboard:
                              f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
         return cmz
+
+    def get_isofields(self,
+                      alpha: str,
+                      model_size: Tuple[str, str, str],
+                      angle: str,
+                      mode: str,
+                      type_plot: str):
+        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                         f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера')
+
+        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+
+        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+            model_scale_n = model_scale
+
+            pressure_coefficients = self.get_pressure_coefficients(alpha, model_scale, angle)
+            coordinates = self.get_coordinates(alpha, model_scale)
+
+            # if model_scale[0] == model_scale[1]:
+            #     angle_border = 45
+            #     type_base = 'square'
+            #
+            # else:
+            #     angle_border = 90
+            #     type_base = 'rectangle'
+            #
+            # if model_scale[1] in ['2', '3']:
+            #     model_scale_n = model_scale[1] + model_scale[0] + model_scale[2]
+            #     angle = str((int(angle) - 90)) if int(angle) - 90 > 0 else str(360 + int(angle) - 90)
+            #
+            # if int(angle) > angle_border:
+            #     permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+            #     base_angle = get_base_angle(int(angle), permutation_view, type_base)
+            #     sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
+            #
+            #     pressure_coefficients = self.get_pressure_coefficients(alpha, model_scale, str(base_angle))
+            #     coordinates = self.get_coordinates(alpha, model_scale_n)
+            #
+            #     pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
+            #                                                           model_scale_n, sequence_permutation)
+            #
+            # else:
+            #     pressure_coefficients = self.get_pressure_coefficients(alpha, model_scale_n, angle)
+            #     coordinates = self.get_coordinates(alpha, model_scale_n)
+
+            self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
+
+            if type_plot == 'discrete_isofields':
+                fig = Plot.discrete_isofields(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
+            elif type_plot == 'integral_isofields':
+                fig = Plot.integral_isofields(model_scale,
+                                              model_size,
+                                              scale_factors,
+                                              alpha,
+                                              mode,
+                                              angle,
+                                              pressure_coefficients,
+                                              coordinates)
+            else:
+                fig = None
+
+            if fig is not None:
+                self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} успешно выполнена')
+            else:
+                self.logger.warning(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                    f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не выполнена')
+
+            if type_plot == 'discrete_isofields':
+                if self._save_discrete_isofields:
+                    self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+
+            elif type_plot == 'integral_isofields':
+                if self._save_integral_isofields:
+                    self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+
+            else:
+                self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не сохранены в буфер')
+
+        else:
+            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
+            self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+
+        return fig
+
+    def get_data_summary(self, alpha: str, angle: str, mode: str, model_scale: str):
+        data = dict()
+        f_cx = 'Cx' in mode
+        f_cy = 'Cy' in mode
+        f_cmz = 'CMz' in mode
+
+        if f_cx or f_cy:
+            cx, cy = self.get_cx_cy(alpha, model_scale, str(angle))
+            if f_cx:
+                data['Cx'] = cx
+            if f_cy:
+                data['Cy'] = cy
+
+        if f_cmz:
+            data['CMz'] = self.get_cmz(alpha, model_scale, str(angle))
+
+        return data
+
+    def get_summary_spectres(self,
+                             alpha: str,
+                             model_size: Tuple[str, str, str],
+                             angle: str,
+                             mode: str,
+                             scale: str,
+                             type_plot: str):
+        mode = mode.replace(' ', '_')
+        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+        id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
+
+        message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
+
+        self.logger.info(f'Запрос суммарных спектров {message} из буфера')
+        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+            f_cx = 'Cx' in mode
+            f_cy = 'Cy' in mode
+            f_cmz = 'CMz' in mode
+
+            data = self.get_data_summary(alpha, angle, mode, model_scale)
+
+            self.logger.info(f'Отрисовка суммарных спектров {message}')
+            fig = Plot.welch_graphs(data, model_size, alpha, angle)
+
+            if all((self._save_summary_spectres_cx or f_cx, self._save_summary_spectres_cy or f_cy,
+                    self._save_summary_spectres_cmz or f_cmz)):
+                self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            else:
+                self.logger.info(f'       Cуммарные спектры {message} не сохранены в буфер')
+        else:
+            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
+            self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+
+        return fig
+
+    def get_summary_coefficients(self,
+                                 alpha: str,
+                                 model_size: Tuple[str, str, str],
+                                 angle: str,
+                                 mode: str, ):
+        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+        type_plot = 'summary_coefficients'
+        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+            f_cx = 'Cx' in mode
+            f_cy = 'Cy' in mode
+            f_cmz = 'CMz' in mode
+            data = self.get_data_summary(alpha, angle, mode, model_scale)
+
+            fig = Plot.summary_coefficients(data, model_scale, alpha, str(angle))
+
+            if all((self._save_summary_coefficients_cx or f_cx, self._save_summary_coefficients_cy or f_cy,
+                    self._save_summary_coefficients_cmz or f_cmz)):
+                self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            else:
+                self.logger.info(f'       Cуммарные коэф  не сохранены в буфер')
+
+        else:
+            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
+            self.logger.info(f'Запрос суммарных коэф из буфера успешно выполнен')
+
+        return fig
 
 
 if __name__ == '__main__':

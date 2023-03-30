@@ -22,16 +22,12 @@ def get_base_angle(angle: int, permutation_view: str, type_base: str = 'square')
 def changer_sequence_coefficients(coefficients,
                                   permutation_view: str,
                                   model_name: str,
-                                  sequence_permutation: Tuple[int, int, int, int],
-                                  flag_turn_model: bool = False):
+                                  sequence_permutation: Tuple[int, int, int, int]):
     """Меняет порядок следования датчиков тем самым генерируя не существующие углы"""
     f1, f2, f3, f4 = sequence_permutation
-    if flag_turn_model:
-        count_sensors_on_middle = int(model_name[1]) * 5
-        count_sensors_on_side = int(model_name[0]) * 5
-    else:
-        count_sensors_on_middle = int(model_name[0]) * 5
-        count_sensors_on_side = int(model_name[1]) * 5
+
+    count_sensors_on_middle = int(model_name[0]) * 5
+    count_sensors_on_side = int(model_name[1]) * 5
 
     count_sensors_on_model = len(coefficients[0])
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
@@ -145,6 +141,7 @@ def get_view_permutation_data(type_base: str, angle: int):
 
 def calculate_cmz(model_name: str, pr_coeff, coordinates):
     """Вычисление моментов сил CMz"""
+    print(model_name)
     cmz = []
     breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
 
@@ -174,17 +171,15 @@ def calculate_cmz(model_name: str, pr_coeff, coordinates):
     x[3] -= v4
 
     mx13 = np.array([
-        abs(x[0] - mid13_x),
-        abs(x[2] - mid13_x),
+        x[0] - mid13_x,
+        x[2] - mid13_x,
     ])
+
 
     mx24 = np.array([
-        abs(x[1] - mid24_x),
-        abs(x[3] - mid24_x),
+        x[1] - mid24_x,
+        x[3] - mid24_x,
     ])
-
-    coeffs_norm_13 = [1 if i <= count_sensors_on_middle // 2 else -1 for i in range(count_sensors_on_middle)]
-    coeffs_norm_24 = [1 if i <= count_sensors_on_side // 2 else -1 for i in range(count_sensors_on_side)]
 
     for coeff in pr_coeff:
         t_cmz = 0
@@ -195,19 +190,13 @@ def calculate_cmz(model_name: str, pr_coeff, coordinates):
                                  2 * (count_sensors_on_middle + count_sensors_on_side)
                                  ], axis=1)
 
-        for i in range(4):
-            if i in [0, 2]:
-                coeff[i] *= coeffs_norm_13
-            else:
-                coeff[i] *= coeffs_norm_24
-
         t_cmz += np.sum(mx13[0] * coeff[0])
         t_cmz += np.sum(mx24[0] * coeff[1])
         t_cmz += np.sum(mx13[1] * coeff[2])
         t_cmz += np.sum(mx24[1] * coeff[3])
 
         cmz = np.append(cmz, t_cmz)
-
+    print(np.mean(np.array(cmz)))
     return np.array(cmz)
 
 
@@ -240,8 +229,10 @@ def calculate_cx_cy(model_name: str, pr_coeff):
                 faces_x.append(np.sum(coeff[face]) / count_sensors_on_1_3_face)
             else:
                 faces_y.append(np.sum(coeff[face]) / count_sensors_on_2_4_face)
-        cx.append((faces_x[0] - faces_x[1]) / 2)
-        cy.append((faces_y[0] - faces_y[1]) / 2)
+        cx.append(faces_x[0] - faces_x[1])
+        cy.append(faces_y[0] - faces_y[1])
+    print(np.mean(np.array(cx)))
+    print(np.mean(np.array(cy)))
     return np.array(cx), np.array(cy)
 
 

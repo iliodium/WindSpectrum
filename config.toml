@@ -1,7 +1,5 @@
 [clipboard]
 [clipboard.plots]
-all = true  # all стоит в приоритете, перед отдельными параметрами
-
 discrete_isofields = true
 integral_isofields = true
 
@@ -18,8 +16,6 @@ summary_coefficients_polar = true
 envelopes = true
 
 [clipboard.data_from_db]
-all = true  # all стоит в приоритете, перед отдельными параметрами
-
 pressure_coefficients = true
 coordinates = true
 average_wind_speed = true
@@ -32,9 +28,9 @@ cmz = true
 dpi = 200  # Качество отрисовки графиков
 
 [core]
-count_threads = 20  # Количество запускаемых потоков при создании отчета
+count_threads = 10  # Количество запускаемых потоков при создании отчета
 
 [databasetoolkit]
-min_count_connections = 5
-max_count_connections = 15
-time_sleep = 1  # Время между запросами нового подлючения если доступных нет, в секундах
+min_count_connections = 10
+max_count_connections = 10
+time_sleep = 3  # Время между запросами нового подлючения если доступных нет, в секундах

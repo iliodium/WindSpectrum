@@ -75,23 +75,36 @@ class Plot:
         num_fig = f'Дискретные изополя {model_name} {mode} {alpha} {angle}'
         fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
         cmap = cm.get_cmap(name="jet")
-        min_v = np.min(pressure_coefficients)
-        max_v = np.max(pressure_coefficients)
+
+        min_1 = np.min(pressure_coefficients[0])
+        min_2 = np.min(pressure_coefficients[1])
+        min_3 = np.min(pressure_coefficients[2])
+        min_4 = np.min(pressure_coefficients[3])
+
+        max_1 = np.max(pressure_coefficients[0])
+        max_2 = np.max(pressure_coefficients[1])
+        max_3 = np.max(pressure_coefficients[2])
+        max_4 = np.max(pressure_coefficients[3])
+
+        min_v = np.min([min_1, min_2, min_3, min_4])
+        max_v = np.max([max_1, max_2, max_3, max_4])
+
         normalizer = Normalize(min_v, max_v)
         im = cm.ScalarMappable(norm=normalizer, cmap=cmap)
         for i in range(4):
             data_old = pressure_coefficients[i]
             ax[i].pcolormesh(np.flip(data_old, axis=0), cmap=cmap, norm=normalizer)
-            ax[i].set_yticks(np.arange(0, count_row + 1, 2.5))
-            ax[i].set_yticklabels(labels=np.arange(0, height + 0.01, 0.05).round(2), fontsize=5)
+            labels = np.arange(0, height + 0.01, 0.05).round(2)
+            ax[i].set_yticks(np.linspace(0, count_row, len(labels)))
+            ax[i].set_yticklabels(labels=labels, fontsize=5)
             if i in [0, 2]:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_middle + 1, 5)])
-                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, breadth + 0.1, 0.1))), fontsize=5)
+                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, breadth + 0.1, 0.1).round(2))), fontsize=5)
             else:
                 ax[i].set_xticks([i for i in range(0, count_sensors_on_side + 1, 5)])
-                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, depth + 0.1, 0.1))), fontsize=5)
-            x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
-            ax[i].plot(x, y, '.k')
+                ax[i].set_xticklabels(labels=list(map(str, np.arange(0, depth + 0.1, 0.1).round(2))), fontsize=5)
+            # x, y = np.meshgrid(np.arange(0.5, count_sensors_on_middle + 0.5, 1), z * count_row / height)
+            # ax[i].plot(x, y, '.k')
 
         if breadth == depth == height:
             [ax[i].set_aspect('equal') for i in range(4)]
@@ -102,8 +115,7 @@ class Plot:
 
     @staticmethod
     def integral_isofields(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle: str,
-                           pressure_coefficients,
-                           coordinates):
+                           pressure_coefficients, coordinates, pressure_plot_parameters = True):
         """Отрисовка интегральных изополей"""
         # Виды изополей
         mods = {
@@ -124,19 +136,18 @@ class Plot:
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
         x, z = np.array(coordinates)
-
-        # Шаги для изополей
+        # Шаги для изополей коэффициентов
         steps = {
             'max': 0.2,
             'mean': 0.2 if alpha == '6' else 0.1,
             'min': 0.2,
             'std': 0.05,
         }
-        #  Шаг для изополей и контурных линий
-
-        min_v = np.min(pressure_coefficients)
-        max_v = np.max(pressure_coefficients)
-        levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, steps[mode]).round(2)
+        # Уровни для изополей коэффициентов
+        if not pressure_plot_parameters:
+            min_v = np.min(pressure_coefficients)
+            max_v = np.max(pressure_coefficients)
+            levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, steps[mode]).round(2)
 
         pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
         pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
@@ -214,6 +225,22 @@ class Plot:
         b_scaled = breadth * x_scale_factor
         d_scaled = depth * y_scale_factor
 
+        w0 = 230
+        a = 0.2
+        ks = 1
+        k10 = 0.65
+        u10 = np.sqrt(2 * 1.4 * k10 * w0 / 1.225)
+        PO = 1.225
+
+        x_new_list = []
+        z_new_list = []
+
+        x_old_list = []
+        z_old_list = []
+
+        data_new_list = []
+        data_old_list = []
+
         for i in range(4):
 
             x_new = x_extended[i].reshape(1, -1)[0]
@@ -245,6 +272,22 @@ class Plot:
                 x_old = x_old * y_scale_factor
 
             data_old = pressure_coefficients[i].reshape(1, -1)[0]
+            '''
+            #print(z_old)
+            #prof = [u10 * (ks * z * 10 / 10) ** a for z in z_old]
+            '''
+
+            '''
+            #prof = [u10 * (ks * 10 * 10 / 10) ** a for z in z_old]
+            #print(data_old)
+            #print(prof)
+            #data_old = [d * p * 10 for d, p in zip(data_old, prof)]
+            '''
+            if pressure_plot_parameters:
+                vvv = 40
+                prof = u10 * (ks * vvv / 10) ** a
+                data_old = [(prof ** 2 * d * PO) / 2 for d in data_old]
+
             # data_old_integer.append(data_old)
             coords = [[i1, j1] for i1, j1 in zip(x_old, z_old)]  # Старые координаты
             # Интерполятор полученный на основе имеющихся данных
@@ -253,17 +296,36 @@ class Plot:
             # Получаем данные для несуществующих датчиков
             data_new = [float(interpolator([[X, Y]])) for X, Y in zip(x_new, z_new)]
 
-            triang = mtri.Triangulation(x_new, z_new)
+            x_new_list.append(x_new)
+            z_new_list.append(z_new)
+
+            x_old_list.append(x_old)
+            z_old_list.append(z_old)
+
+            data_new_list.append(data_new)
+            data_old_list.append(data_old)
+
+        # Уровни для изополей давления
+        if pressure_plot_parameters:
+            min_0_2 = np.min(np.array([[data_new_list[0], data_new_list[2]]]))
+            min_1_3 = np.min(np.array([[data_new_list[1], data_new_list[3]]]))
+            min_v = np.min(np.array(min_0_2, min_1_3))
+
+            max_0_2 = np.max(np.array([[data_new_list[0], data_new_list[2]]]))
+            max_1_3 = np.max(np.array([[data_new_list[1], data_new_list[3]]]))
+            max_v = np.max(np.array(max_0_2, max_1_3))
+            levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 100, 100).round(2)
+
+        for i in range(4):
+            triang = mtri.Triangulation(x_new_list[i], z_new_list[i])
             refiner = mtri.UniformTriRefiner(triang)
-            grid, value = refiner.refine_field(data_new, subdiv=4)
-            data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, levels=levels, extend='both')
+            grid, value = refiner.refine_field(data_new_list[i], subdiv=4)
+            data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
             aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
-            x_dots, y_dots = np.meshgrid(x_old, z_old)
-            ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3.7))
+            x_dots, y_dots = np.meshgrid(x_old_list[i], z_old_list[i])
+            ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3))
 
             ax[i].clabel(aq, fontsize=10)
-            # if breadth == depth == height:
-            #     ax[i].set_aspect('equal')
 
             ax[i].set_ylim([0, h_scaled])
             ax[i].set_yticks(np.arange(0, h_scaled + h_scaled * 0.01, h_scaled * 0.2))
@@ -305,28 +367,46 @@ class Plot:
         return fig
 
     @staticmethod
-    def scaling_data(x, y = None):
+    def scaling_data(x, y = None, angle_border = 50):
         """Масштабирование данных до 360 градусов"""
+        if angle_border == 50:
+            if y is not None:
+                a = np.array(y)
+                b = np.append(a, np.flip(x)[1:])
+                c = np.append(b, np.flip(b)[1:])
+                x_scale = np.append(c, np.flip(c)[1:])
 
-        if y is not None:
-            a = np.array(y)
-            b = np.append(a, np.flip(x)[1:])
-            c = np.append(b, np.flip(b)[1:])
-            x_scale = np.append(c, np.flip(c)[1:])
+                a = np.array(x)
+                b = np.append(a, np.flip(y)[1:])
+                c = np.append(b, np.flip(b)[1:])
+                y_scale = np.append(c, np.flip(c)[1:])
 
-            a = np.array(x)
-            b = np.append(a, np.flip(y)[1:])
-            c = np.append(b, np.flip(b)[1:])
-            y_scale = np.append(c, np.flip(c)[1:])
+                return x_scale, y_scale
 
-            return x_scale, y_scale
+            else:
+                a = np.array(x)
+                b = np.append(a, np.flip(x)[1:])
+                c = np.append(b, np.flip(b)[1:])
+                x_scale = np.append(c, np.flip(c)[1:])
+                return x_scale
 
-        else:
-            a = np.array(x)
-            b = np.append(a, np.flip(x)[1:])
-            c = np.append(b, np.flip(b)[1:])
-            x_scale = np.append(c, np.flip(c)[1:])
-            return x_scale
+        elif angle_border == 95:
+            if y is not None:
+                a = np.array(y)
+                b = np.append(a, np.flip(x)[1:])
+                x_scale = np.append(b, np.flip(b)[1:])
+
+                a = np.array(x)
+                b = np.append(a, np.flip(y)[1:])
+                y_scale = np.append(b, np.flip(b)[1:])
+
+                return x_scale, y_scale
+
+            else:
+                a = np.array(x)
+                b = np.append(a, np.flip(x)[1:])
+                x_scale = np.append(b, np.flip(b)[1:])
+                return x_scale
 
     @staticmethod
     def polar_plot(data, title: str, model_size, alpha: str):
@@ -336,11 +416,13 @@ class Plot:
                 }
         """
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
+        print('ang', len(angles))
         num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {alpha}'
 
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
 
         for name in data.keys():
+            print(name, data[name])
             ax.plot(angles, data[name], label=name)
 
         ax.set_theta_direction(-1)

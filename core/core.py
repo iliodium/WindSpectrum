@@ -16,9 +16,18 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 # Local imports
 from plot.plot import Plot
 from clipboard.clipboard import Clipboard
-from utils.utils import get_model_and_scale_factors, rms, rach, obes_m, obes_p, converter_coordinates_to_real, \
-    converter_coordinates, generate_directory_for_report, get_view_permutation_data, get_sequence_permutation_data, \
-    changer_sequence_coefficients, get_base_angle
+from utils.utils import (get_model_and_scale_factors,
+                         rms,
+                         rach,
+                         obes_m,
+                         obes_p,
+                         converter_coordinates_to_real,
+                         converter_coordinates,
+                         generate_directory_for_report,
+                         get_view_permutation_data,
+                         get_sequence_permutation_data,
+                         changer_sequence_coefficients,
+                         get_base_angle)
 
 
 class Core:
@@ -36,7 +45,7 @@ class Core:
     # добавление обработчика к логгеру
     logger.addHandler(py_handler)
 
-    _count_threads = config['core']['_count_threads']  # количество запускаемых потоков при создании отчета
+    _count_threads = config['core']['count_threads']  # количество запускаемых потоков при создании отчета
 
     def __init__(self, ex_clipboard = None, save_mode_fig = True):
         """Создание объекта для работы с буфером"""
@@ -56,83 +65,8 @@ class Core:
                            angle: str,
                            mode: str,
                            type_plot: str):
-        """Функция возвращает изополя.
-        Если изополя отсутствуют в буфере, запускается отрисовка.
-        """
-        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                         f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера')
-
-        fig = None
-
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-
-        model_scale_n = model_scale
-
-        if model_scale[0] == model_scale[1]:
-            angle_border = 45
-            type_base = 'square'
-
-        else:
-            angle_border = 90
-            type_base = 'rectangle'
-
-        if model_scale[1] in ['2', '3']:
-            model_scale_n = model_scale[1] + model_scale[0] + model_scale[2]
-            angle = str((int(angle) - 90)) if int(angle) - 90 > 0 else str(360 + int(angle) - 90)
-
-        if int(angle) > angle_border:
-            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view, type_base)
-            sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
-
-            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(base_angle))
-            coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale_n)
-
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
-                                                                  model_scale_n, sequence_permutation)
-
-            if type_plot == 'discrete_isofields':
-                fig = Plot.discrete_isofields(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
-            elif type_plot == 'integral_isofields':
-                fig = Plot.integral_isofields(model_scale,
-                                              model_size,
-                                              scale_factors,
-                                              alpha,
-                                              mode,
-                                              angle,
-                                              pressure_coefficients,
-                                              coordinates,
-                                              )
-        else:
-
-            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
-
-            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-                self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
-
-                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale_n, angle)
-                coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale_n)
-
-                if type_plot == 'discrete_isofields':
-                    fig = Plot.discrete_isofields(model_scale, mode, angle, alpha, pressure_coefficients, coordinates)
-                elif type_plot == 'integral_isofields':
-                    fig = Plot.integral_isofields(model_scale,
-                                                  model_size,
-                                                  scale_factors,
-                                                  alpha,
-                                                  mode,
-                                                  angle,
-                                                  pressure_coefficients,
-                                                  coordinates,
-                                                  )
-
-                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-
-            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
-
-            self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+        """Функция возвращает изополя"""
+        fig = self.clipboard_obj.get_isofields(alpha, model_size, angle, mode, type_plot)
 
         return fig
 
@@ -143,59 +77,7 @@ class Core:
                                   mode: str,
                                   scale: str,
                                   type_plot: str):
-        """Функция возвращает графики суммарных спектров.
-        Если графики суммарных спектров отсутствуют в буфере, запускается отрисовка.
-        """
-        message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
-        self.logger.info(f'Отрисовка суммарных спектров {message}')
-
-        mode = mode.replace(' ', '_')
-        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
-        id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
-        data = dict()
-
-        if model_scale[0] == model_scale[1]:
-            angle_border = 45
-            type_base = 'square'
-        else:
-            angle_border = 90
-            type_base = 'rectangle'
-
-        if int(angle) > angle_border:
-            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view)
-
-            if 'Cx' in mode or 'Cy' in mode:
-                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, str(base_angle))
-                if 'Cx' in mode:
-                    data['Cx'] = cx
-                if 'Cy' in mode:
-                    data['Cy'] = cy
-
-            if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, str(base_angle))
-
-            fig = Plot.welch_graphs(data, model_size, alpha, str(base_angle))
-
-        else:
-            self.logger.info(f'Запрос суммарных спектров {message} из буфера')
-            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-
-                if 'Cx' in mode or 'Cy' in mode:
-                    cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
-                    if 'Cx' in mode:
-                        data['Cx'] = cx
-                    if 'Cy' in mode:
-                        data['Cy'] = cy
-
-                if 'CMz' in mode:
-                    data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
-
-                fig = Plot.welch_graphs(data, model_size, alpha, angle)
-                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
-
-            self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+        fig = self.clipboard_obj.get_summary_spectres(alpha, model_size, angle, mode, scale, type_plot)
 
         return fig
 
@@ -204,61 +86,8 @@ class Core:
                                       model_size: Tuple[str, str, str],
                                       angle: str,
                                       mode: str, ):
-        """Функция возвращает графики суммарных коэффициентов.
-        Если графики суммарных коэффициентов отсутствуют в буфере, запускается отрисовка.
-        """
 
-        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
-        type_plot = 'summary_coefficients'
-        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
-        data = dict()
-        if model_scale[0] == model_scale[1]:
-            angle_border = 45
-            type_base = 'square'
-        else:
-            angle_border = 90
-            type_base = 'rectangle'
-
-        if int(angle) > angle_border:
-            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view)
-
-            if 'Cx' in mode or 'Cy' in mode:
-                cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, str(base_angle))
-                if 'Cx' in mode:
-                    data['Cx'] = cx
-                if 'Cy' in mode:
-                    data['Cy'] = cy
-
-            if 'CMz' in mode:
-                data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, str(base_angle))
-
-            fig = Plot.summary_coefficients(data, model_scale, alpha, str(base_angle))
-
-        else:
-            self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-                             f'альфа = {alpha} угол = {angle.rjust(2, "0")}  режим = {mode.ljust(4, " ")} из буфера')
-            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-                self.logger.info(f'Отрисовка суммарных коэффициентов '
-                                 f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode.ljust(4, " ")}')
-                if 'Cx' in mode or 'Cy' in mode:
-                    cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_scale, angle)
-                    if 'Cx' in mode:
-                        data['Cx'] = cx
-                    if 'Cy' in mode:
-                        data['Cy'] = cy
-
-                if 'CMz' in mode:
-                    data['CMz'] = self.clipboard_obj.get_cmz(alpha, model_scale, angle)
-
-                fig = Plot.summary_coefficients(data, model_scale, alpha, angle)
-                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-
-            fig = self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][id_fig]
-
-            self.logger.info(f'Запрос суммарных коэффициентов размеры = {" ".join(list(model_size))} '
-                             f'альфа = {alpha} угол = {int(angle):02}  '
-                             f'режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+        fig = self.clipboard_obj.get_summary_coefficients(alpha, model_size, angle, mode)
 
         return fig
 
@@ -287,6 +116,7 @@ class Core:
         }
 
         plot_name = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
+
         if not self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_parameters'].get(plot_name):
             args_cmz = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
@@ -303,8 +133,8 @@ class Core:
             list_norm_cx = list(map(mods[mode], list_cx))
             list_norm_cy = list(map(mods[mode], list_cy))
 
-            x_scale, y_scale = Plot.scaling_data(list_norm_cx, list_norm_cy)
-            cmz_scale = Plot.scaling_data(list_norm_cmz)
+            x_scale, y_scale = Plot.scaling_data(list_norm_cx, list_norm_cy, angle_border=angle_border)
+            cmz_scale = Plot.scaling_data(list_norm_cmz, angle_border=angle_border)
 
             data = {
                 'Cx': x_scale,
@@ -461,11 +291,26 @@ class Core:
                 'std',
                 )
 
-        args_isofields = [(alpha, model_size, str(angle), mode, path_report)
-                          for angle in range(0, angle_border, 5) for mode in mods]
+        args_isofields_max = [(alpha, model_size, str(angle), 'max', path_report) for angle in
+                              range(0, angle_border, 5)]
+        args_isofields_mean = [(alpha, model_size, str(angle), 'mean', path_report) for angle in
+                               range(0, angle_border, 5)]
+        args_isofields_min = [(alpha, model_size, str(angle), 'min', path_report) for angle in
+                              range(0, angle_border, 5)]
+        args_isofields_std = [(alpha, model_size, str(angle), 'std', path_report) for angle in
+                              range(0, angle_border, 5)]
 
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-            executor.map(lambda i: self.isofields_thread(*i), args_isofields)
+            executor.map(lambda i: self.isofields_thread(*i), args_isofields_max)
+
+        with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+            executor.map(lambda i: self.isofields_thread(*i), args_isofields_mean)
+
+        with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+            executor.map(lambda i: self.isofields_thread(*i), args_isofields_min)
+
+        with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+            executor.map(lambda i: self.isofields_thread(*i), args_isofields_std)
 
         self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha} завершена')
 
@@ -567,7 +412,7 @@ class Core:
         self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
                          f'размеры = {" ".join(model_size)} альфа = {alpha}')
         mods = {
-            'MEAN': np.mean,
+            # 'MEAN': np.mean,
             'RMS': rms,
             'STD': np.std,
             'MAX': np.max,
@@ -579,8 +424,10 @@ class Core:
 
         args_summary_polar = [(alpha, model_scale, model_size, angle_border, mode) for mode in mods.keys()]
 
-        with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-            polar_plots = list(executor.map(lambda i: self.get_plot_summary_coefficients_polar(*i), args_summary_polar))
+        polar_plots = []
+
+        for i in args_summary_polar:
+            polar_plots.append(self.get_plot_summary_coefficients_polar(*i))
 
         for mode, plot in zip(mods.keys(), polar_plots):
             file_name = f'Суммарные аэродинамические коэффициенты Cx Cy CMz ' \
@@ -611,7 +458,7 @@ class Core:
         sensors_on_model = len(x)
         x_new, y_new = converter_coordinates(x, breadth_real, depth_real, face_number, sensors_on_model)
 
-        for angle in range(0, angle_border, 5):
+        for angle in range(0, 10, 5):
             statistics_of_angle = []
 
             pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(angle))
@@ -688,11 +535,12 @@ class Core:
         button.disabled = False
 
     def report_process(self, alpha: str, model_size: Tuple[str, str, str], button):
-        proc = Process(target=Core.run_proc_report, args=(self.clipboard_obj.clipboard_dict, alpha, model_size))
-        proc.start()
-
-        executor = ThreadPoolExecutor(max_workers=1)
-        executor.map(lambda i: Core.check_alive_proc(*i), ((proc, button),))
+        self.report(alpha, model_size)
+        # proc = Process(target=Core.run_proc_report, args=(self.clipboard_obj.clipboard_dict, alpha, model_size))
+        # proc.start()
+        #
+        # executor = ThreadPoolExecutor(max_workers=1)
+        # executor.map(lambda i: Core.check_alive_proc(*i), ((proc, button),))
 
     def report(self, alpha: str, model_size: Tuple[str, str, str]):
         """Создание отчёта для выбранной конфигурации.
@@ -721,24 +569,29 @@ class Core:
             angle_border = 95
 
         x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
+        # args_welch_graphs = [(alpha, model_scale, str(angle))
+        #                      for angle in range(0, 10, 5)]
+        #
+        # with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+        #     executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(*i), args_welch_graphs)
 
-        # Отображение модели
-        self.draw_model(alpha, model_size, model_scale, path_report)
-
-        # Изополя
-        self.draw_isofields(alpha, model_size, angle_border, path_report)
-
-        # Огибающие
-        self.draw_envelopes(alpha, model_scale, angle_border, path_report)
-
-        # Суммарные аэродинамические коэффициенты в декартовой системе координат
-        self.draw_summary_coefficients(alpha, model_size, angle_border, path_report)
-
-        # Суммарные аэродинамические коэффициенты в полярной системе координат
-        self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report)
-
-        # Спектральная плотность мощности суммарных аэродинамических коэффициентов
-        self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report)
+        # # Отображение модели
+        # self.draw_model(alpha, model_size, model_scale, path_report)
+        #
+        # # Изополя
+        # self.draw_isofields(alpha, model_size, angle_border, path_report)
+        #
+        # # Огибающие
+        # self.draw_envelopes(alpha, model_scale, angle_border, path_report)
+        #
+        # # Суммарные аэродинамические коэффициенты в декартовой системе координат
+        # self.draw_summary_coefficients(alpha, model_size, angle_border, path_report)
+        #
+        # # Суммарные аэродинамические коэффициенты в полярной системе координат
+        # self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report)
+        #
+        # # Спектральная плотность мощности суммарных аэродинамических коэффициентов
+        # self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report)
 
         # Работа с word файлом
         doc = Document()
@@ -773,7 +626,7 @@ class Core:
             f'Рисунок {counter_plots}. Геометрические размеры и система координат направления ветровых потоков')
         counter_plots += 1
 
-        # 1. Геометрические размеры здания
+        self.logger.info('1. Геометрические размеры здания')
 
         doc.add_heading().add_run('1. Геометрические размеры здания').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -798,7 +651,7 @@ class Core:
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_page_break()
 
-        # 2. Статистика по датчиках. Максимумы и огибающие
+        self.logger.info('2. Статистика по датчиках. Максимумы и огибающие')
 
         doc.add_heading().add_run('2. Статистика по датчиках. Максимумы и огибающие').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -817,12 +670,12 @@ class Core:
                 counter_plots += 1
         doc.add_page_break()
 
-        # 3. Изополя ветровых нагрузок и воздействий
+        self.logger.info('3. Изополя ветровых нагрузок и воздействий')
 
         doc.add_heading().add_run('3. Изополя ветровых нагрузок и воздействий').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        # 3.1 Непрерывные изополя
+        self.logger.info('3.1 Непрерывные изополя')
 
         doc.add_heading(level=2).add_run('3.1 Непрерывные изополя').font.size = Pt(16)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -841,7 +694,7 @@ class Core:
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
                 counter_plots += 1
 
-        # 3.2 Дискретные изополя
+        self.logger.info('3.2 Дискретные изополя')
 
         doc.add_heading(level=2).add_run('3.2 Дискретные изополя').font.size = Pt(16)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -860,58 +713,58 @@ class Core:
                 counter_plots += 1
         doc.add_page_break()
 
-        # 4. Статистика по датчикам в табличном виде
+        # self.logger.info('4. Статистика по датчикам в табличном виде')
+        # coordinates = converter_coordinates_to_real(x, z, model_size, model_scale)
+        # sensor_statistics = self.get_sensor_statistics(alpha,
+        #                                                model_scale,
+        #                                                angle_border,
+        #                                                model_size,
+        #                                                coordinates,
+        #                                                )
+        #
+        # doc.add_heading().add_run('4. Статистика по датчикам в табличном виде ').font.size = Pt(20)
+        # doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # header_sensors = (
+        #     'ДАТЧИК',
+        #     'X(мм)',
+        #     'Y(мм)',
+        #     'Z(мм)',
+        #     'MEAN',
+        #     'RMS',
+        #     'STD',
+        #     'MAX',
+        #     'MIN',
+        #     'РАСЧЕТНОЕ',
+        #     'ОБЕСП+',
+        #     'ОБЕСП-'
+        # )
+        # for angle in range(0, angle_border, 5):
+        #     self.logger.info(f'4. Статистика по датчикам в табличном виде угол {angle}')
+        #     doc.add_paragraph().add_run(
+        #         f'\nТаблица {counter_tables}. Аэродинамический коэффициент в датчиках для '
+        #         f'здания {breadth}x{depth}x{height} угол {angle:02}º')
+        #     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        #     counter_tables += 1
+        #     table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
+        #     table_sensors.style = 'Table Grid'
+        #     hdr_cells = table_sensors.rows[0].cells
+        #     for i in range(len(header_sensors)):
+        #         hdr_cells[i].add_paragraph().add_run(header_sensors[i]).font.size = Pt(8)
+        #
+        #     for rec in sensor_statistics[angle // 5]:
+        #         row_cells = table_sensors.add_row().cells
+        #         for i in range(len(rec)):
+        #             row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
+        # doc.add_page_break()
+        #
+        # del sensor_statistics
 
-        coordinates = converter_coordinates_to_real(x, z, model_size, model_scale)
-        sensor_statistics = self.get_sensor_statistics(alpha,
-                                                       model_scale,
-                                                       angle_border,
-                                                       model_size,
-                                                       coordinates,
-                                                       )
+        self.logger.info('5. Суммарные значения аэродинамических коэффициентов')
 
-        doc.add_heading().add_run('4. Статистика по датчикам в табличном виде ').font.size = Pt(20)
-        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        header_sensors = (
-            'ДАТЧИК',
-            'X(мм)',
-            'Y(мм)',
-            'Z(мм)',
-            'MEAN',
-            'RMS',
-            'STD',
-            'MAX',
-            'MIN',
-            'РАСЧЕТНОЕ',
-            'ОБЕСП+',
-            'ОБЕСП-'
-        )
-        for angle in range(0, angle_border, 5):
-            doc.add_paragraph().add_run(
-                f'\nТаблица {counter_tables}. Аэродинамический коэффициент в датчиках для '
-                f'здания {breadth}x{depth}x{height} угол {angle:02}º')
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            counter_tables += 1
-            table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
-            table_sensors.style = 'Table Grid'
-            hdr_cells = table_sensors.rows[0].cells
-            for i in range(len(header_sensors)):
-                hdr_cells[i].add_paragraph().add_run(header_sensors[i]).font.size = Pt(8)
-
-            for rec in sensor_statistics[angle // 5]:
-                row_cells = table_sensors.add_row().cells
-                for i in range(len(rec)):
-                    row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
-        doc.add_page_break()
-
-        del sensor_statistics
-
-        # 5. Суммарные значения аэродинамических коэффициентов
-
-        summary_coefficients_statistics = self.get_summary_coefficients_statistics(angle_border,
-                                                                                   alpha,
-                                                                                   model_scale,
-                                                                                   )
+        # summary_coefficients_statistics = self.get_summary_coefficients_statistics(angle_border,
+        # alpha,
+        # model_scale,
+        # )
 
         doc.add_heading().add_run('5. Суммарные значения аэродинамических коэффициентов').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -927,6 +780,7 @@ class Core:
             'ОБЕСП-'
         )
         for angle in range(0, angle_border, 5):
+            self.logger.info(f'5. Суммарные значения аэродинамических коэффициентов угол {angle}')
             doc.add_picture(
                 f'{path_report}\\Суммарные аэродинамические коэффициенты\\Декартовая система координат\\'
                 f'Суммарные аэродинамические коэффициенты Cx_Cy_CMz {" ".join(model_size)} {alpha} {angle:02}.png')
@@ -935,20 +789,20 @@ class Core:
                 f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             counter_plots += 1
-            doc.add_paragraph().add_run(
-                f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
-                f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
-            counter_tables += 1
-            table_sum = doc.add_table(rows=1, cols=len(header_sum))
-            table_sum.style = 'Table Grid'
-            hdr_cells = table_sum.rows[0].cells
-            for i in range(len(header_sum)):
-                hdr_cells[i].add_paragraph().add_run(header_sum[i]).font.size = Pt(8)
-
-            for rec in summary_coefficients_statistics[angle // 5]:
-                row_cells = table_sum.add_row().cells
-                for i in range(len(rec)):
-                    row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
+            # doc.add_paragraph().add_run(
+            #     f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
+            #     f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+            # counter_tables += 1
+            # table_sum = doc.add_table(rows=1, cols=len(header_sum))
+            # table_sum.style = 'Table Grid'
+            # hdr_cells = table_sum.rows[0].cells
+            # for i in range(len(header_sum)):
+            #     hdr_cells[i].add_paragraph().add_run(header_sum[i]).font.size = Pt(8)
+            #
+            # for rec in summary_coefficients_statistics[angle // 5]:
+            #     row_cells = table_sum.add_row().cells
+            #     for i in range(len(rec)):
+            #         row_cells[i].add_paragraph().add_run(str(rec[i])).font.size = Pt(12)
 
             doc.add_page_break()
 
@@ -965,13 +819,15 @@ class Core:
             counter_plots += 1
             doc.add_page_break()
 
-        del summary_coefficients_statistics
+        # del summary_coefficients_statistics
 
-        # 6. Спектры cуммарных значений аэродинамических коэффициентов
+        self.logger.info('6. Спектры cуммарных значений аэродинамических коэффициентов')
 
         doc.add_heading().add_run('6. Спектры cуммарных значений аэродинамических коэффициентов').font.size = Pt(20)
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
         for angle in range(0, angle_border, 5):
+            self.logger.info(f'6. Спектры cуммарных значений аэродинамических коэффициентов угол {angle}')
+
             doc.add_picture(f'{path_report}\\Спектральная плотность мощности\\Логарифмическая шкала\\'
                             f'Спектральная плотность мощности {model_scale} {alpha} {angle:02}.png')
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -989,7 +845,7 @@ class Core:
 
 if __name__ == '__main__':
     c = Core()
-    c.report('4', ('10', '10', '12'))
+    c.report('6', ('3', '1', '5'))
     # run_proc(c.clipboard_obj.clipboard_dict, '4', ('1', '1', '1'))
     # fig = c.get_plot_summary_coefficients('6', ('0.1', '0.1', '0.1'), '0', 'Cx Cy CMz')
     # utils.utils.open_fig(fig)

@@ -46,8 +46,14 @@ class MainApp(MDApp):
         self.angle = None
         self.model_size = None
         self.menu = None
+
         self.wind_district = None
+        self.wind_pressure = None
         self.type_district = None
+        self.alpha_type_district = None
+        self.k10 = None
+        self.z10 = None
+
         self.app = None
         self.logger.info("Графический интерфейс успешно создан")
 
@@ -105,6 +111,7 @@ class MainApp(MDApp):
     def plot_isofields(self, view: str, mode: str):
         self.update_parameters()
         plot_view = None
+
         if view == 'Дискретные':
             plot_view = 'discrete_isofields'
         elif view == 'Непрерывные':
@@ -160,6 +167,17 @@ class MainApp(MDApp):
 
         )
         menu_mode_isofields.open()
+
+    def get_type_district(self, typ, alpha, k, z):
+        self.type_district = typ
+        self.alpha_type_district = alpha
+        self.k10 = k
+        self.z10 = z
+
+    def get_wind_district(self, district, val):
+        self.wind_district = district
+        self.wind_pressure = val
+        print(self.wind_pressure)
 
     def drop_down_menu(self):
         items_view_isofields = [
@@ -271,7 +289,7 @@ class MainApp(MDApp):
             {
                 "text": f'{district} {val}',
                 "viewclass": "OneLineListItem",
-
+                "on_release": lambda x1 = district, x2 = val: self.get_wind_district(x1, x2),
             }
             for district, val in zip(districts, vals)
         ]
@@ -294,6 +312,7 @@ class MainApp(MDApp):
             {
                 "text": f'{typ} α {alpha} κ {k} ζ {z}',
                 "viewclass": "OneLineListItem",
+                "on_release": lambda x1 = typ, x2 = alpha, x3 = k, x4 = z: self.get_type_district(x1, x2, x3, x4),
 
             }
             for typ, alpha, k, z in zip(types, alphas, ks, zs)
