@@ -1,6 +1,11 @@
 #:import toast kivymd.toast.toast
+#:import ScrollEffect  kivy.effects.scroll.ScrollEffect
+
+
 <IsolatedHighriseScreen>:
+    id: isolated_highrise_screen
     name : 'IsolatedHighriseScreen_screen'
+
     canvas:
         Color:
             rgba: 1, 1, 1, 1
@@ -16,9 +21,12 @@
                 adaptive_size: True
                 text: 'Назад'
                 on_release:
-                    app.root.current='main_screen'
+                    root.manager.current = root.manager.previous()
 
         MDScrollView:
+            do_scroll_x: False
+            scroll_wheel_distance:40
+            effect_cls: ScrollEffect
             MDGridLayout:
                 cols: 2
                 adaptive_size: True
@@ -47,11 +55,12 @@
                         text: '[Климатическая карта России]'
 
                 MDFlatButton:
-                    id: wind_district_button
+                    id: wind_region_button
                     text: 'Выбор'
                     font_size: 18
                     on_release:
-                        app.wind_district.open()
+                        root.drop_down_menu_wind_regions.open()
+
                 MDBoxLayout:
                     orientation: 'vertical'
                     adaptive_size: True
@@ -65,12 +74,11 @@
                         font_style: 'Caption'
                         text: '[Описание]'
                 MDFlatButton:
-                    id: type_district_button
+                    id: type_area_button
                     text: 'Выбор'
                     font_size: 18
                     on_release:
-                        app.type_district.open()
-
+                        root.drop_down_menu_types_areas.open()
 
                 MDBoxLayout:
                     orientation: 'vertical'
@@ -96,7 +104,7 @@
                     size_hint_x: None
                     width: 75
                     on_text_validate:
-                        app.get_angle()
+                        root.get_angle()
 
                 MDBoxLayout:
                     orientation: 'vertical'
@@ -110,18 +118,19 @@
                         font_size: 10
                         font_style: 'Caption'
                         text: '[Пояснения]'
+
                 MDTextField:
                     id: model_size
                     hint_text: 'X Y Z'
                     helper_text: "через пробел"
-                    text:'1 2 2'
+                    text:'2 1 5'
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
                     size_hint_x: None
                     width: 150
                     on_text_validate:
-                        app.get_size()
+                        root.get_size()
 
                 MDLabel:
                     adaptive_size: True
@@ -136,7 +145,7 @@
                     size_hint_x: None
                     width: 75
                     on_text_validate:
-                        app.get_alpha()
+                        root.get_alpha()
 
                 MDLabel:
                     adaptive_size: True
@@ -183,7 +192,7 @@
                     font_size: 18
                     text: 'Графики'
                     on_release:
-                        app.menu.open()
+                        root.drop_down_menu_plots.open()
                 MDFlatButton:
                     disabled: True
 
@@ -193,8 +202,8 @@
                     font_size: 18
                     text: 'Сохранить буфер'
                     on_release:
-                        app.save_clipboard()
-                    disabled: True
+                        root.save_clipboard()
+                    disabled: False
 
                 MDFlatButton:
                     disabled: True
@@ -204,10 +213,10 @@
                     text: 'Отчет'
                     font_size: 18
                     on_release:
-                        self.disabled = True
-                        app.report()
+                        root.manager.current = 'ReportContent_screen'
 
                 MDSpinner:
+                    id: report_spinner
                     size_hint: None, None
                     size: dp(46), dp(46)
-                    active: True if report_button.disabled else False
+                    active: False

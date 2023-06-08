@@ -1,10 +1,49 @@
 import os
-import multiprocessing
+import logging
+
+from multiprocessing import Process, managers
 from typing import Tuple, List
 
 import numpy as np
 import scipy.interpolate
 import matplotlib.pyplot as plt
+
+alpha_standards = {'A': 0.15, 'B': 0.2, 'C': 0.25}
+ks10 = {'A': 1, 'B': 0.65, 'C': 0.4}
+wind_regions = {'Iа': 0.17, 'I': 0.23, 'II': 0.30, 'III': 0.38, 'IV': 0.48, 'V': 0.60, 'VI': 0.73, 'VII': 0.85}
+id_to_name = {
+    'isofieldsPressure': 'Изополя давления',
+    'isofieldsCoefficients': 'Изополя коэффициентов',
+    'pseudocolorCoefficients': 'Мозаика коэффициентов',
+    'envelopes': 'Огибающие',
+    'polarSummaryCoefficients': 'Суммарные коэффициенты в полярной системе координат',
+    'summaryCoefficients': 'Графики суммарных коэффициентов',
+    'summarySpectres': 'Спектры суммарных коэффициентов',
+    '3dModel': 'Трехмерная модель',
+    'modelPolar': 'Модель в полярной системе координат',
+    'pressureTapLocations': 'Система датчиков мониторинга',
+    'max': 'Максимальные',
+    'mean': 'Средние',
+    'min': 'Минимальные',
+    'std': 'Среднеквадратическое отклонение',
+    'rms': 'Среднеквадратичное значение',
+    'rach': 'Расчетное',
+    'obesP': 'Обеспеченность -',
+    'obesM': 'Обеспеченность +',
+    'cx': 'CX',
+    'cy': 'CY',
+    'cmz': 'CmZ',
+    'cx_cy': 'CX CY',
+    'cx_cmz': 'CX CmZ',
+    'cy_cmz': 'CY CmZ',
+    'cx_cy_cmz': 'CX CY CmZ',
+    'statisticsSensors': 'Статистика по датчикам',
+    'x': 'X(mm)',
+    'y': 'Y(mm)',
+    'z': 'Z(mm)',
+    'statisticsSummaryCoefficients': 'Статистика по суммарным аэродинамическим коэффициентам',
+
+}
 
 
 def get_base_angle(angle: int, permutation_view: str, type_base: str = 'square'):
@@ -65,8 +104,6 @@ def changer_sequence_coefficients(coefficients,
 def changer_sequence_numbers(numbers: List[int],
                              model_name: str,
                              sequence_permutation: Tuple[int, int, int, int]):
-    print(numbers, model_name)
-
     f1, f2, f3, f4 = sequence_permutation
     count_sensors_on_middle = int(model_name[1]) * 5
     count_sensors_on_side = int(model_name[0]) * 5
@@ -85,7 +122,6 @@ def changer_sequence_numbers(numbers: List[int],
                               arr[f3],
                               arr[f4]), axis=1).reshape(count_sensors_on_model)
 
-    print(numbers)
     return numbers
 
 
@@ -139,27 +175,34 @@ def get_view_permutation_data(type_base: str, angle: int):
             return 'forward'
 
 
-def calculate_cmz(model_name: str, pr_coeff, coordinates):
+def calculate_cmz(model_name: str, angle: str, pr_coeff, coordinates):
     """Вычисление моментов сил CMz"""
-    print(model_name)
     cmz = []
     breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
 
     count_sensors_on_model = len(pr_coeff[0])
-    count_sensors_on_middle = int(model_name[0]) * 5
-    count_sensors_on_side = int(model_name[1]) * 5
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+    count_sensors_on_middle_row = int(model_name[0]) * 5  # В строке
+    count_sensors_on_side_row = int(model_name[1]) * 5  # В строке
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+
+    count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
+    count_sensors_on_2_4_face = count_sensors_on_side_row * count_row
+
+    angle = int(angle)
+    shirina = np.cos(angle) * breadth + np.sin(angle) * depth
 
     x, _ = coordinates
     x = np.reshape(x, (count_row, -1))
-    x = np.split(x, [count_sensors_on_middle,
-                     count_sensors_on_middle + count_sensors_on_side,
-                     2 * count_sensors_on_middle + count_sensors_on_side,
-                     2 * (count_sensors_on_middle + count_sensors_on_side)
+    x = np.split(x, [count_sensors_on_middle_row,
+                     count_sensors_on_middle_row + count_sensors_on_side_row,
+                     2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                     2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                      ], axis=1)
 
     del x[4]
 
+    # print(breadth,depth)
+    # центры граней
     mid13_x = breadth / 2
     mid24_x = depth / 2
 
@@ -170,69 +213,101 @@ def calculate_cmz(model_name: str, pr_coeff, coordinates):
     x[2] -= v3
     x[3] -= v4
 
+    # mx плечи для каждого сенсора
     mx13 = np.array([
         x[0] - mid13_x,
         x[2] - mid13_x,
     ])
-
 
     mx24 = np.array([
         x[1] - mid24_x,
         x[3] - mid24_x,
     ])
 
+    # print(mx13)
+    # print(mx24)
+    # Площадь для каждого датчика
+    s13 = breadth * height
+    s24 = depth * height
+    s13i = s13 / count_sensors_on_1_3_face
+    s24i = s24 / count_sensors_on_2_4_face
+    # print(s13)
+    # print(s24)
+    # print(len(pr_coeff))
+    # print(len(pr_coeff[0]))
+    # print(mx13)
+    # print(mx24)
+
     for coeff in pr_coeff:
         t_cmz = 0
         coeff = np.reshape(coeff, (count_row, -1))
-        coeff = np.split(coeff, [count_sensors_on_middle,
-                                 count_sensors_on_middle + count_sensors_on_side,
-                                 2 * count_sensors_on_middle + count_sensors_on_side,
-                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+        coeff = np.split(coeff, [count_sensors_on_middle_row,
+                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                  ], axis=1)
+        # print(coeff)
+        # print(mx13[0] * coeff[0])
+        # print(mx24[0] * coeff[1])
+        # t_cmz += np.sum(mx13[0] * coeff[0] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
+        # t_cmz += np.sum(mx24[0] * coeff[1] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
+        # t_cmz += np.sum(mx13[1] * coeff[2] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
+        # t_cmz += np.sum(mx24[1] * coeff[3] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
+        t1 = np.sum(mx13[0] * coeff[0] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
+        t2 = np.sum(mx24[0] * coeff[1] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
+        t3 = np.sum(mx13[1] * coeff[2] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
+        t4 = np.sum(mx24[1] * coeff[3] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
 
-        t_cmz += np.sum(mx13[0] * coeff[0])
-        t_cmz += np.sum(mx24[0] * coeff[1])
-        t_cmz += np.sum(mx13[1] * coeff[2])
-        t_cmz += np.sum(mx24[1] * coeff[3])
+        # cmz = np.append(cmz, (t_cmz))
+        cmz = np.append(cmz, sum([t1, t2, t3, t4]))
 
-        cmz = np.append(cmz, t_cmz)
-    print(np.mean(np.array(cmz)))
+        break
+
     return np.array(cmz)
 
 
 def calculate_cx_cy(model_name: str, pr_coeff):
     """Вычисление CX и CY"""
+    breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
 
     cx = []
     cy = []
+
     count_sensors_on_model = len(pr_coeff[0])
-    count_sensors_on_middle = int(model_name[0]) * 5
-    count_sensors_on_side = int(model_name[1]) * 5
+    count_sensors_on_middle_row = int(model_name[0]) * 5
+    count_sensors_on_side_row = int(model_name[1]) * 5
 
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
-    count_sensors_on_1_3_face = (count_sensors_on_middle * count_row)
-    count_sensors_on_2_4_face = (count_sensors_on_side * count_row)
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+    count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
+    count_sensors_on_2_4_face = count_sensors_on_side_row * count_row
 
+    # Площадь для каждого датчика
+    s13 = breadth * height
+    s24 = depth * height
+    s13i = s13 / count_sensors_on_1_3_face
+    s24i = s24 / count_sensors_on_2_4_face
+
+    print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
+    # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))
-        coeff = np.split(coeff, [count_sensors_on_middle,
-                                 count_sensors_on_middle + count_sensors_on_side,
-                                 2 * count_sensors_on_middle + count_sensors_on_side,
-                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+        coeff = np.split(coeff, [count_sensors_on_middle_row,
+                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                  ], axis=1)
 
         del coeff[4]
-        faces_x = []
-        faces_y = []
-        for face in range(len(coeff)):
-            if face in [0, 2]:
-                faces_x.append(np.sum(coeff[face]) / count_sensors_on_1_3_face)
-            else:
-                faces_y.append(np.sum(coeff[face]) / count_sensors_on_2_4_face)
-        cx.append(faces_x[0] - faces_x[1])
-        cy.append(faces_y[0] - faces_y[1])
-    print(np.mean(np.array(cx)))
-    print(np.mean(np.array(cy)))
+
+        gran1 = np.sum(coeff[0] * s13i) / (count_sensors_on_1_3_face * s13)
+        gran3 = np.sum(coeff[2] * s13i) / (count_sensors_on_1_3_face * s13)
+
+        gran2 = np.sum(coeff[1] * s24i) / (count_sensors_on_2_4_face * s24)
+        gran4 = np.sum(coeff[3] * s24i) / (count_sensors_on_2_4_face * s24)
+
+        cx.append(gran1 - gran3)
+        cy.append(gran2 - gran4)
+
     return np.array(cx), np.array(cy)
 
 
@@ -309,22 +384,27 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     return model_from_db, scale_factors
 
 
-def generate_directory_for_report(path_report: str):
+def generate_directory_for_report(current_path: str, name_report: str):
     """Создание директории под отчет"""
     folders = (
         'Модель',
-        'Огибающие',
         'Изополя ветровых нагрузок и воздействий',
-        'Изополя ветровых нагрузок и воздействий\\Непрерывные',
-        'Изополя ветровых нагрузок и воздействий\\Непрерывные\\MAX',
-        'Изополя ветровых нагрузок и воздействий\\Непрерывные\\MEAN',
-        'Изополя ветровых нагрузок и воздействий\\Непрерывные\\MIN',
-        'Изополя ветровых нагрузок и воздействий\\Непрерывные\\STD',
-        'Изополя ветровых нагрузок и воздействий\\Дискретные',
-        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MAX',
-        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MEAN',
-        'Изополя ветровых нагрузок и воздействий\\Дискретные\\MIN',
-        'Изополя ветровых нагрузок и воздействий\\Дискретные\\STD',
+        'Изополя ветровых нагрузок и воздействий\\Коэффициенты',
+        'Изополя ветровых нагрузок и воздействий\\Коэффициенты\\max',
+        'Изополя ветровых нагрузок и воздействий\\Коэффициенты\\mean',
+        'Изополя ветровых нагрузок и воздействий\\Коэффициенты\\min',
+        'Изополя ветровых нагрузок и воздействий\\Коэффициенты\\std',
+        'Изополя ветровых нагрузок и воздействий\\Давление',
+        'Изополя ветровых нагрузок и воздействий\\Давление\\max',
+        'Изополя ветровых нагрузок и воздействий\\Давление\\mean',
+        'Изополя ветровых нагрузок и воздействий\\Давление\\min',
+        'Изополя ветровых нагрузок и воздействий\\Давление\\std',
+        'Мозаика коэффициентов',
+        'Мозаика коэффициентов\\max',
+        'Мозаика коэффициентов\\mean',
+        'Мозаика коэффициентов\\min',
+        'Мозаика коэффициентов\\std',
+        'Огибающие',
         'Суммарные аэродинамические коэффициенты',
         'Суммарные аэродинамические коэффициенты\\Декартовая система координат',
         'Суммарные аэродинамические коэффициенты\\Полярная система координат',
@@ -332,13 +412,17 @@ def generate_directory_for_report(path_report: str):
         'Спектральная плотность мощности\\Линейная шкала',
         'Спектральная плотность мощности\\Логарифмическая шкала',
     )
+    path = f'{current_path}\\Отчеты'
+    if not os.path.isdir(path):
+        os.mkdir(path)
 
-    if not os.path.isdir(f'{path_report}'):
-        os.mkdir(f'{path_report}')
+    path = f'{path}\\{name_report}'
+    if not os.path.isdir(path):
+        os.mkdir(path)
 
     for folder in folders:
-        if not os.path.isdir(f'{path_report}\\{folder}'):
-            os.mkdir(f'{path_report}\\{folder}')
+        if not os.path.isdir(f'{path}\\{folder}'):
+            os.mkdir(f'{path}\\{folder}')
 
 
 def display_fig(fig):
@@ -358,7 +442,7 @@ def display_fig(fig):
 
 def run_proc(fig):
     """Запуск нового процесса для отображения графика"""
-    multiprocessing.Process(target=display_fig, args=(fig,)).start()
+    Process(target=display_fig, args=(fig,)).start()
 
 
 def open_fig(figures):
@@ -444,5 +528,33 @@ def converter_coordinates_to_real(x, z, model_size, model_scale):
     return x_real, z_real
 
 
+def to_dict(item):
+    if isinstance(item, managers.DictProxy) or isinstance(item, dict):
+        return {k: to_dict(v) for k, v in item.items()}
+    return item
+
+
+def to_multiprocessing_dict(item, manager):
+    if isinstance(item, managers.DictProxy) or isinstance(item, dict):
+        return manager.dict({k: to_multiprocessing_dict(v, manager) for k, v in item.items()})
+    return item
+
+
+def get_logger(name):
+    logger = logging.getLogger(f'{name}'.ljust(15, ' '))
+    logger.setLevel(logging.INFO)
+
+    # настройка обработчика и форматировщика
+    py_handler = logging.FileHandler("log.log", mode='a')
+    py_formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s %(message)s")
+
+    # добавление форматировщика к обработчику
+    py_handler.setFormatter(py_formatter)
+    # добавление обработчика к логгеру
+    logger.addHandler(py_handler)
+    return logger
+
+
 if __name__ == '__main__':
-    print(get_model_and_scale_factors('1', '10', '1', '4'))
+    # generate_directory_for_report('D:\Projects\WindSpectrum')
+    print(get_model_and_scale_factors('4', '6', '12', 6))

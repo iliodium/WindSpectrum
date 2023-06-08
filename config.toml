@@ -1,19 +1,23 @@
 [clipboard]
 [clipboard.plots]
-discrete_isofields = true
-integral_isofields = true
+pseudocolor_coefficients = false
 
-summary_spectres_cx = true
-summary_spectres_cy = true
-summary_spectres_cmz = true
+isofields_pressure = false
+isofields_coefficients = false
 
-summary_coefficients_cx = true
-summary_coefficients_cy = true
-summary_coefficients_cmz = true
+summary_spectres_cx = false
+summary_spectres_cy = false
+summary_spectres_cmz = false
 
-summary_coefficients_polar = true
+summary_coefficients_cx = false
+summary_coefficients_cy = false
+summary_coefficients_cmz = false
+summary_coefficients_polar = false
 
-envelopes = true
+envelopes = false
+
+model_polar = false
+model_3d = false
 
 [clipboard.data_from_db]
 pressure_coefficients = true
@@ -24,13 +28,16 @@ cx = true
 cy = true
 cmz = true
 
+[clipboard.settings]
+read_clipboard_binary = false
+
 [plots]
 dpi = 200  # Качество отрисовки графиков
 
 [core]
-count_threads = 10  # Количество запускаемых потоков при создании отчета
+count_threads = 8  # Количество запускаемых потоков при работе
 
 [databasetoolkit]
-min_count_connections = 10
-max_count_connections = 10
+min_count_connections = 4
+max_count_connections = 8
 time_sleep = 3  # Время между запросами нового подлючения если доступных нет, в секундах
