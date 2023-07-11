@@ -19,5 +19,4 @@ main.exe
 config.toml
 *.log
 stuff.txt
-*.pkl
-*
+test*
