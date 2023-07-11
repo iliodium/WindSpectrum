@@ -1,0 +1,41 @@
+#:import ScrollEffect  kivy.effects.scroll.ScrollEffect
+
+<ReportContent>:
+    name : 'ReportContent_screen'
+
+    MDBoxLayout:
+        orientation:'vertical'
+        spacing:8
+        NavigationBar:
+            MDFlatButton:
+                adaptive_size: True
+                text: 'Назад'
+                on_release:
+                    root.manager.current = root.manager.previous()
+
+        MDRaisedButton:
+            id: report_button
+            text: 'Отчет'
+            font_size: 18
+            on_release:
+                root.report()
+                root.manager.current = root.manager.previous()
+
+        MDRaisedButton:
+            id: chose_all_content
+            text: 'Выбрать все'
+            font_size: 18
+            on_release:
+                root.chose_all_content()
+
+        MDScrollView:
+            do_scroll_x: False
+            scroll_wheel_distance:40
+            effect_cls: ScrollEffect
+
+            MDGridLayout:
+                id: menu_layout
+                cols: 2
+                adaptive_width:True
+                adaptive_height:True
+                padding: [3,5,0,0]

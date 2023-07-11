@@ -19,3 +19,4 @@ main.exe
 config.toml
 *.log
 stuff.txt
+test*
