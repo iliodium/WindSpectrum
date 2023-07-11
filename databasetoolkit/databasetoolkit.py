@@ -1,35 +1,25 @@
 import os
 import time
-import logging
 
 import toml
 from psycopg2.pool import ThreadedConnectionPool, PoolError
+
+from utils import get_logger
 
 
 class DataBaseToolkit:
     """Класс для запросов в БД"""
     config = toml.load('config.toml')
 
-    logger = logging.getLogger('DataBaseToolkit'.ljust(15, ' '))
-    logger.setLevel(logging.INFO)
-
-    # настройка обработчика и форматировщика
-    py_handler = logging.FileHandler("log.log", mode='a')
-    py_formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s %(message)s")
-
-    # добавление форматировщика к обработчику
-    py_handler.setFormatter(py_formatter)
-    # добавление обработчика к логгеру
-    logger.addHandler(py_handler)
-
     _min_count_connections = config['databasetoolkit']['min_count_connections']  # минимальное число соединений с БД
-    _max_count_connections = config['databasetoolkit']['max_count_connections']   # максимальное число соединений с БД
+    _max_count_connections = config['databasetoolkit']['max_count_connections']  # максимальное число соединений с БД
     _time_sleep = config['databasetoolkit']['time_sleep']
 
     def __init__(self,
                  min_conn = None,
                  max_conn = None):
         """Создание пула подключений к БД"""
+        self.logger = get_logger('DataBaseToolkit')
         self.logger.info("Подключение к БД")
         if min_conn is None:
             min_conn = DataBaseToolkit._min_count_connections
@@ -58,7 +48,7 @@ class DataBaseToolkit:
 
         return connection
 
-    def get_experiments(self, manager = dict):
+    def get_experiments(self):
         """Возвращает всё доступные эксперименты из БД
         manager для того чтобы буфер был доступен во всех процессах.
         """
@@ -68,34 +58,28 @@ class DataBaseToolkit:
         connection = self.connection_pool.getconn()
         cursor = connection.cursor()
 
-        experiments = manager({'4': manager(),
-                               '6': manager()
-                               })
+        experiments = dict({'4': dict(),
+                            '6': dict()
+                            })
         # Альфа 4
         cursor.execute("""
-                            select experiments_alpha_4.model_name, models_alpha_4.angle
+                            select model_name
                             from experiments_alpha_4
-                            join models_alpha_4 on experiments_alpha_4.model_id = models_alpha_4.model_id
                                 """)
-        model_names_angles_4 = cursor.fetchall()
+        model_names_4 = cursor.fetchall()
 
-        for model_name, angel in model_names_angles_4:
-            if not experiments['4'].get(str(model_name)):
-                experiments['4'][str(model_name)] = manager()
-            experiments['4'][str(model_name)][str(angel)] = manager()
+        for model_name in model_names_4:
+            experiments['4'][str(model_name[0])] = dict()
 
         # Альфа 6
         cursor.execute("""
-                            select experiments_alpha_6.model_name, models_alpha_6.angle
+                            select model_name
                             from experiments_alpha_6
-                            join models_alpha_6 on experiments_alpha_6.model_id = models_alpha_6.model_id
                                         """)
-        model_names_angles_6 = cursor.fetchall()
+        model_names_6 = cursor.fetchall()
 
-        for model_name, angel in model_names_angles_6:
-            if not experiments['6'].get(str(model_name)):
-                experiments['6'][str(model_name)] = manager()
-            experiments['6'][str(model_name)][str(angel)] = manager()
+        for model_name in model_names_6:
+            experiments['6'][str(model_name[0])] = dict()
 
         self.logger.info("Запрос экспериментов из БД успешно выполнен")
 
@@ -250,7 +234,7 @@ class DataBaseToolkit:
 
 if __name__ == '__main__':
     d = DataBaseToolkit()
-
+    # d.get_experiments()
     # for model_name, angel in a:
     #     print(model_name, angel)
     # d1 = d.get_connection()
