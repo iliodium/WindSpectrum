@@ -306,16 +306,31 @@ class Plot:
 
             levels = np.arange(min_v, max_v, (np.abs(min_v) + np.abs(max_v)) * 0.1).round(2)
 
+        # for i in range(4):
+        #     min_value = np.min(data_new_list[i])
+        #     max_value = np.max(data_new_list[i])
+
+        all_levels = np.linspace(np.min([np.min(data_new_list[i]) for i in range(4)]), np.max([np.max(data_new_list[i]) for i in range(4)]), 11)
+
         for i in range(4):
             triang = mtri.Triangulation(x_new_list[i], z_new_list[i])
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(data_new_list[i], subdiv=4)
-            min_value = np.min(data_new_list[i])
-            max_value = np.max(data_new_list[i])
-            temp_levels = np.linspace(min_value, max_value, 11)
-            data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=temp_levels)
+            #min_value = np.min(data_new_list[i])
+            #max_value = np.max(data_new_list[i])
+            #temp_levels = np.linspace(min_value, max_value, 11)
+            #print(all_levels)
+            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=11)
+            #print(data_colorbar.levels)
+            data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=all_levels)
+            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=temp_levels)
+            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
 
-            aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=temp_levels)
+            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=11)
+            #print(aq.levels)
+            aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=all_levels)
+            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=temp_levels)
+            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
             ax[i].clabel(aq, fontsize=10)
 
             ax[i].set_ylim([0, h_scaled])
@@ -336,8 +351,9 @@ class Plot:
             if not pressure_plot_parameters:
                 x_dots, y_dots = np.meshgrid(x_old_list[i], z_old_list[i])
                 ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3))
-
-        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
+        #print(all_levels)
+        #fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
+        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=all_levels).ax.tick_params(labelsize=4)
 
         return fig
 

@@ -1,10 +1,13 @@
 import os
+import random
 import time
 import glob
 import pickle
 from typing import Tuple, List
 from multiprocessing import Process, Manager, managers
 from concurrent.futures import ThreadPoolExecutor
+from utils.utils import ks10, alpha_standards, wind_regions
+from utils.utils import interpolator as intp
 
 import toml
 import numpy as np
@@ -41,7 +44,7 @@ class Core:
 
     _count_threads = config['core']['count_threads']  # количество запускаемых потоков при создании отчета
 
-    def __init__(self, ex_clipboard = None):
+    def __init__(self, ex_clipboard=None):
         """Создание объекта для работы с буфером"""
         self.logger = get_logger('Core')
         self.logger.info('Создание ядра')
@@ -60,7 +63,7 @@ class Core:
                            model_size: Tuple[str, str, str],
                            angle: str,
                            mode: str,
-                           pressure_plot_parameters = None):
+                           pressure_plot_parameters=None):
         """Функция возвращает изополя"""
         if pressure_plot_parameters:
             type_plot = 'isofields_pressure'
@@ -158,8 +161,10 @@ class Core:
             args_summary_coefficients = [(alpha, model_size, str(angle), path_report, mode)
                                          for angle in range(0, angle_border, 5)]
 
-            with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                executor.map(lambda i: self.summary_coefficients_thread(*i), args_summary_coefficients)
+            for i in args_summary_coefficients:
+                self.summary_coefficients_thread(*i)
+            # with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+            #     executor.map(lambda i: self.summary_coefficients_thread(*i), args_summary_coefficients)
 
     def summary_coefficients_thread(self,
                                     alpha: str,
@@ -277,13 +282,11 @@ class Core:
 
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             polar_plots = list(executor.map(lambda i: self.get_plot_summary_coefficients_polar(*i), args))
+        path_folder = f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат'
 
         for mode, fig in zip(mods, polar_plots):
-            file_name = f'Суммарные аэродинамические коэффициенты Cx Cy CMz ' \
-                        f'{" ".join(model_size)} {id_to_name[mode]} в полярной системе координат.png'
-
-            fig.savefig(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
-                         f'{file_name}')
+            file_name = f'Суммарные аэродинамические коэффициенты Cx Cy CMz {" ".join(model_size)} {id_to_name[mode]}.png'
+            fig.savefig(f'{path_folder}\\{file_name}')
             plt.close(fig)
 
         self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
@@ -308,9 +311,12 @@ class Core:
             'std': np.std,
             'max': np.max,
             'min': np.min,
+            'Расчетное': rach,
             'rach': rach,
-            'obesP': obes_m,
-            'obesM': obes_p
+            'obesP': obes_p,
+            'obesM': obes_m,
+            'Обеспеченность +': obes_m,
+            'Обеспеченность -': obes_p
         }
 
         id_fig = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
@@ -356,7 +362,7 @@ class Core:
                       alpha: str,
                       model_scale: str,
                       angle: str,
-                      mods = ['mean', 'rms', 'std', 'max', 'min']):
+                      mods=['mean', 'rms', 'std', 'max', 'min']):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
@@ -403,6 +409,10 @@ class Core:
         args = [(alpha, model_scale, str(angle), mods, path_report) for angle in
                 range(0, angle_border, 5)]
 
+        # for i in args:
+        #     self.envelopes_thread(*i)
+
+        # Для мощных пк, если есть 10ГБ оперативной памяти лишней
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
             executor.map(lambda i: self.envelopes_thread(*i), args)
 
@@ -455,9 +465,10 @@ class Core:
         # if isinstance(self.clipboard_obj.clipboard_dict, dict):
         #     self.wrapper_for_clipboard()
 
-        #self.report(alpha, model_size, pressure_plot_parameters, content)
+        # self.report(alpha, model_size, pressure_plot_parameters, content)
 
         args = (self.clipboard_obj.clipboard_dict, alpha, model_size, pressure_plot_parameters, content)
+        # self.start_report(*args)
         proc = Process(target=Core.start_report, args=args)
         proc.start()
 
@@ -593,39 +604,58 @@ class Core:
         self.logger.info(f'Отрисовка графиков')
         # isofieldsPressure
         if content['isofieldsPressure'][0]:
-            mods = [k for k in content['isofieldsPressure'][1].keys() if content['isofieldsPressure'][1][k]]
-            self.draw_isofields_pressure(alpha, model_size, angle_border, path_report, mods, pressure_plot_parameters)
+            mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
+                                      content['isofieldsPressure'][1][k]]
+            self.draw_isofields_pressure(alpha, model_size, angle_border, path_report, mods_isofieldsPressure,
+                                         pressure_plot_parameters)
+            self.logger.info(f'isofieldsPressure')
+
         # isofieldsCoefficients
         if content['isofieldsCoefficients'][0]:
-            mods = [k for k in content['isofieldsCoefficients'][1].keys() if content['isofieldsCoefficients'][1][k]]
-            self.draw_isofields_coefficients(alpha, model_size, angle_border, path_report, mods)
+            mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
+                                          content['isofieldsCoefficients'][1][k]]
+            self.draw_isofields_coefficients(alpha, model_size, angle_border, path_report, mods_isofieldsCoefficients)
+            self.logger.info(f'isofieldsCoefficients')
 
         # pseudocolorCoefficients
         if content['pseudocolorCoefficients'][0]:
-            mods = [k for k in content['pseudocolorCoefficients'][1].keys() if content['pseudocolorCoefficients'][1][k]]
-            self.draw_pseudocolor_coefficients(alpha, model_size, angle_border, path_report, mods)
+            mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
+                                            content['pseudocolorCoefficients'][1][k]]
+            self.draw_pseudocolor_coefficients(alpha, model_size, angle_border, path_report,
+                                               mods_pseudocolorCoefficients)
+            self.logger.info(f'pseudocolorCoefficients')
+
         # envelopes
         if content['envelopes'][0]:
-            mods = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
-            self.draw_envelopes(alpha, model_scale, angle_border, path_report, mods)
+            mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
+            self.draw_envelopes(alpha, model_scale, angle_border, path_report, mods_envelopes)
+            self.logger.info(f'envelopes')
+
         # polarSummaryCoefficients
         if content['polarSummaryCoefficients'][0]:
-            mods_sum_coef_polar = [k for k in content['polarSummaryCoefficients'][1].keys() if
-                                   content['polarSummaryCoefficients'][1][k]]
+            mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
+                                             content['polarSummaryCoefficients'][1][k]]
             self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report,
-                                                 mods_sum_coef_polar)
+                                                 mods_polarSummaryCoefficients)
+            self.logger.info(f'polarSummaryCoefficients')
+
         # summaryCoefficients
         if content['summaryCoefficients'][0]:
-            mods_sum_coef = [k for k in content['summaryCoefficients'][1].keys() if
-                             content['summaryCoefficients'][1][k]]
-            self.draw_summary_coefficients(alpha, model_size, angle_border, path_report, mods_sum_coef)
+            mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
+                                        content['summaryCoefficients'][1][k]]
+            self.draw_summary_coefficients(alpha, model_size, angle_border, path_report, mods_summaryCoefficients)
+            self.logger.info(f'summaryCoefficients')
+
         # summarySpectres
         if content['summarySpectres'][0]:
-            mods_sum_spec = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
-            self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report, mods_sum_spec)
+            mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
+            self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report, mods_summarySpectres)
+            self.logger.info(f'summarySpectres')
+
         # pressureTapLocations
         if content['pressureTapLocations'][0]:
             self.draw_plot_pressure_tap_locations(model_size, alpha, path_report)
+            self.logger.info(f'pressureTapLocations')
 
         self.draw_plot_model_3d(model_size, path_report)
         self.draw_model_polar(model_size, path_report)
@@ -652,9 +682,11 @@ class Core:
         #     ],
         # ]
         if content['statisticsSensors'][0]:
-            mods_stat_sens = [k for k in content['statisticsSensors'][1].keys() if content['statisticsSensors'][1][k]]
-            if mods_stat_sens:
-                args = [(alpha, model_scale, angle, model_size, mods_stat_sens) for angle in range(0, angle_border, 5)]
+            mods_statisticsSensors = [k for k in content['statisticsSensors'][1].keys() if
+                                      content['statisticsSensors'][1][k]]
+            if mods_statisticsSensors:
+                args = [(alpha, model_scale, angle, model_size, mods_statisticsSensors) for angle in
+                        range(0, angle_border, 5)]
                 with ThreadPoolExecutor(max_workers=self._count_threads) as executor:
                     statistics_sensors = list(executor.map(lambda i: self.get_sensor_statistics(*i), args))
 
@@ -674,10 +706,11 @@ class Core:
         #     ],
         # ]
         if content['statisticsSummaryCoefficients'][0]:
-            mods_stat_sum_coeff = [k for k in content['statisticsSummaryCoefficients'][1].keys()
-                                   if content['statisticsSummaryCoefficients'][1][k]]
+            mods_statisticsSummaryCoefficients = [k for k in content['statisticsSummaryCoefficients'][1].keys()
+                                                  if content['statisticsSummaryCoefficients'][1][k]]
 
-            args = [(angle, alpha, model_scale, mods_stat_sum_coeff) for angle in range(0, angle_border, 5)]
+            args = [(angle, alpha, model_scale, mods_statisticsSummaryCoefficients) for angle in
+                    range(0, angle_border, 5)]
             with ThreadPoolExecutor(max_workers=self._count_threads) as executor:
                 statistics_summary_coefficients = list(
                     executor.map(lambda i: self.get_summary_coefficients_statistics(*i), args))
@@ -789,7 +822,7 @@ class Core:
             doc.add_page_break()
 
         self.logger.info(f'{counter_head}. Изополя ветровых нагрузок и воздействий')
-        mods_isofields = ('max', 'mean', 'min', 'std')
+
         if content['isofieldsPressure'][0] or content['isofieldsCoefficients'][0]:
             head = doc.add_heading()
             run = head.add_run(f'{counter_head}. Изополя ветровых нагрузок и воздействий')
@@ -802,13 +835,13 @@ class Core:
         counter_head_lvl2 = 0.1
         if content['isofieldsCoefficients'][0]:
             head = doc.add_heading(level=2)
-            run = head.add_run(f'{counter_head+counter_head_lvl2} Коэффициенты изополя')
+            run = head.add_run(f'{counter_head + counter_head_lvl2} Коэффициенты изополя')
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run.font.size = head_lvl2
 
             counter_head_lvl2 += 0.1
 
-            for mode in mods_isofields:
+            for mode in mods_isofieldsCoefficients:
                 for angle in range(0, angle_border, 5):
                     isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Коэффициенты\\{mode}\\' \
                                 f'Изополя {" ".join(model_size)} {alpha} {angle:02} {mode}.png'
@@ -825,14 +858,13 @@ class Core:
         self.logger.info('3.2 Изополя давления')
         if content['isofieldsPressure'][0]:
             head = doc.add_heading(level=2)
-            run = head.add_run(f'{counter_head+counter_head_lvl2}. Изополя давления')
+            run = head.add_run(f'{counter_head + counter_head_lvl2}. Изополя давления')
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run.font.size = head_lvl2
 
             counter_head_lvl2 += 0.1
 
-
-            for mode in mods_isofields:
+            for mode in mods_isofieldsPressure:
                 for angle in range(0, angle_border, 5):
                     isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Давление\\{mode}\\' \
                                 f'Изополя давления {" ".join(model_size)} {alpha} {angle:02} {mode}.png'
@@ -858,7 +890,7 @@ class Core:
             counter_head += 1
 
             header_sensors = ['Датчик']
-            header_sensors.extend([id_to_name[mode] for mode in mods_stat_sens])
+            header_sensors.extend([id_to_name[mode] for mode in mods_statisticsSensors])
 
             for angle in range(0, angle_border, 5):
                 self.logger.info(f'4. Статистика по датчикам в табличном виде угол {angle}')
@@ -900,7 +932,7 @@ class Core:
             counter_head += 1
 
             for angle in range(0, angle_border, 5):
-                for mode in mods_sum_coef:
+                for mode in mods_summaryCoefficients:
                     mode = ' '.join(mode.lower().title().split('_'))
                     self.logger.info(f'5. Суммарные значения аэродинамических коэффициентов угол {angle}')
                     p = doc.add_paragraph()
@@ -923,7 +955,7 @@ class Core:
             counter_head += 1
 
             header_sum = ['Сила']
-            header_sum.extend([id_to_name[mode] for mode in mods_stat_sum_coeff])
+            header_sum.extend([id_to_name[mode] for mode in mods_statisticsSummaryCoefficients])
 
             for angle in range(0, angle_border, 5):
                 doc.add_paragraph().add_run(
@@ -960,12 +992,12 @@ class Core:
 
             counter_head += 1
 
-            for mode in mods_sum_coef_polar:
+            for mode in mods_polarSummaryCoefficients:
                 p = doc.add_paragraph()
                 run = p.add_run()
                 run.add_picture(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
                                 f'Суммарные аэродинамические коэффициенты Cx Cy CMz {breadth} {depth} {height} '
-                                f'{id_to_name[mode]} в полярной системе координат.png')
+                                f'{id_to_name[mode]}.png')
 
                 run.add_text(
                     f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты в полярной системе координат '
@@ -986,7 +1018,7 @@ class Core:
 
             for angle in range(0, angle_border, 5):
                 self.logger.info(f'8. Спектры cуммарных значений аэродинамических коэффициентов угол {angle}')
-                for mode in mods_sum_spec:
+                for mode in mods_summarySpectres:
                     mode = ' '.join(mode.lower().title().split('_'))
                     p = doc.add_paragraph()
                     run = p.add_run()
@@ -1002,7 +1034,147 @@ class Core:
         doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
         os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
 
-        print(time.time() - t1)
+        self.logger.info(f'{time.time() - t1} Затраченное время на создание отчета')
+
+    # Интегрирование по высоте
+    def height_integration(self,
+                           alpha: str,
+                           model_size: Tuple[str, str, str],
+                           angle: str,
+                           mode: str,
+                           pressure_plot_parameters: dict,
+                           faces: tuple,
+                           step: tuple):
+
+        COUNT_DOTS = 100
+
+        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+        coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+        model_name = model_scale
+
+        # Виды изополей
+        mods = {
+            'max': np.max(pressure_coefficients, axis=0),
+            'mean': np.mean(pressure_coefficients, axis=0),
+            'min': np.min(pressure_coefficients, axis=0),
+            'std': np.std(pressure_coefficients, axis=0),
+        }
+
+        size_x, size_y, size_z = map(float, model_size)
+        x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
+
+        pressure_coefficients = mods[mode]
+        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+        count_sensors_on_model = len(pressure_coefficients)
+        count_sensors_on_middle = int(model_name[0]) * 5
+        count_sensors_on_side = int(model_name[1]) * 5
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+        x, z = np.array(coordinates)
+
+        pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
+        pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
+                                                                 count_sensors_on_middle + count_sensors_on_side,
+                                                                 2 * count_sensors_on_middle + count_sensors_on_side,
+                                                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+                                                                 ], axis=1)
+        x = np.reshape(x, (count_row, -1))
+        x = np.split(x, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+
+        z = np.reshape(z, (count_row, -1))
+        z = np.split(z, [count_sensors_on_middle,
+                         count_sensors_on_middle + count_sensors_on_side,
+                         2 * count_sensors_on_middle + count_sensors_on_side,
+                         2 * (count_sensors_on_middle + count_sensors_on_side)
+                         ], axis=1)
+
+        del pressure_coefficients[4]
+        del x[4]
+        del z[4]
+
+        type_area = pressure_plot_parameters['type_area']
+        wind_region = pressure_plot_parameters['wind_region']
+        alpha_standard = alpha_standards[type_area]
+        k10 = ks10[type_area]
+        wind_pressure = wind_regions[wind_region]
+
+        PO = 1.225
+        yf = 1.4
+        ks = 1
+        w0 = wind_pressure * 1000
+        u10 = np.sqrt(2 * yf * k10 * w0 / PO)
+        wind_profile = u10 * (ks * size_z / 10) ** alpha_standard
+        coefficient_for_pressure = wind_profile ** 2 * PO / 2
+
+        z_marks = [0]
+        scaled_height = height * z_scale_factor
+        if len(step) == 1:
+            pr = step[0] * 100 / size_z
+            step_m = scaled_height * pr / 100
+            z_marks = np.append(np.arange(0, height * z_scale_factor, step_m), scaled_height)
+        else:
+            for s in step:
+                pr = s * 100 / size_z
+                step_m = scaled_height * pr / 100
+                z_marks.append(step_m)
+
+            z_marks.append(scaled_height)
+        l_z_marks = len(z_marks)
+
+        x_marks_border = breadth * x_scale_factor
+        y_marks_border = depth * y_scale_factor
+
+        x_dots = None
+        y_dots = None
+        z_dots = []
+
+        for i in [f - 1 for f in faces]:
+            x_old = x[i].reshape(1, -1)[0]
+            z_old = z[i].reshape(1, -1)[0]
+            # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
+            if i == 1:
+                x_old -= breadth
+            elif i == 2:
+                x_old -= (breadth + depth)
+            elif i == 3:
+                x_old -= (2 * breadth + depth)
+
+            z_old = z_old * z_scale_factor
+            if i in [0, 2]:
+                x_old = x_old * x_scale_factor
+                if not x_dots:
+                    x_dots = [random.uniform(0, x_marks_border) for _ in range(COUNT_DOTS)]
+            else:
+                x_old = x_old * y_scale_factor
+                if not y_dots:
+                    y_dots = [random.uniform(0, y_marks_border) for _ in range(COUNT_DOTS)]
+
+            if not z_dots:
+                for b1 in range(l_z_marks - 1):
+                    z_dots.append([random.uniform(z_marks[b1], z_marks[b1 + 1]) for _ in range(COUNT_DOTS)])
+
+            data_old = pressure_coefficients[i].reshape(1, -1)[0]
+            data_old = [coefficient_for_pressure * coefficient for coefficient in data_old]
+
+            coords = [[i1, j1] for i1, j1 in zip(x_old, z_old)]  # Старые координаты
+            # Интерполятор полученный на основе имеющихся данных
+            interpolator = intp(coords, data_old)
+
+            data_new = []
+            if i in [0, 2]:
+                for dots in z_dots:
+                    data_new.append(np.mean([float(interpolator([[X, Y]])) for X, Y in zip(x_dots, dots)]))
+            else:
+                for dots in z_dots:
+                    data_new.append(np.mean([float(interpolator([[X, Y]])) for X, Y in zip(y_dots, dots)]))
+
+            print(data_new)
+
 
 
 if __name__ == '__main__':

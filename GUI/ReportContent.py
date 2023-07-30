@@ -167,7 +167,7 @@ class ReportContent(MDScreen):
         model_size = ish.model_size_ws
 
         pressure_plot_parameters = {'type_area': ish.get_type_area(),
-                                    'wind_region': ish.get_wind_region(),
+                                    'wind_region': ish.get_wind_region() if self.report_content['isofieldsPressure'][0] else None,
                                     }
         if False in pressure_plot_parameters.values():
             return

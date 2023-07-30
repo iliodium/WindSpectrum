@@ -27,13 +27,20 @@ class DataBaseToolkit:
         if max_conn is None:
             max_conn = DataBaseToolkit._max_count_connections
 
+        # self.connection_pool = ThreadedConnectionPool(min_conn,
+        #                                               max_conn,
+        #                                               user=os.getenv("WINDSPECTRUM_USER"),
+        #                                               password=os.getenv("WINDSPECTRUM_PASSWORD"),
+        #                                               host=os.getenv("WINDSPECTRUM_HOST"),
+        #                                               port=os.getenv("WINDSPECTRUM_PORT"),
+        #                                               database=os.getenv("WINDSPECTRUM_DATABASE_NAME"))
         self.connection_pool = ThreadedConnectionPool(min_conn,
                                                       max_conn,
-                                                      user=os.getenv("WINDSPECTRUM_USER"),
-                                                      password=os.getenv("WINDSPECTRUM_PASSWORD"),
-                                                      host=os.getenv("WINDSPECTRUM_HOST"),
-                                                      port=os.getenv("WINDSPECTRUM_PORT"),
-                                                      database=os.getenv("WINDSPECTRUM_DATABASE_NAME"))
+                                                      user='postgres',
+                                                      password='1234',
+                                                      host='127.0.0.1',
+                                                      port='5432',
+                                                      database='postgres')
 
         self.logger.info("Подключение к БД успешно создано")
 

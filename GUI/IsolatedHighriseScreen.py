@@ -1,6 +1,7 @@
 from typing import List, Union, Tuple, Any
 from dataclasses import dataclass, field
 
+import numpy as np
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.metrics import dp
@@ -8,6 +9,7 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.screen import MDScreen
 
 from utils import open_fig, get_model_and_scale_factors
+from utils import interpolator as intp
 
 
 @dataclass
@@ -32,6 +34,7 @@ class IsolatedHighriseScreen(MDScreen):
     drop_down_menu_summary_spectrum: MDDropdownMenu = field(default=None, init=False)
     drop_down_menu_wind_regions: MDDropdownMenu = field(default=None, init=False)
     drop_down_menu_types_areas: MDDropdownMenu = field(default=None, init=False)
+    drop_down_menu_mode_integration: MDDropdownMenu = field(default=None, init=False)
     # Настройки выпадающего меню
     drop_down_menu_plots_caller_ws: str = field(default=None, init=False)
     radius_ws: List[Union[int, float]] = field(default=list, init=False)
@@ -41,6 +44,9 @@ class IsolatedHighriseScreen(MDScreen):
     ver_growth_ws: str = field(default="up", init=False)
     # Флаг инициализации выпадающих меню
     flag_init_drop_down_menus: bool = field(default=False, init=False)
+    # Интегрирование по высоте
+    _face_integration: Tuple[int] = field(default=None, init=False)
+    _step_integration: Tuple[float] = field(default=None, init=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -129,13 +135,15 @@ class IsolatedHighriseScreen(MDScreen):
 
     @property
     def alpha_ws(self):
-        alpha = self.ids.alpha.text
-        if alpha not in ['4', '6']:
-            self.popup('Параметр альфа 4 или 6')
-            return False
-        else:
-            self._alpha_ws = alpha
-            return alpha
+        self.get_type_area()
+        return self._alpha_ws
+        # alpha = self.ids.alpha.text
+        # if alpha not in ['4', '6']:
+        #     self.popup('Параметр альфа 4 или 6')
+        #     return False
+        # else:
+        #     self._alpha_ws = alpha
+        #     return alpha
 
     @alpha_ws.setter
     def alpha_ws(self, value):
@@ -157,6 +165,11 @@ class IsolatedHighriseScreen(MDScreen):
             return False
         else:
             self.type_area_ws = type_area
+            if type_area == 'B':
+                self.alpha_ws = '4'
+            elif type_area == 'A':
+                self.alpha_ws = '6'
+
             return type_area
 
     def get_wind_region(self):
@@ -167,6 +180,40 @@ class IsolatedHighriseScreen(MDScreen):
         else:
             self.wind_region_ws = wind_region
             return wind_region
+
+    @property
+    def face_integration(self):
+        values = self.ids.face_integration.text
+        if len(values) == 1:
+            values = int(values),
+            self.face_integration = values
+
+        else:
+            values = tuple(map(int, values.split()))
+            self.face_integration = values
+
+        return values
+
+    @face_integration.setter
+    def face_integration(self, value: tuple):
+        self._face_integration = value
+
+    @property
+    def step_integration(self):
+        values = self.ids.step_integration.text
+        if len(values) == 1:
+            values = float(values),
+            self.step_integration = values
+
+        else:
+            values = tuple(map(float, values.split()))
+            self.step_integration = values
+
+        return values
+
+    @step_integration.setter
+    def step_integration(self, value: tuple):
+        self._step_integration = value
 
     # Блок создания выпадающих меню
     def init_drop_down_menus(self):
@@ -179,6 +226,7 @@ class IsolatedHighriseScreen(MDScreen):
         self.init_drop_down_menu_mode_pseudocolor_coefficients()
         self.init_drop_down_menu_model_plots()
         self.init_drop_down_menu_summary_spectrum()
+        self.init_drop_down_menu_mode_integration()
 
         self.init_drop_down_menu_plots()
 
@@ -189,7 +237,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": region,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x1 = region: self.action_wind_region(x1),
+                "on_release": lambda x1=region: self.action_wind_region(x1),
             }
             for region in regions
         ]
@@ -211,7 +259,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": type_area,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = type_area: self.action_type_area(x),
+                "on_release": lambda x=type_area: self.action_type_area(x),
 
             }
             for type_area in types_areas
@@ -271,7 +319,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.action_type_isofields(x),
+                "on_release": lambda x=i: self.action_type_isofields(x),
             } for i in ('Давление',
                         'Коэффициенты',
                         )
@@ -286,12 +334,35 @@ class IsolatedHighriseScreen(MDScreen):
             ver_growth=self.ver_growth_ws,
         )
 
+    def init_drop_down_menu_mode_integration(self):
+        items = [
+            {
+                "text": mode,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=mode: self.height_integration(x),
+            } for mode in ('mean',
+                           'min',
+                           'max',
+                           'std',
+                           )
+        ]
+        self.drop_down_menu_mode_integration = MDDropdownMenu(
+            items=items,
+            caller=self.ids.height_integration,
+            radius=self.radius_ws,
+            width_mult=self.width_mult_ws,
+            max_height=self.max_height_ws,
+            hor_growth=self.hor_growth_ws,
+            ver_growth=self.ver_growth_ws,
+
+        )
+
     def init_drop_down_menu_mode_isofields(self):
         items_mode_isofields = [
             {
                 "text": mode,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = mode: self.action_mode_isofields(x),
+                "on_release": lambda x=mode: self.action_mode_isofields(x),
             } for mode in ('mean',
                            'min',
                            'max',
@@ -314,7 +385,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.action_summary_coefficients(x),
+                "on_release": lambda x=i: self.action_summary_coefficients(x),
             } for i in ('Полярная система',
                         'Cx',
                         'Cy',
@@ -341,7 +412,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.plot_spectrum(x),
+                "on_release": lambda x=i: self.plot_spectrum(x),
             } for i in ('Cx',
                         'Cy',
                         'CMz',
@@ -367,15 +438,15 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = i: self.plot_polar_summary_coefficients(x),
-            } for i in ('MEAN',
-                        'RMS',
-                        'STD',
-                        'MAX',
-                        'MIN',
-                        'РАСЧЕТНОЕ',
-                        'ОБЕСП+',
-                        'ОБЕСП-'
+                "on_release": lambda x=i: self.plot_polar_summary_coefficients(x),
+            } for i in ('mean',
+                        'rms',
+                        'std',
+                        'max',
+                        'min',
+                        'Расчетное',
+                        'Обеспеченность +',
+                        'Обеспеченность -'
                         )
         ]
 
@@ -394,7 +465,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": mode,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = mode: self.action_mode_pseudocolor_coefficients(x),
+                "on_release": lambda x=mode: self.action_mode_pseudocolor_coefficients(x),
             } for mode in ('mean',
                            'min',
                            'max',
@@ -417,7 +488,7 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": name,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x = func: self.action_func_and_dismiss(x),
+                "on_release": lambda x=func: self.action_func_and_dismiss(x),
             } for name, func in (('Модель трехмерная', self.plot_model_3d),
                                  ('Модель в полярной системе', self.plot_model_polar),
                                  ('Развертка модели', self.plot_pressure_tap_locations),
@@ -485,6 +556,7 @@ class IsolatedHighriseScreen(MDScreen):
             self.drop_down_menu_summary_spectrum,
             self.drop_down_menu_model_plots,
             self.drop_down_menu_mode_pseudocolor_coefficients,
+            self.drop_down_menu_mode_integration,
         ]
         for i in menus:
             i.dismiss()
@@ -563,3 +635,16 @@ class IsolatedHighriseScreen(MDScreen):
     def plot_model_polar(self):
         fig = self.core_ws.get_model_polar(self.model_size_ws)
         open_fig(fig)
+
+    # Интегрирование по высоте
+    @check_parameters('all')
+    def height_integration(self, mode):
+        self.core_ws.height_integration(self._alpha_ws,
+                                        self.model_size_ws,
+                                        self.angle_ws,
+                                        mode,
+                                        {'type_area': self.type_area_ws,
+                                         'wind_region': self.wind_region_ws,
+                                         },
+                                        self.face_integration,
+                                        self.step_integration)

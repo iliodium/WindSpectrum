@@ -261,8 +261,6 @@ def calculate_cmz(model_name: str, angle: str, pr_coeff, coordinates):
         # cmz = np.append(cmz, (t_cmz))
         cmz = np.append(cmz, sum([t1, t2, t3, t4]))
 
-        break
-
     return np.array(cmz)
 
 
@@ -287,7 +285,7 @@ def calculate_cx_cy(model_name: str, pr_coeff):
     s13i = s13 / count_sensors_on_1_3_face
     s24i = s24 / count_sensors_on_2_4_face
 
-    print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
+    #print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
     # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))

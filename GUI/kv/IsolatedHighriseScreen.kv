@@ -75,7 +75,7 @@
                         text: '[Описание]'
                 MDFlatButton:
                     id: type_area_button
-                    text: 'Выбор'
+                    text: 'A'
                     font_size: 18
                     on_release:
                         root.drop_down_menu_types_areas.open()
@@ -123,29 +123,27 @@
                     id: model_size
                     hint_text: 'X Y Z'
                     helper_text: "через пробел"
-                    text:'2 1 5'
+                    text:'10 10 10'
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
                     size_hint_x: None
                     width: 150
-                    on_text_validate:
-                        root.get_size()
 
-                MDLabel:
-                    adaptive_size: True
-                    font_size: 18
-                    text: 'Альфа'
-                MDTextField:
-                    id: alpha
-                    text:'4'
-                    helper_text_mode: "on_focus"
-                    font_size: 18
-                    mode: "rectangle"
-                    size_hint_x: None
-                    width: 75
-                    on_text_validate:
-                        root.get_alpha()
+#                MDLabel:
+#                    adaptive_size: True
+#                    font_size: 18
+#                    text: 'Альфа'
+#                MDTextField:
+#                    id: alpha
+#                    text:'4'
+#                    helper_text_mode: "on_focus"
+#                    font_size: 18
+#                    mode: "rectangle"
+#                    size_hint_x: None
+#                    width: 75
+#                    on_text_validate:
+#                        root.get_alpha()
 
                 MDLabel:
                     adaptive_size: True
@@ -153,30 +151,47 @@
                     text: 'Параметры интегрирования по высоте'
                 MDFlatButton:
                     disabled: True
-
                 MDFlatButton:
+                    id: height_integration
                     text: 'Интегрирование по высоте'
                     font_size: 18
+                    on_release: root.drop_down_menu_mode_integration.open()
                 MDFlatButton:
                     disabled: True
 
                 MDFlatButton:
                     text: 'Поверхность интегрирования'
                     font_size: 18
-                MDFlatButton:
-                    disabled: True
-
-                MDFlatButton:
-                    text: 'Поверхность'
+                MDTextField:
+                    id: face_integration
+                    hint_text: 'Грани'
+                    helper_text: "через пробел"
+                    text:'1 2 3 4'
+                    helper_text_mode: "on_focus"
                     font_size: 18
-                MDFlatButton:
-                    disabled: True
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 150
+
+#                MDFlatButton:
+#                    text: 'Поверхность'
+#                    font_size: 18
+#                MDFlatButton:
+#                    disabled: True
 
                 MDFlatButton:
                     text: 'Шаг интегрирования'
                     font_size: 18
-                MDFlatButton:
-                    disabled: True
+                MDTextField:
+                    id: step_integration
+                    hint_text: 'Шаг'
+                    helper_text: "через пробел"
+                    text:'2 7 9'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 150
 
                 MDLabel:
                     adaptive_size: True
