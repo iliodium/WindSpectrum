@@ -1,0 +1,222 @@
+#:import toast kivymd.toast.toast
+#:import ScrollEffect  kivy.effects.scroll.ScrollEffect
+
+
+<InterferenceHighriseScreen>:
+    id: interference_highrise_screen
+    name : 'InterferenceHighriseScreen_screen'
+
+    canvas:
+        Color:
+            rgba: 1, 1, 1, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+    MDBoxLayout:
+        orientation:'vertical'
+        spacing:8
+        NavigationBar:
+            MDFlatButton:
+                adaptive_size: True
+                text: 'Назад'
+                on_release:
+                    root.manager.current = 'Home_screen'
+
+        MDScrollView:
+            do_scroll_x: False
+            scroll_wheel_distance:40
+            effect_cls: ScrollEffect
+            MDGridLayout:
+                cols: 2
+                adaptive_size: True
+                spacing:10
+                padding:8
+
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 24
+                    text: 'Общие сведения'
+                    mg_bg_color: (0.24, 0.59, 0.98, 1)
+                MDFlatButton:
+                    disabled: True
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Ветровой район'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Климатическая карта России]'
+
+                MDFlatButton:
+                    id: wind_region_button
+                    text: 'Iа'
+                    font_size: 18
+                    on_release:
+                        root.drop_down_menu_wind_regions.open()
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Тип местности'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Описание]'
+                MDFlatButton:
+                    id: type_area_button
+                    text: 'A'
+                    font_size: 18
+                    on_release:
+                        root.drop_down_menu_types_areas.open()
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Угол атака ветра (RUMB)'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Описание]'
+
+                MDTextField:
+                    id: angle
+                    hint_text: 'RUMB'
+                    helper_text: "углы кратные 5"
+                    text: '0'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 75
+                    on_text_validate:
+                        root.get_angle()
+
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 18
+                    text: 'Вариант'
+
+                MDTextField:
+                    id: case
+                    hint_text: 'Вариант'
+                    text: '1'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 75
+                    on_text_validate:
+                        root.get_case()
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Размеры здания'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Пояснения]'
+
+                MDTextField:
+                    id: model_size
+                    hint_text: 'X Y Z'
+                    helper_text: "через пробел"
+                    text:'10 10 10'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 150
+
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 18
+                    text: 'Параметры интегрирования по высоте'
+                MDFlatButton:
+                    disabled: True
+                MDFlatButton:
+                    id: height_integration
+                    text: 'Интегрирование по высоте'
+                    font_size: 18
+                    on_release: root.drop_down_menu_mode_integration.open()
+                MDFlatButton:
+                    disabled: True
+
+                MDFlatButton:
+                    text: 'Поверхность интегрирования'
+                    font_size: 18
+                MDTextField:
+                    id: face_integration
+                    hint_text: 'Грани'
+                    helper_text: "через пробел"
+                    text:'1 2 3 4'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 150
+
+                MDFlatButton:
+                    text: 'Шаг интегрирования'
+                    font_size: 18
+                MDTextField:
+                    id: step_integration
+                    hint_text: 'Шаг'
+                    helper_text: "через пробел"
+                    text:'2 7 9'
+                    helper_text_mode: "on_focus"
+                    font_size: 18
+                    mode: "rectangle"
+                    size_hint_x: None
+                    width: 150
+
+                MDLabel:
+                    adaptive_size: True
+                    font_size: 18
+                    text: 'Нормативный документ'
+                MDFlatButton:
+                    text: 'СП20.13330.2016'
+                    font_size: 18
+
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: plots
+                    font_size: 18
+                    text: 'Графики'
+                    on_release:
+                        root.drop_down_menu_plots.open()
+                MDFlatButton:
+                    disabled: True
+
+                MDRaisedButton:
+                    id: report_button
+                    text: 'Отчет'
+                    font_size: 18
+                    on_release:
+                        app.screen_for_report = 'InterferenceHighriseScreen_screen'
+                        root.manager.current = 'ReportContent_screen'
+
+                MDSpinner:
+                    id: report_spinner
+                    size_hint: None, None
+                    size: dp(46), dp(46)
+                    active: False

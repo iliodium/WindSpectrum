@@ -174,15 +174,30 @@ def get_view_permutation_data(type_base: str, angle: int):
         else:
             return 'forward'
 
-
-def calculate_cmz(model_name: str, angle: str, pr_coeff, coordinates):
+def calculate_cmz(db = 'isolated', **kwargs):
     """Вычисление моментов сил CMz"""
-    cmz = []
-    breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+    pr_coeff = kwargs['pressure_coefficients']
+    angle = kwargs['angle']
+    coordinates = kwargs['coordinates']
 
-    count_sensors_on_model = len(pr_coeff[0])
-    count_sensors_on_middle_row = int(model_name[0]) * 5  # В строке
-    count_sensors_on_side_row = int(model_name[1]) * 5  # В строке
+    cmz = []
+    if db == 'isolated':
+        model_name = kwargs['model_name']
+        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+
+        count_sensors_on_model = len(pr_coeff[0])
+        count_sensors_on_middle_row = int(model_name[0]) * 5
+        count_sensors_on_side_row = int(model_name[1]) * 5
+
+    elif db == 'interference':
+        height = kwargs['height']
+
+        breadth, depth = 0.07, 0.07
+
+        count_sensors_on_model = len(pr_coeff[0])
+        count_sensors_on_middle_row = 7
+        count_sensors_on_side_row = 7
+
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
     count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
@@ -264,16 +279,27 @@ def calculate_cmz(model_name: str, angle: str, pr_coeff, coordinates):
     return np.array(cmz)
 
 
-def calculate_cx_cy(model_name: str, pr_coeff):
+def calculate_cx_cy(db='isolated', **kwargs):
     """Вычисление CX и CY"""
-    breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+    pr_coeff = kwargs['pressure_coefficients']
 
     cx = []
     cy = []
+    if db == 'isolated':
+        model_name = kwargs['model_name']
+        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
 
-    count_sensors_on_model = len(pr_coeff[0])
-    count_sensors_on_middle_row = int(model_name[0]) * 5
-    count_sensors_on_side_row = int(model_name[1]) * 5
+        count_sensors_on_model = len(pr_coeff[0])
+        count_sensors_on_middle_row = int(model_name[0]) * 5
+        count_sensors_on_side_row = int(model_name[1]) * 5
+    elif db == 'interference':
+        height = kwargs['height']
+
+        breadth, depth = 0.07, 0.07
+
+        count_sensors_on_model = len(pr_coeff[0])
+        count_sensors_on_middle_row = 7
+        count_sensors_on_side_row = 7
 
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
     count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
@@ -285,7 +311,7 @@ def calculate_cx_cy(model_name: str, pr_coeff):
     s13i = s13 / count_sensors_on_1_3_face
     s24i = s24 / count_sensors_on_2_4_face
 
-    #print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
+    # print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
     # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))
@@ -377,6 +403,41 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     z_scale_factor = z / z_nearest
 
     model_from_db = ''.join(map(str, (x_nearest, y_nearest, z_nearest)))  # Модель из БД
+    scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
+
+    return model_from_db, scale_factors
+
+
+def get_model_and_scale_factors_interference(x: str, y: str, z: str) -> (str, tuple):
+    """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели"""
+    x, y, z = float(x), float(y), float(z)
+    min_size = min(x, y, z)
+
+    # Относительный масштаб фигуры
+    z_scale = z / min_size
+
+    x_nearest = 1
+
+    y_nearest = 1
+
+    z_from_db = np.array([2, 2.8, 4, 6, 8])
+
+    # Расчет коэффициента для Z
+    difference_z = np.absolute(z_from_db - z_scale)
+    index_z = difference_z.argmin()
+    z_nearest = z_from_db[index_z]
+
+    # Коэффициенты масштабирования
+    x_scale_factor = x / x_nearest
+    y_scale_factor = y / y_nearest
+    z_scale_factor = z / z_nearest
+
+    model_from_db = {float('2'): 140,
+                     float('2.8'): 196,
+                     float('4'): 280,
+                     float('6'): 420,
+                     float('8'): 560,
+                     }[z_nearest]  # Модель из БД
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors
@@ -553,6 +614,23 @@ def get_logger(name):
     return logger
 
 
+def get_coordinates_interference(count_p, height):
+    count_rows = count_p // 28
+    z_dots = np.arange(0, height, height / (count_rows + 1))[1:][::-1]
+    x_dots = np.arange(0, 0.28, 0.28 / (28 + 1))[1:]
+
+    x = []
+    z = []
+    for i in z_dots:
+        for j in x_dots:
+            x.append(j)
+            z.append(i)
+
+    return [x, z]
+
+
 if __name__ == '__main__':
     # generate_directory_for_report('D:\Projects\WindSpectrum')
-    print(get_model_and_scale_factors('4', '6', '12', 6))
+    # print(get_model_and_scale_factors('4', '6', '12', 6))
+    # print(get_model_and_scale_factors_interference('12', '22', '30'))
+    get_coordinates_interference(252, 0.28)

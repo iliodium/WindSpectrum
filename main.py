@@ -6,7 +6,7 @@ if __name__ == '__main__':
     from core import Core
     from utils import get_logger
     # окна
-    from GUI import HomeScreen, IsolatedHighriseScreen, ReportContent
+    from GUI import HomeScreen, IsolatedHighriseScreen, ReportContent, InterferenceHighriseScreen
     # виджеты
     from GUI import NavigationBar
 
@@ -32,15 +32,17 @@ class WindSpectrumScreens(MDScreenManager):
 
 
 class WindSpectrum(MDApp):
-    def __init__(self, core = None, **kwargs):
+    def __init__(self, core=None, **kwargs):
         self.core = core
+        self.screen_for_report = ""
         self.logger = get_logger('WindSpectrum')
         self.logger.info("Создание графического интерфейса")
         super().__init__(**kwargs)
 
     def build(self):
-        Window.minimum_height = 500
+        Window.minimum_height = 400
         Window.minimum_width = 800
+        #Window.size = (400, 1000)
         self.title = 'Wind Spectrum'
         self.gui = Builder.load_file("GUI/kv/WindSpectrum.kv")
         self.logger.info("Графический интерфейс успешно создан")

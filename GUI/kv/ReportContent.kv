@@ -11,15 +11,15 @@
                 adaptive_size: True
                 text: 'Назад'
                 on_release:
-                    root.manager.current = root.manager.previous()
+                    root.manager.current = app.screen_for_report
 
         MDRaisedButton:
             id: report_button
             text: 'Отчет'
             font_size: 18
             on_release:
-                root.report()
-                root.manager.current = root.manager.previous()
+                root.report(app.screen_for_report)
+                root.manager.current = app.screen_for_report
 
         MDRaisedButton:
             id: chose_all_content

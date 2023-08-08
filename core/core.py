@@ -36,6 +36,7 @@ from utils.utils import (get_logger,
                          to_dict,
                          to_multiprocessing_dict,
                          id_to_name,
+                         get_model_and_scale_factors_interference,
                          )
 
 
@@ -59,78 +60,66 @@ class Core:
             clipboard_binary.write(data_binary)
 
     def get_plot_isofields(self,
-                           alpha: str,
-                           model_size: Tuple[str, str, str],
-                           angle: str,
-                           mode: str,
-                           pressure_plot_parameters=None):
+                           db='isolated',
+                           **kwargs):
         """Функция возвращает изополя"""
-        if pressure_plot_parameters:
+        if kwargs['pressure_plot_parameters']:
             type_plot = 'isofields_pressure'
         else:
             type_plot = 'isofields_coefficients'
 
-        fig = self.clipboard_obj.get_isofields(alpha, model_size, angle, mode, type_plot, pressure_plot_parameters)
+        fig = self.clipboard_obj.get_isofields(db=db, type_plot=type_plot, **kwargs)
 
         return fig
 
     def get_plot_summary_spectres(self,
-                                  alpha: str,
-                                  model_size: Tuple[str, str, str],
-                                  angle: str,
-                                  mode: str,
-                                  scale: str = None,
-                                  type_plot: str = None):
+                                  db='interference',
+                                  **kwargs):
 
-        fig = self.clipboard_obj.get_summary_spectres(alpha, model_size, angle, mode, scale, type_plot)
+        fig = self.clipboard_obj.get_summary_spectres(db=db, **kwargs)
 
         return fig
 
     def get_plot_summary_coefficients(self,
-                                      alpha: str,
-                                      model_size: Tuple[str, str, str],
-                                      angle: str,
-                                      mode: str, ):
+                                      db='isolated',
+                                      **kwargs):
 
-        fig = self.clipboard_obj.get_summary_coefficients(alpha, model_size, angle, mode)
+        fig = self.clipboard_obj.get_summary_coefficients(db, **kwargs)
 
         return fig
 
-    def draw_welch_graphs(self,
-                          alpha: str,
-                          model_scale: str,
-                          model_size: Tuple[str, str, str],
-                          angle_border: int,
-                          path_report: str,
-                          mods: List[str]):
+    def draw_welch_graphs(self, db, **kwargs):
         """Функция запускает отрисовку всех граффиков спектральной плотности мощности для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        self.logger.info(f'Отрисовка спектров суммарных коэффициентов '
-                         f'параметры = {" ".join(model_scale)} альфа = {alpha}')
-        for mode in mods:
-            args_welch_graphs = [(alpha, model_scale, str(angle), model_size, path_report, mode)
-                                 for angle in range(0, angle_border, 5)]
+
+        for mode in kwargs['mods']:
+            args_welch_graphs = [(db, {'angle': str(angle), 'mode': mode}, kwargs) for angle in
+                                 range(0, kwargs['angle_border'], 5)]
+            for i in args_welch_graphs:
+                self.welch_graphs_thread(i[0], **i[1], **i[2])
 
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                executor.map(lambda i: self.welch_graphs_thread(*i), args_welch_graphs)
+                executor.map(lambda i: self.welch_graphs_thread(i[0], **i[1], **i[2]), args_welch_graphs)
 
-        self.logger.info(f'Отрисовка спектров суммарных коэффициентов '
-                         f'параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
-
-    def welch_graphs_thread(self,
-                            alpha: str,
-                            model_scale: str,
-                            angle: str,
-                            model_size: Tuple[str, str, str],
-                            path_report: str,
-                            mode: str):
+    def welch_graphs_thread(self, db, **kwargs):
         """Функция для запуска потока генерации графиков спектральной плотности мощности и их сохранения."""
+        mode = kwargs['mode']
+        path_report = kwargs['path_report']
+        model_scale = kwargs['model_scale']
+        angle = int(kwargs['angle'])
+
         mode_fig = ' '.join(mode.lower().title().split('_'))
         path_folder = f'{path_report}\\Спектральная плотность мощности\\Логарифмическая шкала'
-        file_name = f'Спектральная плотность мощности {model_scale} {alpha} {mode_fig} {int(angle):02}.png'
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            file_name = f'Спектральная плотность мощности {model_scale} {alpha} {mode_fig} {angle:02}.png'
 
-        fig = self.get_plot_summary_spectres(alpha, model_size, angle, mode, 'log', 'summary_spectres')
+        elif db == 'interference':
+            case = kwargs['case']
+            file_name = f'Спектральная плотность мощности {model_scale} вариант {case} {mode_fig} {angle:02}.png'
+
+        fig = self.get_plot_summary_spectres(db, **kwargs, scale='log', type_plot='summary_spectres')
         fig.savefig(f'{path_folder}\\{file_name}')
         plt.close(fig)
 
@@ -147,58 +136,70 @@ class Core:
         return self.clipboard_obj.get_pseudocolor_coefficients(alpha, model_size, angle, mode)
 
     def draw_summary_coefficients(self,
-                                  alpha: str,
-                                  model_size: Tuple[str, str, str],
-                                  angle_border: int,
-                                  path_report: str,
-                                  mods: List[str], ):
+                                  db,
+                                  **kwargs):
 
         """Функция запускает отрисовку всех графиков суммарных коэффициентов для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
 
-        for mode in mods:
-            args_summary_coefficients = [(alpha, model_size, str(angle), path_report, mode)
-                                         for angle in range(0, angle_border, 5)]
+        for mode in kwargs['mods']:
+            args_summary_coefficients = [(db, {'angle': str(angle), 'mode': mode}, kwargs)
+                                         for angle in range(0, kwargs['angle_border'], 5)]
 
-            for i in args_summary_coefficients:
-                self.summary_coefficients_thread(*i)
-            # with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-            #     executor.map(lambda i: self.summary_coefficients_thread(*i), args_summary_coefficients)
+            # for i in args_summary_coefficients:
+            #     self.summary_coefficients_thread(i[0], **i[1], **i[2])
+
+            with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                executor.map(lambda i: self.summary_coefficients_thread(i[0], **i[1], **i[2]),
+                             args_summary_coefficients)
 
     def summary_coefficients_thread(self,
-                                    alpha: str,
-                                    model_size: Tuple[str, str, str],
-                                    angle: str,
-                                    path_report: str,
-                                    mode: str):
+                                    db,
+                                    **kwargs):
         """Функция для запуска потока генерации графиков суммарных аэродинамических коэффициентов модели
          и их сохранения."""
-        mode_fig = ' '.join(mode.lower().title().split('_'))
-        file_name = f'Суммарные аэродинамические коэффициенты {mode_fig} ' \
-                    f'{" ".join(model_size)} {alpha} {int(angle):02}.png'
+        angle = int(kwargs['angle'])
+        mode = kwargs['mode']
+        model_size = kwargs['model_size']
+        path_report = kwargs['path_report']
 
+        mode_fig = ' '.join(mode.lower().title().split('_'))
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            file_name = f'Суммарные аэродинамические коэффициенты {mode_fig} ' \
+                        f'{" ".join(model_size)} {alpha} {angle:02}.png'
+        elif db == 'interference':
+            case = kwargs['case']
+            file_name = f'Суммарные аэродинамические коэффициенты {mode_fig} ' \
+                        f'{" ".join(model_size)} вариант {case} {angle:02}.png'
         path_sum = f'{path_report}\\Суммарные аэродинамические коэффициенты\\Декартовая система координат\\' \
-                   f'{int(angle):02}'
+                   f'{angle:02}'
         if not os.path.isdir(path_sum):
             os.mkdir(path_sum)
 
-        fig = self.get_plot_summary_coefficients(alpha, model_size, angle, mode)
+        fig = self.get_plot_summary_coefficients(db, **kwargs)
 
         fig.savefig(f'{path_sum}\\{file_name}')
         plt.close(fig)
 
     def isofields_coefficients_thread(self,
-                                      alpha: str,
-                                      model_size: Tuple[str, str, str],
-                                      angle: str,
-                                      mode: str,
-                                      path_report: str):
+                                      db,
+                                      **kwargs):
         """Функция для запуска потока генерации изополей и их сохранения."""
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        mode = kwargs['mode']
+        path_report = kwargs['path_report']
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            file_name = f'Изополя {" ".join(model_size)} {alpha} {int(angle):02} {mode}.png'
 
-        file_name = f'Изополя {" ".join(model_size)} {alpha} {int(angle):02} {mode}.png'
+        elif db == 'interference':
+            case = kwargs['case']
+            file_name = f'Изополя {" ".join(model_size)} вариант {case} {int(angle):02} {mode}.png'
 
-        fig = self.get_plot_isofields(alpha, model_size, str(angle), mode)
+        fig = self.get_plot_isofields(db, pressure_plot_parameters=None, **kwargs)
 
         fig.savefig(
             f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Коэффициенты\\{mode}\\{file_name}')
@@ -206,53 +207,76 @@ class Core:
         plt.close(fig)
 
     def draw_isofields_coefficients(self,
-                                    alpha: str,
-                                    model_size: Tuple[str, str, str],
-                                    angle_border: int,
-                                    path_report: str,
-                                    mods: List):
+                                    db,
+                                    **kwargs, ):
         """Функция запускает отрисовку всех изополей выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha}')
+        mods = kwargs['mods']
+        angle_border = kwargs['angle_border']
+
+        # if db == 'isolated':
+        #     model_size = kwargs['model_size']
+        #     alpha = kwargs['alpha']
+
+        # self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha}')
 
         for mode in mods:
-            args = [(alpha, model_size, str(angle), mode, path_report) for angle in
-                    range(0, angle_border, 5)]
+            args = [(db, {'angle': angle, 'mode': mode}, kwargs) for angle in range(0, angle_border, 5)]
+
+            # for i in args:
+            #     self.isofields_coefficients_thread(i[0], **i[1], **i[2])
 
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                executor.map(lambda i: self.isofields_coefficients_thread(*i), args)
+                executor.map(lambda i: self.isofields_coefficients_thread(i[0], **i[1], **i[2]), args)
 
-        self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+            # self.logger.info(f'Отрисовка изополей размеры = {" ".join(model_size)} альфа = {alpha} завершена')
+        # elif db == 'interference':
+        #     for mode in mods:
+        #         args = [(alpha, model_size, str(angle), mode, path_report) for angle in
+        #                 range(0, angle_border, 5)]
+        #
+        #         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+        #             executor.map(lambda i: self.isofields_coefficients_thread(*i), args)
 
     def isofields_pressure_thread(self,
-                                  alpha: str,
-                                  model_size: Tuple[str, str, str],
-                                  angle: str,
-                                  mode: str,
-                                  path_report: str,
-                                  pressure_plot_parameters):
-        file_name = f'Изополя давления {" ".join(model_size)} {alpha} {int(angle):02} {mode}.png'
+                                  db,
+                                  **kwargs):
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        mode = kwargs['mode']
+        path_report = kwargs['path_report']
 
-        fig = self.get_plot_isofields(alpha, model_size, str(angle), mode, pressure_plot_parameters)
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            file_name = f'Изополя давления {" ".join(model_size)} {alpha} {int(angle):02} {mode}.png'
+
+        elif db == 'interference':
+            case = kwargs['case']
+            file_name = f'Изополя давления {" ".join(model_size)} вариант {case} {int(angle):02} {mode}.png'
+
+        fig = self.get_plot_isofields(db, **kwargs)
 
         fig.savefig(
             f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Давление\\{mode}\\{file_name}')
         plt.close(fig)
 
-    def draw_isofields_pressure(self, alpha, model_size, angle_border, path_report, mods, pressure_plot_parameters):
+    def draw_isofields_pressure(self, db, **kwargs):
+        mods = kwargs['mods']
+        angle_border = kwargs['angle_border']
+
         for mode in mods:
-            args = [(alpha, model_size, str(angle), mode, path_report, pressure_plot_parameters) for angle in
-                    range(0, angle_border, 5)]
+            args = [(db, {'angle': angle, 'mode': mode}, kwargs) for angle in range(0, angle_border, 5)]
 
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                executor.map(lambda i: self.isofields_pressure_thread(*i), args)
+                executor.map(lambda i: self.isofields_pressure_thread(i[0], **i[1], **i[2]), args)
 
     def draw_pseudocolor_coefficients(self, alpha, model_size, angle_border, path_report, mods):
         for mode in mods:
             args = [(alpha, model_size, str(angle), mode, path_report) for angle in
                     range(0, angle_border, 5)]
-
+            # for i in args:
+            #     self.pseudocolor_coefficients_thread(*i)
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
                 executor.map(lambda i: self.pseudocolor_coefficients_thread(*i), args)
 
@@ -266,214 +290,290 @@ class Core:
         plt.close(fig)
 
     def draw_summary_coefficients_polar(self,
-                                        alpha: str,
-                                        model_scale: str,
-                                        model_size: Tuple[str, str, str],
-                                        angle_border: int,
-                                        path_report: str,
-                                        mods):
+                                        db,
+                                        **kwargs):
         """Функция запускает отрисовку всех графиков суммарных коэффициентов в полярной системе для выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
-                         f'размеры = {" ".join(model_size)} альфа = {alpha}')
 
-        args = [(alpha, model_scale, model_size, angle_border, mode) for mode in mods]
+        args = [(db, {'mode': mode}, kwargs) for mode in kwargs["mods"]]
 
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-            polar_plots = list(executor.map(lambda i: self.get_plot_summary_coefficients_polar(*i), args))
-        path_folder = f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат'
+            polar_plots = list(
+                executor.map(lambda i: self.get_plot_summary_coefficients_polar(i[0], **i[1], **i[2]), args))
+        path_folder = f'{kwargs["path_report"]}\\Суммарные аэродинамические коэффициенты\\Полярная система координат'
 
-        for mode, fig in zip(mods, polar_plots):
-            file_name = f'Суммарные аэродинамические коэффициенты Cx Cy CMz {" ".join(model_size)} {id_to_name[mode]}.png'
+        for mode, fig in zip(kwargs["mods"], polar_plots):
+            file_name = f'Суммарные аэродинамические коэффициенты Cx Cy CMz {" ".join(kwargs["model_size"])} {id_to_name[mode]}.png'
             fig.savefig(f'{path_folder}\\{file_name}')
             plt.close(fig)
 
-        self.logger.info(f'Отрисовка суммарных аэродинамических коэффициентов в полярной системе координат '
-                         f'размеры = {" ".join(model_size)} альфа = {alpha} завершена')
-
     def get_plot_summary_coefficients_polar(self,
-                                            alpha: str,
-                                            model_scale: str,
-                                            model_size: Tuple[str, str, str],
-                                            angle_border: int,
-                                            mode: str):
+                                            db='isolated',
+                                            **kwargs):
         """Функция возвращает графики суммарных коэффициентов в полярной системе координат.
         Если графики суммарных коэффициентов в полярной системе координат отсутствуют в буфере, запускается отрисовка.
         """
-        self.logger.info(f'Запрос суммарных коэффициентов в '
-                         f'полярной системе координат размеры = {" ".join(list(model_size))} '
-                         f'альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера')
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            model_scale = kwargs['model_scale']
+            angle_border = kwargs['angle_border']
 
-        mods = {
-            'mean': np.mean,
-            'rms': rms,
-            'std': np.std,
-            'max': np.max,
-            'min': np.min,
-            'Расчетное': rach,
-            'rach': rach,
-            'obesP': obes_p,
-            'obesM': obes_m,
-            'Обеспеченность +': obes_m,
-            'Обеспеченность -': obes_p
-        }
+            self.logger.info(f'Запрос суммарных коэффициентов в '
+                             f'полярной системе координат размеры = {" ".join(list(model_size))} '
+                             f'альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера')
 
-        id_fig = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
-
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_stuff'].get(id_fig):
-            self.clipboard_obj.get_coordinates(alpha, model_scale)
-
-            args_cmz = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
-            with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                list_cmz = list(executor.map(lambda i: self.clipboard_obj.get_cmz(*i), args_cmz))
-
-            args_cx_cy = [(alpha, model_scale, str(angle)) for angle in range(0, angle_border, 5)]
-            with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                cx_cy = np.array(list(executor.map(lambda i: self.clipboard_obj.get_cx_cy(*i), args_cx_cy)))
-
-            list_cx = cx_cy[:, 0]
-            list_cy = cx_cy[:, 1]
-
-            list_norm_cmz = list(map(mods[mode], list_cmz))
-            list_norm_cx = list(map(mods[mode], list_cx))
-            list_norm_cy = list(map(mods[mode], list_cy))
-
-            x_scale, y_scale = Plot.scaling_data(list_norm_cx, list_norm_cy, angle_border=angle_border)
-            cmz_scale = Plot.scaling_data(list_norm_cmz, angle_border=angle_border)
-
-            data = {
-                'Cx': x_scale,
-                'Cy': y_scale,
-                'CMz': cmz_scale,
+            mods = {
+                'mean': np.mean,
+                'rms': rms,
+                'std': np.std,
+                'max': np.max,
+                'min': np.min,
+                'Расчетное': rach,
+                'rach': rach,
+                'obesP': obes_p,
+                'obesM': obes_m,
+                'Обеспеченность +': obes_m,
+                'Обеспеченность -': obes_p
             }
 
-            fig = Plot.polar_plot(data, mode, model_size, alpha)
-            self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_stuff'][id_fig] = fig
+            id_fig = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}'
 
-        fig = self.clipboard_obj.clipboard_dict[alpha][model_scale]['const_stuff'].get(id_fig)
+            if not self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale]['const_stuff'].get(id_fig):
+                self.clipboard_obj.get_coordinates(db='isolated', alpha=alpha, model_scale=model_scale)
 
-        self.logger.info(f'Запрос суммарных коэффициентов в полярной системе координат размеры = '
-                         f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+                args_cmz = [('isolated', {'alpha': alpha, 'model_scale': model_scale, 'angle': str(angle)}) for angle in
+                            range(0, angle_border, 5)]
+                with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                    list_cmz = list(executor.map(lambda i: self.clipboard_obj.get_cmz(i[0], **i[1]), args_cmz))
+
+                args_cx_cy = [('isolated', {'alpha': alpha, 'model_scale': model_scale, 'angle': str(angle)}) for angle
+                              in range(0, angle_border, 5)]
+                with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                    cx_cy = np.array(
+                        list(executor.map(lambda i: self.clipboard_obj.get_cx_cy(i[0], **i[1]), args_cx_cy)))
+
+                list_cx = cx_cy[:, 0]
+                list_cy = cx_cy[:, 1]
+
+                list_norm_cmz = list(map(mods[mode], list_cmz))
+                list_norm_cx = list(map(mods[mode], list_cx))
+                list_norm_cy = list(map(mods[mode], list_cy))
+
+                x_scale, y_scale = Plot.scaling_data(list_norm_cx, list_norm_cy, angle_border=angle_border)
+                cmz_scale = Plot.scaling_data(list_norm_cmz, angle_border=angle_border)
+
+                data = {
+                    'Cx': x_scale,
+                    'Cy': y_scale,
+                    'CMz': cmz_scale,
+                }
+
+                fig = Plot.polar_plot(db, data=data, title=mode, model_size=model_size, alpha=alpha)
+                self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale]['const_stuff'][id_fig] = fig
+
+            fig = self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale]['const_stuff'].get(id_fig)
+
+            self.logger.info(f'Запрос суммарных коэффициентов в полярной системе координат размеры = '
+                             f'{" ".join(list(model_size))} альфа = {alpha} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+        elif db == 'interference':
+            case = kwargs['case']
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            model_scale = kwargs['model_scale']
+
+            mods = {
+                'mean': np.mean,
+                'rms': rms,
+                'std': np.std,
+                'max': np.max,
+                'min': np.min,
+                'Расчетное': rach,
+                'rach': rach,
+                'obesP': obes_p,
+                'obesM': obes_m,
+                'Обеспеченность +': obes_m,
+                'Обеспеченность -': obes_p
+            }
+
+            id_fig = f'summary_coefficients_Cx_Cy_CMz_polar_{"_".join(model_size)}_{mode}_{db}_{case}'
+
+            if not self.clipboard_obj.clipboard_dict['interference'][model_scale][case]['const_stuff'].get(id_fig):
+                self.clipboard_obj.get_coordinates(db='interference', case=case, model_scale=model_scale)
+                args_cmz = [('interference', {'case': case, 'model_scale': model_scale, 'angle': angle}) for angle
+                            in
+                            range(0, 360, 5)]
+                with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                    list_cmz = list(executor.map(lambda i: self.clipboard_obj.get_cmz(i[0], **i[1]), args_cmz))
+
+                args_cx_cy = [('interference', {'case': case, 'model_scale': model_scale, 'angle': angle}) for
+                              angle in
+                              range(0, 360, 5)]
+                with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                    cx_cy = np.array(
+                        list(executor.map(lambda i: self.clipboard_obj.get_cx_cy(i[0], **i[1]), args_cx_cy)))
+
+                list_cx = cx_cy[:, 0]
+                list_cy = cx_cy[:, 1]
+
+                list_norm_cmz = list(map(mods[mode], list_cmz))
+                list_norm_cx = list(map(mods[mode], list_cx))
+                list_norm_cy = list(map(mods[mode], list_cy))
+
+                list_norm_cmz.append(list_norm_cmz[0])
+                list_norm_cx.append(list_norm_cx[0])
+                list_norm_cy.append(list_norm_cy[0])
+
+                data = {
+                    'Cx': list_norm_cx,
+                    'Cy': list_norm_cy,
+                    'CMz': list_norm_cmz,
+                }
+
+                fig = Plot.polar_plot(db, data=data, title=mode, model_size=model_size, case=case)
+                self.clipboard_obj.clipboard_dict['interference'][model_scale][case]['const_stuff'][id_fig] = fig
+
+            fig = self.clipboard_obj.clipboard_dict['interference'][model_scale][case]['const_stuff'].get(id_fig)
 
         return fig
 
     def get_envelopes(self,
-                      alpha: str,
-                      model_scale: str,
-                      angle: str,
-                      mods=['mean', 'rms', 'std', 'max', 'min']):
+                      db='isolated',
+                      **kwargs
+                      ):
         """Функция возвращает графики огибающих.
         Если огибающие отсутствуют в буфере, запускается отрисовка.
         """
-        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
+        mods = ['mean', 'rms', 'std', 'max', 'min']
 
-        if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get('envelopes'):
-            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale = kwargs['model_scale']
+            angle = kwargs['angle']
+            mods = kwargs['mods']
+            self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                             f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
 
-            pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
-            figs = Plot.envelopes(pressure_coefficients, alpha, model_scale, angle, mods)
+            if not self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale][angle].get('envelopes'):
+                self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02}')
 
-            for ind, val in enumerate(figs):
-                self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{ind}_{"_".join(mods)}'] = val
-            self.clipboard_obj.clipboard_dict[alpha][model_scale][angle]['envelopes'] = True
-            self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
+                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients('isolated', alpha=alpha,
+                                                                                     model_name=model_scale,
+                                                                                     angle=angle)
+                figs = Plot.envelopes(pressure_coefficients, alpha, model_scale, angle, mods)
 
-        figs = []
-        i = 0
-        while True:
-            if not self.clipboard_obj.clipboard_dict[alpha][model_scale][angle].get(f'envelopes_{i}_{"_".join(mods)}'):
-                break
-            else:
-                figs.append(
-                    self.clipboard_obj.clipboard_dict[alpha][model_scale][angle][f'envelopes_{i}_{"_".join(mods)}'])
-                i += 1
+                for ind, val in enumerate(figs):
+                    self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale][angle][
+                        f'envelopes_{ind}_{"_".join(mods)}'] = val
+                self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale][angle]['envelopes'] = True
+                self.logger.info(f'Отрисовка огибающих {" ".join(list(model_scale))} {alpha} {int(angle):02} завершена')
 
-        self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
-                         f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера успешно выполнен')
+            figs = []
+            i = 0
+            while True:
+                if not self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale][angle].get(
+                        f'envelopes_{i}_{"_".join(mods)}'):
+                    break
+                else:
+                    figs.append(
+                        self.clipboard_obj.clipboard_dict['isolated'][alpha][model_scale][angle][
+                            f'envelopes_{i}_{"_".join(mods)}'])
+                    i += 1
+
+            self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
+                             f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера успешно выполнен')
+
+        elif db == 'interference':
+            case = kwargs['case']
+            model_scale = kwargs['model_scale']
+            angle = int(kwargs['angle'])
+            if not self.clipboard_obj.clipboard_dict['interference'][model_scale][case][angle].get('envelopes'):
+                pressure_coefficients = self.clipboard_obj.get_pressure_coefficients('interference', case=case,
+                                                                                     model_name=model_scale,
+                                                                                     angle=angle)
+
+                figs = Plot.envelopes(pressure_coefficients, case, model_scale, angle, mods)
+
+                for ind, val in enumerate(figs):
+                    self.clipboard_obj.clipboard_dict['interference'][model_scale][case][angle][
+                        f'envelopes_{ind}_{"_".join(mods)}'] = val
+                self.clipboard_obj.clipboard_dict['interference'][model_scale][case][angle]['envelopes'] = True
+
+            figs = []
+            i = 0
+            while True:
+                if not self.clipboard_obj.clipboard_dict['interference'][model_scale][case][angle].get(
+                        f'envelopes_{i}_{"_".join(mods)}'):
+                    break
+                else:
+                    figs.append(
+                        self.clipboard_obj.clipboard_dict['interference'][model_scale][case][angle][
+                            f'envelopes_{i}_{"_".join(mods)}'])
+                    i += 1
 
         return figs
 
     def draw_envelopes(self,
-                       alpha: str,
-                       model_scale: str,
-                       angle_border: int,
-                       path_report: str,
-                       mods):
+                       db, **kwargs):
         """Функция запускает отрисовку всех огибающих выбранной модели.
         Отрисовка происходит в многопоточном режиме.
         """
-        self.logger.info(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha}')
-
-        args = [(alpha, model_scale, str(angle), mods, path_report) for angle in
-                range(0, angle_border, 5)]
+        args = [(db, {'angle': str(angle)}, kwargs) for angle in range(0, kwargs['angle_border'], 5)]
 
         # for i in args:
-        #     self.envelopes_thread(*i)
+        #     self.envelopes_thread(i[0], **i[1], **i[2])
 
         # Для мощных пк, если есть 10ГБ оперативной памяти лишней
         with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-            executor.map(lambda i: self.envelopes_thread(*i), args)
-
-        self.logger.info(f'Отрисовка огибающих параметры = {" ".join(model_scale)} альфа = {alpha} завершена')
+            executor.map(lambda i: self.envelopes_thread(i[0], **i[1], **i[2]), args)
 
     def envelopes_thread(self,
-                         alpha: str,
-                         model_scale: str,
-                         angle: str,
-                         mods,
-                         path_report: str):
+                         db,
+                         **kwargs):
         """Функция для запуска потока генерации графиков огибающих модели и их сохранения."""
-        figs = self.get_envelopes(alpha, model_scale, angle, mods)
-        path_envelopes = f'{path_report}\\Огибающие\\{model_scale} {alpha} {angle}'
+        figs = self.get_envelopes(db=db, **kwargs)
+        path_report = kwargs['path_report']
+        model_scale = kwargs['model_scale']
+        angle = kwargs['angle']
+        mods = kwargs['mods']
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            path_envelopes = f'{path_report}\\Огибающие\\{model_scale} {alpha} {angle}'
+
+        elif db == 'interference':
+            case = kwargs['case']
+            path_envelopes = f'{path_report}\\Огибающие\\{model_scale} {case} {angle}'
 
         if not os.path.isdir(path_envelopes):
             os.mkdir(path_envelopes)
 
         for i in range(len(figs)):
-            file_name = f'Огибающие {model_scale} {alpha} {int(angle):02} ' \
+            if db == 'isolated':
+                dbb = alpha
+            elif db == 'interference':
+                dbb = case
+
+            file_name = f'Огибающие {model_scale} {dbb} {int(angle):02} ' \
                         f'{i * 100} - {(i + 1) * 100} {" ".join(mods)}.png'
             figs[i].savefig(f'{path_envelopes}\\{file_name}')
             plt.close(figs[i])
 
     @staticmethod
-    def start_report(clipboard_dict, alpha, model_size, pressure_plot_parameters, content):
-        new_core = Core(clipboard_dict)
-        new_core.report(alpha, model_size, pressure_plot_parameters, content)
-
-    @staticmethod
     def check_alive_proc(proc, button, spinner):
         while proc.is_alive():
-            time.sleep(3.993)
+            time.sleep(1)
 
-        button.disabled = False
         spinner.active = False
+        button.disabled = False
 
     def wrapper_for_clipboard(self):
         if not self._manager:
             self._manager = Manager()
 
         self.clipboard_obj.clipboard_dict = to_multiprocessing_dict(self.clipboard_obj.clipboard_dict, self._manager)
-
-    def preparation_for_report(self, alpha: str,
-                               model_size: Tuple[str, str, str],
-                               pressure_plot_parameters,
-                               content,
-                               button,
-                               spinner):
-        # if isinstance(self.clipboard_obj.clipboard_dict, dict):
-        #     self.wrapper_for_clipboard()
-
-        # self.report(alpha, model_size, pressure_plot_parameters, content)
-
-        args = (self.clipboard_obj.clipboard_dict, alpha, model_size, pressure_plot_parameters, content)
-        # self.start_report(*args)
-        proc = Process(target=Core.start_report, args=args)
-        proc.start()
-
-        executor = ThreadPoolExecutor(max_workers=1)
-        executor.map(lambda i: Core.check_alive_proc(*i), ((proc, button, spinner),))
 
     def draw_plot_model_3d(self, model_size, path_report):
         fig = self.get_plot_model_3d(model_size)
@@ -490,20 +590,18 @@ class Core:
         fig.savefig(f'{path_report}\\Модель\\Развертка модели.png')
         plt.close(fig)
 
-    def get_summary_coefficients_statistics(self,
-                                            angle: int,
-                                            alpha: str,
-                                            model_name: str,
-                                            mods: List[str], ):
+    def get_summary_coefficients_statistics(self, db, **kwargs):
+        mods = kwargs['mods']
+
         accuracy_values = 3
         statistics = []
 
         data = dict()
 
-        cmz = self.clipboard_obj.get_cmz(alpha, model_name, str(angle))
+        cmz = self.clipboard_obj.get_cmz(db, **kwargs)
         data['cmz'] = cmz
 
-        cx, cy = self.clipboard_obj.get_cx_cy(alpha, model_name, str(angle))
+        cx, cy = self.clipboard_obj.get_cx_cy(db, **kwargs)
         data['cx'] = cx
         data['cy'] = cy
 
@@ -528,25 +626,37 @@ class Core:
 
         return statistics
 
-    def get_sensor_statistics(self,
-                              alpha: str,
-                              model_scale: str,
-                              angle: int,
-                              model_size: Tuple[str, str, str],
-                              mods: List[str]):
+    def get_sensor_statistics(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        mods = kwargs['mods']
 
         accuracy_values = 2
 
         breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
-
-        face_number = self.clipboard_obj.get_face_number(alpha, model_scale)
-
-        x, z = self.clipboard_obj.get_coordinates(alpha, model_scale)
-
+        x, z = self.clipboard_obj.get_coordinates(db, **kwargs)
         sensors_on_model = len(x)
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale = kwargs['model_scale']
+            face_number = self.clipboard_obj.get_face_number(alpha, model_scale)
+            kwargs['angle'] = str(kwargs['angle'])
+
+        elif db == 'interference':
+            kwargs['angle'] = int(kwargs['angle'])
+            face_number = []
+            for _ in range(sensors_on_model // 28):
+                face_number.extend([1 for _ in range(7)])
+                face_number.extend([2 for _ in range(7)])
+                face_number.extend([3 for _ in range(7)])
+                face_number.extend([4 for _ in range(7)])
+
+        kwargs['model_name'] = kwargs['model_scale']
+
         x_new, y_new = converter_coordinates(x, breadth_real, depth_real, face_number, sensors_on_model)
 
-        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, str(angle))
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, **kwargs)
+
         pressure_coefficients_t = pressure_coefficients.T
 
         functions = {'x': lambda: x_new,
@@ -568,97 +678,139 @@ class Core:
 
         return np.array(statistics_of_angle).T
 
-    def report(self, alpha: str, model_size: Tuple[str, str, str], pressure_plot_parameters, content):
-        t1 = time.time()
+    def preparation_for_report(self,
+                               pressure_plot_parameters,
+                               content,
+                               button,
+                               spinner,
+                               **kwargs):
+        # if isinstance(self.clipboard_obj.clipboard_dict, dict):
+        #     self.wrapper_for_clipboard()
 
-        self.logger.info(f'Начало формирования отчета размеры = {" ".join(model_size)} альфа = {alpha}')
+        args = (self.clipboard_obj.clipboard_dict, pressure_plot_parameters, content)
+
+        Core.start_report(*args, **kwargs)
+
+        # proc = Process(target=Core.start_report, args=args, kwargs=kwargs)
+        # proc.start()
+
+        # executor = ThreadPoolExecutor(max_workers=1)
+        # executor.map(lambda i: Core.check_alive_proc(*i), ((proc, button, spinner),))
+
+    @staticmethod
+    def start_report(clipboard_dict, pressure_plot_parameters, content, **kwargs):
+        new_core = Core(clipboard_dict)
+        new_core.report(pressure_plot_parameters, content, **kwargs)
+
+    def report(self, pressure_plot_parameters, content, **kwargs):
+        t1 = time.time()
+        db = kwargs['db']
+        del kwargs['db']
+        model_size = kwargs['model_size']
+        breadth, depth, height = model_size
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+            name_report = f'Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}'
+            if model_scale[0] == model_scale[1]:
+                angle_border = 50
+            else:
+                angle_border = 95
+
+        elif db == 'interference':
+            case = kwargs['case']
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+            name_report = f'Отчет ширина {breadth} глубина {depth} высота {height} вариант {case}'
+            angle_border = 360
 
         current_path = os.getcwd()
 
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        breadth, depth, height = model_size
-        name_report = f'Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}'
         path_report = f'{current_path}\\Отчеты\\{name_report}'
-        generate_directory_for_report(current_path, name_report)
 
-        if model_scale[0] == model_scale[1]:
-            angle_border = 50
-        else:
-            angle_border = 95
+        kwargs['model_scale'] = model_scale
+        kwargs['angle_border'] = angle_border
+        kwargs['path_report'] = path_report
+
+        generate_directory_for_report(current_path, name_report)
 
         # Только эти графики используют координаты
         if any((content['isofieldsCoefficients'][0],
-                content['pressureTapLocations'][0],
+                # content['pressureTapLocations'][0] if db == 'isolated' else None,
                 content['pseudocolorCoefficients'][0],
                 content['isofieldsPressure'][0],
                 content['summaryCoefficients'][0],
                 content['statisticsSensors'][0],
                 content['statisticsSummaryCoefficients'][0],
                 content['summarySpectres'][0])):
-            self.clipboard_obj.get_coordinates(alpha, model_scale)
-            args = [(alpha, model_scale, angle) for angle in range(angle_border)]
+            self.clipboard_obj.get_coordinates(db=db, **kwargs)
+            args = [(db, {'angle': angle}, kwargs) for angle in range(0, angle_border, 5)]
+
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-                executor.map(lambda i: self.get_pressure_coefficients(*i), args)
+                executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(i[0], **i[1], **i[2]), args)
 
-        # Отрисовка графиков
-        self.logger.info(f'Отрисовка графиков')
-        # isofieldsPressure
-        if content['isofieldsPressure'][0]:
-            mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
-                                      content['isofieldsPressure'][1][k]]
-            self.draw_isofields_pressure(alpha, model_size, angle_border, path_report, mods_isofieldsPressure,
-                                         pressure_plot_parameters)
-            self.logger.info(f'isofieldsPressure')
-
-        # isofieldsCoefficients
-        if content['isofieldsCoefficients'][0]:
-            mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
-                                          content['isofieldsCoefficients'][1][k]]
-            self.draw_isofields_coefficients(alpha, model_size, angle_border, path_report, mods_isofieldsCoefficients)
-            self.logger.info(f'isofieldsCoefficients')
-
-        # pseudocolorCoefficients
-        if content['pseudocolorCoefficients'][0]:
-            mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
-                                            content['pseudocolorCoefficients'][1][k]]
-            self.draw_pseudocolor_coefficients(alpha, model_size, angle_border, path_report,
-                                               mods_pseudocolorCoefficients)
-            self.logger.info(f'pseudocolorCoefficients')
-
-        # envelopes
-        if content['envelopes'][0]:
-            mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
-            self.draw_envelopes(alpha, model_scale, angle_border, path_report, mods_envelopes)
-            self.logger.info(f'envelopes')
-
-        # polarSummaryCoefficients
-        if content['polarSummaryCoefficients'][0]:
-            mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
-                                             content['polarSummaryCoefficients'][1][k]]
-            self.draw_summary_coefficients_polar(alpha, model_scale, model_size, angle_border, path_report,
-                                                 mods_polarSummaryCoefficients)
-            self.logger.info(f'polarSummaryCoefficients')
-
-        # summaryCoefficients
-        if content['summaryCoefficients'][0]:
-            mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
-                                        content['summaryCoefficients'][1][k]]
-            self.draw_summary_coefficients(alpha, model_size, angle_border, path_report, mods_summaryCoefficients)
-            self.logger.info(f'summaryCoefficients')
-
-        # summarySpectres
-        if content['summarySpectres'][0]:
-            mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
-            self.draw_welch_graphs(alpha, model_scale, model_size, angle_border, path_report, mods_summarySpectres)
-            self.logger.info(f'summarySpectres')
+        # # Отрисовка графиков
+        # self.logger.info(f'Отрисовка графиков')
+        # # isofieldsPressure
+        # if content['isofieldsPressure'][0]:
+        #     mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
+        #                               content['isofieldsPressure'][1][k]]
+        #     self.draw_isofields_pressure(db, **kwargs, mods=mods_isofieldsPressure,
+        #                                  pressure_plot_parameters=pressure_plot_parameters)
+        #     self.logger.info(f'isofieldsPressure')
+        #
+        # # isofieldsCoefficients
+        # if content['isofieldsCoefficients'][0]:
+        #     mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
+        #                                   content['isofieldsCoefficients'][1][k]]
+        #     self.draw_isofields_coefficients(db, **kwargs, mods=mods_isofieldsCoefficients)
+        #     self.logger.info(f'isofieldsCoefficients')
+        #
+        # # pseudocolorCoefficients
+        # if content['pseudocolorCoefficients'][0] and db == 'isolated':
+        #     mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
+        #                                     content['pseudocolorCoefficients'][1][k]]
+        #     self.draw_pseudocolor_coefficients(alpha=kwargs['alpha'], model_size=kwargs['model_size'],
+        #                                        angle_border=kwargs['angle_border'], path_report=kwargs['path_report'],
+        #                                        mods=mods_pseudocolorCoefficients)
+        #     self.logger.info(f'pseudocolorCoefficients')
+        # # envelopes
+        # if content['envelopes'][0]:
+        #     mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
+        #     self.draw_envelopes(db, **kwargs, mods=mods_envelopes)
+        #     self.logger.info(f'envelopes')
+        #
+        # # polarSummaryCoefficients
+        # if content['polarSummaryCoefficients'][0]:
+        #     mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
+        #                                      content['polarSummaryCoefficients'][1][k]]
+        #     self.draw_summary_coefficients_polar(db, **kwargs, mods=mods_polarSummaryCoefficients)
+        #     self.logger.info(f'polarSummaryCoefficients')
+        #
+        # # summaryCoefficients
+        # if content['summaryCoefficients'][0]:
+        #     mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
+        #                                 content['summaryCoefficients'][1][k]]
+        #     self.draw_summary_coefficients(db, **kwargs, mods=mods_summaryCoefficients)
+        #     self.logger.info(f'summaryCoefficients')
+        #
+        # # summarySpectres
+        # if content['summarySpectres'][0]:
+        #     mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
+        #     self.draw_welch_graphs(db, **kwargs, mods=mods_summarySpectres)
+        #     self.logger.info(f'summarySpectres')
 
         # pressureTapLocations
-        if content['pressureTapLocations'][0]:
-            self.draw_plot_pressure_tap_locations(model_size, alpha, path_report)
-            self.logger.info(f'pressureTapLocations')
+        # if db == 'isolated':
+        #     if content['pressureTapLocations'][0]:
+        #         self.draw_plot_pressure_tap_locations(model_size, alpha, path_report)
+        #         self.logger.info(f'pressureTapLocations')
 
-        self.draw_plot_model_3d(model_size, path_report)
-        self.draw_model_polar(model_size, path_report)
+        if db == 'isolated':
+            self.draw_plot_model_3d(model_size, path_report)
+            self.draw_model_polar(model_size, path_report)
 
         self.logger.info(f'Отрисовка графиков все')
 
@@ -685,10 +837,11 @@ class Core:
             mods_statisticsSensors = [k for k in content['statisticsSensors'][1].keys() if
                                       content['statisticsSensors'][1][k]]
             if mods_statisticsSensors:
-                args = [(alpha, model_scale, angle, model_size, mods_statisticsSensors) for angle in
+                args = [(db, {'mods': mods_statisticsSensors, 'angle': angle}, kwargs) for angle in
                         range(0, angle_border, 5)]
                 with ThreadPoolExecutor(max_workers=self._count_threads) as executor:
-                    statistics_sensors = list(executor.map(lambda i: self.get_sensor_statistics(*i), args))
+                    statistics_sensors = list(
+                        executor.map(lambda i: self.get_sensor_statistics(i[0], **i[1], **i[2]), args))
 
         # statisticsSummaryCoefficients
         # statistics_summary_coefficients = [
@@ -709,11 +862,11 @@ class Core:
             mods_statisticsSummaryCoefficients = [k for k in content['statisticsSummaryCoefficients'][1].keys()
                                                   if content['statisticsSummaryCoefficients'][1][k]]
 
-            args = [(angle, alpha, model_scale, mods_statisticsSummaryCoefficients) for angle in
+            args = [(db, {'mods': mods_statisticsSummaryCoefficients, 'angle': angle}, kwargs) for angle in
                     range(0, angle_border, 5)]
             with ThreadPoolExecutor(max_workers=self._count_threads) as executor:
                 statistics_summary_coefficients = list(
-                    executor.map(lambda i: self.get_summary_coefficients_statistics(*i), args))
+                    executor.map(lambda i: self.get_summary_coefficients_statistics(i[0], **i[1], **i[2]), args))
 
         self.logger.info(f'Получение статистики все')
 
@@ -749,14 +902,14 @@ class Core:
                   f'Тип местности: {pressure_plot_parameters["type_area"]}'
                   ):
             doc.add_paragraph().add_run(i)
-
-        p = doc.add_paragraph()
-        run = p.add_run()
-        run.add_picture(f'{path_report}\\Модель\\Модель трехмерная.png', width=fig_width / 2)
-        run.add_picture(f'{path_report}\\Модель\\Модель в полярной системе.png', width=fig_width / 2)
-        run.add_text(f'Рисунок {counter_plots}. '
-                     f'Геометрические размеры и система координат направления ветровых потоков')
-        counter_plots += 1
+        if db == 'isolated':
+            p = doc.add_paragraph()
+            run = p.add_run()
+            run.add_picture(f'{path_report}\\Модель\\Модель трехмерная.png', width=fig_width / 2)
+            run.add_picture(f'{path_report}\\Модель\\Модель в полярной системе.png', width=fig_width / 2)
+            run.add_text(f'Рисунок {counter_plots}. '
+                         f'Геометрические размеры и система координат направления ветровых потоков')
+            counter_plots += 1
 
         self.logger.info('1. Геометрические размеры здания')
 
@@ -787,36 +940,30 @@ class Core:
             row_cells[0].text = j
             row_cells[1].text = str(i)
 
-        if content['pressureTapLocations'][0]:
-            p = doc.add_paragraph()
-            run = p.add_run()
-            run.add_picture(f'{path_report}\\Модель\\Развертка модели.png', width=fig_width)
-            run.add_text(f'Рисунок {counter_plots}. Система датчиков мониторинга')
-            counter_plots += 1
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # if content['pressureTapLocations'][0]:
+        #     p = doc.add_paragraph()
+        #     run = p.add_run()
+        #     run.add_picture(f'{path_report}\\Модель\\Развертка модели.png', width=fig_width)
+        #     run.add_text(f'Рисунок {counter_plots}. Система датчиков мониторинга')
+        #     counter_plots += 1
+        #     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         doc.add_page_break()
 
         self.logger.info(f'{counter_head}. Статистика по датчиках. Максимумы и огибающие')
-        if content['statisticsSensors'][0]:
+        if content['envelopes'][0]:
             head = doc.add_heading()
             run = head.add_run(f'{counter_head}. Статистика по датчиках. Максимумы и огибающие')
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run.font.size = head_lvl1
 
             counter_head += 1
-
-            for angle in range(0, angle_border, 5):
-                envelopes = glob.glob(f'{path_report}\\Огибающие\\{model_scale} {alpha} {angle}\\'
-                                      f'Огибающие * {angle:02}*.png')
-                for i in envelopes:
+            for i1 in os.listdir(f'{path_report}\\Огибающие'):
+                for i2 in os.listdir(f'{path_report}\\Огибающие\\{i1}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(i, width=fig_width)
-                    run.add_text(
-                        f'Рисунок {counter_plots}. Огибающие ветрового давления для здания '
-                        f'{breadth}x{depth}x{height} угол {angle:02}º '
-                        f'датчики {i[i[:i.rfind("-") - 1].rfind(" ") + 1:i.rfind(".")]}')
+                    run.add_picture(f'{path_report}\\Огибающие\\{i1}\\{i2}', width=fig_width)
+                    run.add_text(f'Рисунок {counter_plots}. {i2[:-4]}')
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
             doc.add_page_break()
@@ -840,18 +987,13 @@ class Core:
             run.font.size = head_lvl2
 
             counter_head_lvl2 += 0.1
-
-            for mode in mods_isofieldsCoefficients:
-                for angle in range(0, angle_border, 5):
-                    isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Коэффициенты\\{mode}\\' \
-                                f'Изополя {" ".join(model_size)} {alpha} {angle:02} {mode}.png'
-
+            path_temp = 'Изополя ветровых нагрузок и воздействий'
+            for i1 in os.listdir(f'{path_report}\\{path_temp}\\Коэффициенты'):
+                for i2 in os.listdir(f'{path_report}\\{path_temp}\\Коэффициенты\\{i1}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(isofields)
-                    run.add_text(
-                        f'Рисунок {counter_plots}. Изополя коэффициентов {mode} '
-                        f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+                    run.add_picture(f'{path_report}\\{path_temp}\\Коэффициенты\\{i1}\\{i2}')
+                    run.add_text(f'Рисунок {counter_plots}. {i2[:-4]}')
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
 
@@ -863,18 +1005,13 @@ class Core:
             run.font.size = head_lvl2
 
             counter_head_lvl2 += 0.1
-
-            for mode in mods_isofieldsPressure:
-                for angle in range(0, angle_border, 5):
-                    isofields = f'{path_report}\\Изополя ветровых нагрузок и воздействий\\Давление\\{mode}\\' \
-                                f'Изополя давления {" ".join(model_size)} {alpha} {angle:02} {mode}.png'
-
+            path_temp = 'Изополя ветровых нагрузок и воздействий'
+            for i1 in os.listdir(f'{path_report}\\{path_temp}\\Давление'):
+                for i2 in os.listdir(f'{path_report}\\{path_temp}\\Давление\\{i1}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(isofields)
-                    run.add_text(
-                        f'Рисунок {counter_plots}. Изополя давления {mode} '
-                        f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+                    run.add_picture(f'{path_report}\\{path_temp}\\Давление\\{i1}\\{i2}')
+                    run.add_text(f'Рисунок {counter_plots}. {i2[:-4]}')
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
             doc.add_page_break()
@@ -930,19 +1067,13 @@ class Core:
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             counter_head += 1
-
-            for angle in range(0, angle_border, 5):
-                for mode in mods_summaryCoefficients:
-                    mode = ' '.join(mode.lower().title().split('_'))
-                    self.logger.info(f'5. Суммарные значения аэродинамических коэффициентов угол {angle}')
+            path_temp = 'Суммарные аэродинамические коэффициенты'
+            for i1 in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат'):
+                for i2 in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат\\{i1}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(
-                        f'{path_report}\\Суммарные аэродинамические коэффициенты\\Декартовая система координат\\{angle:02}\\'
-                        f'Суммарные аэродинамические коэффициенты {mode} {" ".join(model_size)} {alpha} {angle:02}.png')
-                    run.add_text(
-                        f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты '
-                        f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+                    run.add_picture(f'{path_report}\\{path_temp}\\Декартовая система координат\\{i1}\\{i2}')
+                    run.add_text(f'Рисунок {counter_plots}. {i2[:-4]}')
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
 
@@ -991,17 +1122,12 @@ class Core:
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             counter_head += 1
-
-            for mode in mods_polarSummaryCoefficients:
+            path_temp = 'Суммарные аэродинамические коэффициенты'
+            for i1 in os.listdir(f'{path_report}\\{path_temp}\\Полярная система координат'):
                 p = doc.add_paragraph()
                 run = p.add_run()
-                run.add_picture(f'{path_report}\\Суммарные аэродинамические коэффициенты\\Полярная система координат\\'
-                                f'Суммарные аэродинамические коэффициенты Cx Cy CMz {breadth} {depth} {height} '
-                                f'{id_to_name[mode]}.png')
-
-                run.add_text(
-                    f'Рисунок {counter_plots}. Суммарные аэродинамические коэффициенты в полярной системе координат '
-                    f'{id_to_name[mode]} для здания {breadth}x{depth}x{height}')
+                run.add_picture(f'{path_report}\\{path_temp}\\Полярная система координат\\{i1}')
+                run.add_text(f'Рисунок {counter_plots}. {i1[:-4]}')
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 counter_plots += 1
                 doc.add_page_break()
@@ -1015,24 +1141,23 @@ class Core:
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             counter_head += 1
-
-            for angle in range(0, angle_border, 5):
-                self.logger.info(f'8. Спектры cуммарных значений аэродинамических коэффициентов угол {angle}')
-                for mode in mods_summarySpectres:
-                    mode = ' '.join(mode.lower().title().split('_'))
+            path_temp = 'Спектральная плотность мощности'
+            for i1 in os.listdir(f'{path_report}\\{path_temp}\\Логарифмическая шкала'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(f'{path_report}\\Спектральная плотность мощности\\Логарифмическая шкала\\'
-                                    f'Спектральная плотность мощности {model_scale} {alpha} {mode} {angle:02}.png')
-                    run.add_text(
-                        f'Рисунок {counter_plots}. Спектр cуммарных значений аэродинамических коэффициентов '
-                        f'для здания {breadth}x{depth}x{height} {mode} угол {angle:02} º')
+                    run.add_picture(f'{path_report}\\{path_temp}\\Логарифмическая шкала\\{i1}')
+                    run.add_text(f'Рисунок {counter_plots}. {i1[:-4]}')
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
             doc.add_page_break()
 
-        doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
-        os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
+        if db == 'isolated':
+            doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
+            os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} альфа {alpha}.docx')
+
+        elif db == 'interference':
+            doc.save(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} вариант {case}.docx')
+            os.startfile(f'{path_report}\\Отчет ширина {breadth} глубина {depth} высота {height} вариант {case}.docx')
 
         self.logger.info(f'{time.time() - t1} Затраченное время на создание отчета')
 
@@ -1049,7 +1174,9 @@ class Core:
         COUNT_DOTS = 100
 
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(alpha, model_scale, angle)
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients('isolated', alpha=alpha,
+                                                                             model_name=model_scale,
+                                                                             angle=angle)
         coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
         model_name = model_scale
 
@@ -1175,6 +1302,8 @@ class Core:
 
             print(data_new)
 
+    def create_word_isolated(self):
+        pass
 
 
 if __name__ == '__main__':

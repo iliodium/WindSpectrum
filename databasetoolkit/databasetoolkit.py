@@ -6,6 +6,14 @@ from psycopg2.pool import ThreadedConnectionPool, PoolError
 
 from utils import get_logger
 
+interference_id_building = {
+    140: 2,
+    196: 5,
+    280: 1,
+    420: 3,
+    560: 4,
+}
+
 
 class DataBaseToolkit:
     """Класс для запросов в БД"""
@@ -16,8 +24,8 @@ class DataBaseToolkit:
     _time_sleep = config['databasetoolkit']['time_sleep']
 
     def __init__(self,
-                 min_conn = None,
-                 max_conn = None):
+                 min_conn=None,
+                 max_conn=None):
         """Создание пула подключений к БД"""
         self.logger = get_logger('DataBaseToolkit')
         self.logger.info("Подключение к БД")
@@ -95,50 +103,68 @@ class DataBaseToolkit:
 
         return experiments
 
-    def get_pressure_coefficients(self, alpha: str, model_name: str, angle: str, ):
+    def get_pressure_coefficients(self, db, **kwargs):
         """Возвращает коэффициенты давления эксперимента из БД"""
-
-        self.logger.info(
-            f"Запрос коэффициентов давления модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из БД")
 
         connection = self.get_connection()
         cursor = connection.cursor()
 
-        if alpha == '4':
-            cursor.execute("""
-                               select model_id
-                               from experiments_alpha_4
-                               where model_name = (%s) limit 1
-                           """, (model_name,)
-                           )
-            model_id = str(cursor.fetchall()[0][0])
-            cursor.execute("""
-                               select pressure_coefficients
-                               from models_alpha_4
-                               where model_id = (%s) and angle = (%s) limit 1
-                           """, (model_id, angle))
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
 
-        elif alpha == '6':
-            cursor.execute("""
-                               select model_id
-                               from experiments_alpha_6
-                               where model_name = (%s) limit 1
-                           """, (model_name,)
-                           )
+            self.logger.info(
+                f"Запрос коэффициентов давления модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из БД")
 
-            model_id = str(cursor.fetchall()[0][0])
+            if alpha == '4':
+                cursor.execute("""
+                                   select model_id
+                                   from experiments_alpha_4
+                                   where model_name = (%s) limit 1
+                               """, (model_name,)
+                               )
+                model_id = str(cursor.fetchall()[0][0])
+                cursor.execute("""
+                                   select pressure_coefficients
+                                   from models_alpha_4
+                                   where model_id = (%s) and angle = (%s) limit 1
+                               """, (model_id, angle))
 
-            cursor.execute("""
-                               select pressure_coefficients
-                               from models_alpha_6
-                               where model_id = (%s) and angle = (%s) limit 1
-                           """, (model_id, angle))
+            elif alpha == '6':
+                cursor.execute("""
+                                   select model_id
+                                   from experiments_alpha_6
+                                   where model_name = (%s) limit 1
+                               """, (model_name,)
+                               )
 
-        self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
-                         f"альфа = {alpha} угол = {angle.rjust(2, '0')} из БД успешно выполнен"
-                         )
+                model_id = str(cursor.fetchall()[0][0])
 
-        pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
+                cursor.execute("""
+                                   select pressure_coefficients
+                                   from models_alpha_6
+                                   where model_id = (%s) and angle = (%s) limit 1
+                               """, (model_id, angle))
+
+            self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
+                             f"альфа = {alpha} угол = {angle.rjust(2, '0')} из БД успешно выполнен"
+                             )
+
+            pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
+        elif db == 'interference':
+            case = kwargs['case']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
+
+            cursor.execute("""select pressure_coefficients
+                from interference
+                join mean_wind_speeds mws on mws.id_mean_wind_speed = interference.id_mean_wind_speed
+                join sample_periods sp on interference.id_sample_period = sp.id_sample_period
+                where instance = (%s) and id_interfering_building=(%s) and angle=(%s)""",
+                           (case, interference_id_building[model_name], angle))
+
+            pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
 
         cursor.close()
         self.connection_pool.putconn(connection)

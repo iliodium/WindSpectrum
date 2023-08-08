@@ -76,7 +76,7 @@ class ReportContent(MDScreen):
             'polarSummaryCoefficients': [False, mode_8.copy()],
             'summaryCoefficients': [False, mode_coefficients_all.copy()],
             'summarySpectres': [False, mode_coefficients_all.copy()],
-            'pressureTapLocations': [False],
+            # 'pressureTapLocations': [False],
             'statisticsSensors': [False, sensors.copy()],
             'statisticsSummaryCoefficients': [False, mode_8.copy()],
         }
@@ -161,26 +161,39 @@ class ReportContent(MDScreen):
         self.brute_force_sections(not self.flag_all_content)
         self.flag_all_content = not self.flag_all_content
 
-    def report(self):
-        ish = self.manager.get_screen('IsolatedHighriseScreen_screen')
-        alpha = ish.alpha_ws
-        model_size = ish.model_size_ws
+    def report(self, screen: str):
+        screen_l = screen.lower()
+        parameters = dict()
+        if 'isolated' in screen_l:
+            scr_obj = self.manager.get_screen(screen)
+            parameters['db'] = 'isolated'
+            parameters['alpha'] = scr_obj.alpha_ws
+            parameters['model_size'] = scr_obj.model_size_ws
 
-        pressure_plot_parameters = {'type_area': ish.get_type_area(),
-                                    'wind_region': ish.get_wind_region() if self.report_content['isofieldsPressure'][0] else None,
+        elif 'interference' in screen_l:
+            scr_obj = self.manager.get_screen(screen)
+            parameters['db'] = 'interference'
+            parameters['case'] = scr_obj.case
+            parameters['model_size'] = scr_obj.model_size_ws
+
+        pressure_plot_parameters = {'type_area': scr_obj.get_type_area(),
+                                    'wind_region': scr_obj.get_wind_region() if
+                                    self.report_content['isofieldsPressure'][
+                                        0] else None,
                                     }
         if False in pressure_plot_parameters.values():
             return
 
         button = self.ids.report_button
-        spinner = ish.ids.report_spinner
+        spinner = scr_obj.ids.report_spinner
+
+
 
         button.disabled = True
         spinner.active = True
 
-        self.core_ws.preparation_for_report(alpha,
-                                            model_size,
-                                            pressure_plot_parameters,
+        self.core_ws.preparation_for_report(pressure_plot_parameters,
                                             self.report_content,
                                             button,
-                                            spinner)
+                                            spinner,
+                                            **parameters)

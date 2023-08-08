@@ -15,10 +15,11 @@ from utils.utils import (get_logger,
                          changer_sequence_numbers,
                          changer_sequence_coefficients,
                          get_model_and_scale_factors,
+                         get_model_and_scale_factors_interference,
                          get_view_permutation_data,
                          get_base_angle,
                          get_sequence_permutation_data,
-                         converter_coordinates_to_real,
+                         converter_coordinates_to_real, get_coordinates_interference,
                          )
 
 
@@ -55,7 +56,7 @@ class Clipboard:
     # Настройки
     _read_clipboard_binary = config['clipboard']['settings']['read_clipboard_binary']
 
-    def __init__(self, ex_clipboard = None):
+    def __init__(self, ex_clipboard=None):
         self.logger = get_logger('Clipboard')
         self.logger.info('Создание буфера')
         self.database_obj = DataBaseToolkit()
@@ -80,120 +81,209 @@ class Clipboard:
         потому что они идентичны для всех углов атаки ветра выбранной модели.
         Также в const_stuff входят графики целиком описывающие модель.
         """
-        self.clipboard_dict = dict({'4': dict(),
-                                    '6': dict()
-                                    })
+        self.clipboard_dict = {'isolated': {'4': dict(),
+                                            '6': dict(),
+                                            },
+                               'interference': {140: dict(),
+                                                196: dict(),
+                                                289: dict(),
+                                                420: dict(),
+                                                560: dict(),
+                                                },
 
+                               }
+
+        # isolated
         experiments = self.database_obj.get_experiments()
 
-        self.clipboard_dict['4'] = experiments['4']
+        self.clipboard_dict['isolated']['4'] = experiments['4']
         for key in list(experiments['4'].keys()):
             if key[0] != key[1]:
-                self.clipboard_dict['4'][key[1] + key[0] + key[2]] = dict()
+                self.clipboard_dict['isolated']['4'][key[1] + key[0] + key[2]] = dict()
 
-        self.clipboard_dict['6'] = experiments['6']
+        self.clipboard_dict['isolated']['6'] = experiments['6']
         for key in list(experiments['6'].keys()):
             if key[0] != key[1]:
-                self.clipboard_dict['6'][key[1] + key[0] + key[2]] = dict()
+                self.clipboard_dict['isolated']['6'][key[1] + key[0] + key[2]] = dict()
 
         angles = range(0, 360, 5)
 
-        for alpha in self.clipboard_dict.keys():
-            for model_name in self.clipboard_dict[alpha].keys():
+        for alpha in self.clipboard_dict['isolated'].keys():
+            for model_name in self.clipboard_dict['isolated'][alpha].keys():
                 for angle in angles:
-                    self.clipboard_dict[alpha][model_name][str(angle)] = dict()
+                    self.clipboard_dict['isolated'][alpha][model_name][str(angle)] = dict()
 
-                self.clipboard_dict[alpha][model_name]['const_stuff'] = dict()
+                self.clipboard_dict['isolated'][alpha][model_name]['const_stuff'] = dict()
 
-        unique_model_names = set(self.clipboard_dict['4'].keys()).union(set(self.clipboard_dict['6'].keys()))
+        unique_model_names = set(self.clipboard_dict['isolated']['4'].keys()).union(
+            set(self.clipboard_dict['isolated']['6'].keys()))
 
         for umn in unique_model_names:
-            self.clipboard_dict[umn] = dict()
+            self.clipboard_dict['isolated'][umn] = dict()
 
         # Уникальные данные\графики для конкретного размера
-        self.clipboard_dict['unique_stuff_for_size'] = dict()
+        self.clipboard_dict['isolated']['unique_stuff_for_size'] = dict()
 
-    def get_pressure_coefficients(self, alpha: str, model_name: str, angle: str):
-        model_name_base = model_name
-        turn_flag = False
-        if model_name[0] == model_name[1]:
-            angle_border = 45
-            type_base = 'square'
+        # interference
+        for hr in self.clipboard_dict['interference'].keys():
+            if hr in (196, 560):
+                for c in (28, 33, 34, 37):
+                    self.clipboard_dict['interference'][hr][c] = dict()
+            else:
+                for c in range(1, 38):
+                    self.clipboard_dict['interference'][hr][c] = dict()
 
-        else:
-            angle_border = 90
-            type_base = 'rectangle'
+            for c in self.clipboard_dict['interference'][hr].keys():
+                for angle in range(0, 360, 5):
+                    self.clipboard_dict['interference'][hr][c][angle] = dict()
 
-        if model_name[1] in ['2', '3']:
-            model_name_base = model_name[1] + model_name[0] + model_name[2]
-            angle = str((int(angle) + 270) % 360)
-            turn_flag = True
+                self.clipboard_dict['interference'][hr][c]['const_stuff'] = dict()
 
-        # Поворот данных для отображения углов, выходящих за границы имеющихся
-        if int(angle) > angle_border:
-            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view, type_base)
-            sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
+    def get_pressure_coefficients(self, db, **kwargs):
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
 
-            pressure_coefficients = self.get_pressure_coefficients_from_clipboard(alpha, model_name_base,
-                                                                                  str(base_angle))
+            model_name_base = model_name
+            turn_flag = False
+            if model_name[0] == model_name[1]:
+                angle_border = 45
+                type_base = 'square'
 
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
-                                                                  model_name, sequence_permutation)
-        else:
-            pressure_coefficients = self.get_pressure_coefficients_from_clipboard(alpha, model_name_base, angle)
+            else:
+                angle_border = 90
+                type_base = 'rectangle'
 
-        # Поворот модели
-        if turn_flag:
-            if int(angle) % 90 != 0:
-                model_name_base = model_name
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, 'forward', model_name_base,
-                                                                  (3, 0, 1, 2))
+            if model_name[1] in ['2', '3']:
+                model_name_base = model_name[1] + model_name[0] + model_name[2]
+                angle = str((int(angle) + 270) % 360)
+                turn_flag = True
+
+            # Поворот данных для отображения углов, выходящих за границы имеющихся
+            if int(angle) > angle_border:
+                permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
+                base_angle = get_base_angle(int(angle), permutation_view, type_base)
+                sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
+
+                pressure_coefficients = self.get_pressure_coefficients_from_clipboard(db='isolated', alpha=alpha,
+                                                                                      model_name=model_name_base,
+                                                                                      angle=str(base_angle))
+
+                pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
+                                                                      model_name, sequence_permutation)
+            else:
+                pressure_coefficients = self.get_pressure_coefficients_from_clipboard(db='isolated', alpha=alpha,
+                                                                                      model_name=model_name_base,
+                                                                                      angle=angle)
+
+            # Поворот модели
+            if turn_flag:
+                if int(angle) % 90 != 0:
+                    model_name_base = model_name
+                pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, 'forward', model_name_base,
+                                                                      (3, 0, 1, 2))
+        elif db == 'interference':
+            case = kwargs['case']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
+            pressure_coefficients = self.get_pressure_coefficients_from_clipboard(db='interference', case=case,
+                                                                                  model_name=model_name,
+                                                                                  angle=angle)
+
         return pressure_coefficients
 
-    def get_pressure_coefficients_from_clipboard(self, alpha: str, model_name: str, angle: str):
+    def get_pressure_coefficients_from_clipboard(self, db, **kwargs):
         """Возвращает коэффициенты давления из буфера"""
-        self.logger.info(f"Запрос коэффициентов давления "
-                         f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
+            self.logger.info(f"Запрос коэффициентов давления "
+                             f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
-        if not any(self.clipboard_dict[alpha][model_name][angle].get('pressure_coefficients')):
-            pressure_coefficients = array(self.database_obj.get_pressure_coefficients(alpha, model_name, angle))
-            if self.save_mode:
-                self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients'] = pressure_coefficients
+            if not any(self.clipboard_dict['isolated'][alpha][model_name][angle].get('pressure_coefficients')):
+                pressure_coefficients = array(
+                    self.database_obj.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_name,
+                                                                angle=angle))
+                if self.save_mode:
+                    self.clipboard_dict['isolated'][alpha][model_name][angle][
+                        'pressure_coefficients'] = pressure_coefficients
+                else:
+                    self.logger.info(f"       Коэффициенты давления модель = {model_name} "
+                                     f"альфа = {alpha} угол = {angle.rjust(2, '0')} не сохранены в буфер")
             else:
-                self.logger.info(f"       Коэффициенты давления модель = {model_name} "
-                                 f"альфа = {alpha} угол = {angle.rjust(2, '0')} не сохранены в буфер")
-        else:
-            pressure_coefficients = self.clipboard_dict[alpha][model_name][angle]['pressure_coefficients']
-            self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
-                             f"альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+                pressure_coefficients = self.clipboard_dict['isolated'][alpha][model_name][angle][
+                    'pressure_coefficients']
+                self.logger.info(f"Запрос коэффициентов давления модель = {model_name} "
+                                 f"альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
 
-        pressure_coefficients = pressure_coefficients / 1000
+            pressure_coefficients = pressure_coefficients / 1000
+
+        elif db == 'interference':
+            case = kwargs['case']
+            model_name = kwargs['model_name']
+            angle = kwargs['angle']
+
+            if not any(self.clipboard_dict['interference'][model_name][case][angle].get('pressure_coefficients')):
+                pressure_coefficients = array(
+                    self.database_obj.get_pressure_coefficients('interference', case=case, model_name=model_name,
+                                                                angle=angle))
+                if self.save_mode:
+                    self.clipboard_dict['interference'][model_name][case][angle][
+                        'pressure_coefficients'] = pressure_coefficients
+            else:
+                pressure_coefficients = self.clipboard_dict['interference'][model_name][case][angle][
+                    'pressure_coefficients']
+
+            pressure_coefficients = pressure_coefficients / 1000
 
         return pressure_coefficients
 
-    def get_coordinates(self, alpha: str, model_scale: str):
+    def get_coordinates(self, db='isolated', **kwargs):
         """Возвращает координаты датчиков из буфера"""
-        self.logger.info(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
+        if db == 'isolated':
+            model_scale = kwargs['model_scale']
+            alpha = kwargs['alpha']
 
-        if model_scale[1] in ['2', '3']:
-            model_scale = model_scale[1] + model_scale[0] + model_scale[2]
+            self.logger.info(f"Запрос координаты датчиков модель = {model_scale} альфа = {alpha} из буфера")
 
-        if not self.clipboard_dict[alpha][model_scale]['const_stuff'].get('x') or \
-                not self.clipboard_dict[alpha][model_scale]['const_stuff'].get('z'):
-            x, z = self.database_obj.get_coordinates(alpha, model_scale)
-            if self.save_mode:
-                self.clipboard_dict[alpha][model_scale]['const_stuff']['x'] = x
-                self.clipboard_dict[alpha][model_scale]['const_stuff']['z'] = z
+            if model_scale[1] in ['2', '3']:
+                model_scale = model_scale[1] + model_scale[0] + model_scale[2]
+
+            if not self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff'].get('x') or \
+                    not self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff'].get('z'):
+                x, z = self.database_obj.get_coordinates(alpha, model_scale)
+                if self.save_mode:
+                    self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff']['x'] = x
+                    self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff']['z'] = z
+                else:
+                    self.logger.info(f"       Координаты датчиков модель = {model_scale} альфа = {alpha} "
+                                     f"не сохранены в буфер")
             else:
-                self.logger.info(f"       Координаты датчиков модель = {model_scale} альфа = {alpha} "
-                                 f"не сохранены в буфер")
-        else:
-            x = self.clipboard_dict[alpha][model_scale]['const_stuff']['x']
-            z = self.clipboard_dict[alpha][model_scale]['const_stuff']['z']
+                x = self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff']['x']
+                z = self.clipboard_dict['isolated'][alpha][model_scale]['const_stuff']['z']
 
-            self.logger.info(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} "
-                             f"из буфера успешно выполнен")
+                self.logger.info(f"Запрос координат датчиков модель = {model_scale} альфа = {alpha} "
+                                 f"из буфера успешно выполнен")
+        elif db == 'interference':
+            model_scale = kwargs['model_scale']
+            case = kwargs['case']
+
+            if not self.clipboard_dict['interference'][model_scale][case]['const_stuff'].get('x') or \
+                    not self.clipboard_dict['interference'][model_scale][case]['const_stuff'].get('z'):
+                pressure_coefficients = self.get_pressure_coefficients('interference', case=case,
+                                                                       model_name=model_scale,
+                                                                       angle=0)
+
+                x, z = get_coordinates_interference(len(pressure_coefficients[0]), model_scale / 1000)
+                if self.save_mode:
+                    self.clipboard_dict['interference'][model_scale][case]['const_stuff']['x'] = x
+                    self.clipboard_dict['interference'][model_scale][case]['const_stuff']['z'] = z
+
+            else:
+                x = self.clipboard_dict['interference'][model_scale][case]['const_stuff']['x']
+                z = self.clipboard_dict['interference'][model_scale][case]['const_stuff']['z']
 
         return [x, z]
 
@@ -201,15 +291,17 @@ class Clipboard:
         """Возвращает среднюю скорость ветра из буфера"""
         self.logger.info(f"Запрос средней скорости ветра модель = {model_name} альфа = {alpha} из буфера")
 
-        if not self.clipboard_dict[alpha][model_name]['const_stuff'].get('uh_average_wind_speed'):
+        if not self.clipboard_dict['isolated'][alpha][model_name]['const_stuff'].get('uh_average_wind_speed'):
             average_wind_speed = self.database_obj.get_uh_average_wind_speed(alpha, model_name)
             if self.save_mode:
-                self.clipboard_dict[alpha][model_name]['const_stuff']['uh_average_wind_speed'] = average_wind_speed
+                self.clipboard_dict['isolated'][alpha][model_name]['const_stuff'][
+                    'uh_average_wind_speed'] = average_wind_speed
             else:
                 self.logger.info(f"       Cредняя скорость ветра "
                                  f"модель = {model_name} альфа = {alpha} не сохранена в буфер")
         else:
-            average_wind_speed = self.clipboard_dict[alpha][model_name]['const_stuff']['uh_average_wind_speed']
+            average_wind_speed = self.clipboard_dict['isolated'][alpha][model_name]['const_stuff'][
+                'uh_average_wind_speed']
 
             self.logger.info(f"Запрос средней скорости ветра "
                              f"модель = {model_name} альфа = {alpha} из буфера успешно выполнен")
@@ -228,15 +320,15 @@ class Clipboard:
             model_name = model_name[1] + model_name[0] + model_name[2]
             f = True
 
-        if not self.clipboard_dict[alpha][model_name]['const_stuff'].get('face_number'):
+        if not self.clipboard_dict['isolated'][alpha][model_name]['const_stuff'].get('face_number'):
             face_number = self.database_obj.get_face_number(alpha, model_name)
             if self.save_mode:
-                self.clipboard_dict[alpha][model_name]['const_stuff']['face_number'] = face_number
+                self.clipboard_dict['isolated'][alpha][model_name]['const_stuff']['face_number'] = face_number
             else:
                 self.logger.info(f"       Нумерация датчиков модель = {model_name} альфа = {alpha} "
                                  f"не сохранена в буфер")
         else:
-            face_number = self.clipboard_dict[alpha][model_name]['const_stuff']['face_number']
+            face_number = self.clipboard_dict['isolated'][alpha][model_name]['const_stuff']['face_number']
 
             self.logger.info(f"Запрос нумерации датчиков модель = {model_name} альфа = {alpha} "
                              f"из буфера успешно выполнен")
@@ -246,114 +338,204 @@ class Clipboard:
 
         return face_number
 
-    def get_cx_cy(self, alpha: str, model_name: str, angle: str):
+    def get_cx_cy(self, db='isolated', **kwargs):
         """Возвращает суммарные коэффициенты Cx Cy из буфера"""
-        self.logger.info(f"Запрос суммарных коэффициентов Cx Cy "
-                         f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
+        if db == 'isolated':
+            model_name = kwargs['model_scale']
+            alpha = kwargs['alpha']
+            angle = str(kwargs['angle'])
 
-        if not any(self.clipboard_dict[alpha][model_name][angle].get('Cx')) or \
-                not any(self.clipboard_dict[alpha][model_name][angle].get('Cy')):
-            pressure_coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
+            self.logger.info(f"Запрос суммарных коэффициентов Cx Cy "
+                             f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
-            cx, cy = calculate_cx_cy(model_name, pressure_coefficients)
-            if self.save_mode:
-                self.clipboard_dict[alpha][model_name][angle]['Cx'] = cx
-                self.clipboard_dict[alpha][model_name][angle]['Cy'] = cy
+            if not any(self.clipboard_dict['isolated'][alpha][model_name][angle].get('Cx')) or \
+                    not any(self.clipboard_dict['isolated'][alpha][model_name][angle].get('Cy')):
+                pressure_coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_name,
+                                                                       angle=angle)
+
+                cx, cy = calculate_cx_cy(db='isolated', model_name=model_name,
+                                         pressure_coefficients=pressure_coefficients)
+                if self.save_mode:
+                    self.clipboard_dict['isolated'][alpha][model_name][angle]['Cx'] = cx
+                    self.clipboard_dict['isolated'][alpha][model_name][angle]['Cy'] = cy
+                else:
+                    self.logger.info(f"       Cуммарные коэффициенты  Cx Cy "
+                                     f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} "
+                                     f"не сохранена в буфер")
             else:
-                self.logger.info(f"       Cуммарные коэффициенты  Cx Cy "
-                                 f"модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} "
-                                 f"не сохранена в буфер")
-        else:
-            cx = self.clipboard_dict[alpha][model_name][angle]['Cx']
-            cy = self.clipboard_dict[alpha][model_name][angle]['Cy']
+                cx = self.clipboard_dict['isolated'][alpha][model_name][angle]['Cx']
+                cy = self.clipboard_dict['isolated'][alpha][model_name][angle]['Cy']
 
-            self.logger.info(f"Запрос суммарных коэффициентов Cx Cy модель = {model_name} альфа = {alpha} "
-                             f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+                self.logger.info(f"Запрос суммарных коэффициентов Cx Cy модель = {model_name} альфа = {alpha} "
+                                 f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+        elif db == 'interference':
+            model_name = kwargs['model_scale']
+            case = kwargs['case']
+            angle = int(kwargs['angle'])
+
+            if not any(self.clipboard_dict['interference'][model_name][case][angle].get('Cx')) or \
+                    not any(self.clipboard_dict['interference'][model_name][case][angle].get('Cy')):
+                pressure_coefficients = self.get_pressure_coefficients('interference', case=case, model_name=model_name,
+                                                                       angle=angle)
+
+                cx, cy = calculate_cx_cy(db='interference', height=model_name / 1000,
+                                         pressure_coefficients=pressure_coefficients, )
+                if self.save_mode:
+                    self.clipboard_dict['interference'][model_name][case][angle]['Cx'] = cx
+                    self.clipboard_dict['interference'][model_name][case][angle]['Cy'] = cy
+
+            else:
+                cx = self.clipboard_dict['interference'][model_name][case][angle]['Cx']
+                cy = self.clipboard_dict['interference'][model_name][case][angle]['Cy']
 
         return cx, cy
 
-    def get_cmz(self, alpha: str, model_name: str, angle: str):
+    def get_cmz(self, db='isolated', **kwargs):
         """Возвращает CMz из буфера"""
-        self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
+        if db == 'isolated':
+            model_name = kwargs['model_scale']
+            alpha = kwargs['alpha']
+            angle = str(kwargs['angle'])
+            self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из буфера")
 
-        if not any(self.clipboard_dict[alpha][model_name][angle].get('CMz')):
-            coefficients = self.get_pressure_coefficients(alpha, model_name, angle)
-            coordinates = self.get_coordinates(alpha, model_name)
-            cmz = calculate_cmz(model_name, angle, coefficients, coordinates)
-            if self.save_mode:
-                self.clipboard_dict[alpha][model_name][angle]['CMz'] = cmz
+            if not any(self.clipboard_dict['isolated'][alpha][model_name][angle].get('CMz')):
+                coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_name,
+                                                              angle=angle)
+                coordinates = self.get_coordinates(db='isolated', alpha=alpha, model_scale=model_name)
+                cmz = calculate_cmz(db='isolated', model_name=model_name, angle=angle,
+                                    pressure_coefficients=coefficients, coordinates=coordinates)
+                if self.save_mode:
+                    self.clipboard_dict['isolated'][alpha][model_name][angle]['CMz'] = cmz
+                else:
+                    self.logger.info(f"       CMz модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} "
+                                     f"не сохранена в буфер")
             else:
-                self.logger.info(f"       CMz модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} "
-                                 f"не сохранена в буфер")
-        else:
-            cmz = self.clipboard_dict[alpha][model_name][angle]['CMz']
+                cmz = self.clipboard_dict['isolated'][alpha][model_name][angle]['CMz']
 
-            self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} "
-                             f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+                self.logger.info(f"Запрос CMz модель = {model_name} альфа = {alpha} "
+                                 f"угол = {angle.rjust(2, '0')} из буфера успешно выполнен")
+        elif db == 'interference':
+            model_name = kwargs['model_scale']
+            case = kwargs['case']
+            angle = int(kwargs['angle'])
+
+            if not any(self.clipboard_dict['interference'][model_name][case][angle].get('CMz')):
+                coefficients = self.get_pressure_coefficients(db='interference', case=case, model_name=model_name,
+                                                              angle=angle)
+                coordinates = self.get_coordinates(db='interference', case=case, model_scale=model_name)
+                cmz = calculate_cmz(db='interference', height=model_name / 1000, angle=angle,
+                                    pressure_coefficients=coefficients, coordinates=coordinates)
+
+                if self.save_mode:
+                    self.clipboard_dict['interference'][model_name][case][angle]['CMz'] = cmz
+            else:
+                cmz = self.clipboard_dict['interference'][model_name][case][angle]['CMz']
 
         return cmz
 
-    def get_isofields(self,
-                      alpha: str,
-                      model_size: Tuple[str, str, str],
-                      angle: str,
-                      mode: str,
-                      type_plot: str,
-                      pressure_plot_parameters = None):
-        self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                         f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера')
-        flag_save = False
+    def get_isofields(self, db='isolated', **kwargs):
+        if db == 'isolated':
+            type_plot = kwargs['type_plot']
+            angle = str(kwargs['angle'])
+            alpha = kwargs['alpha']
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            pressure_plot_parameters = kwargs['pressure_plot_parameters']
 
-        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
-
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-
-        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            pressure_coefficients = self.get_pressure_coefficients(alpha, model_scale, angle)
-            coordinates = self.get_coordinates(alpha, model_scale)
-
-            self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
-
-            fig = Plot.isofields_coefficients(model_scale,
-                                              model_size,
-                                              scale_factors,
-                                              alpha,
-                                              mode,
-                                              angle,
-                                              pressure_coefficients,
-                                              coordinates,
-                                              pressure_plot_parameters)
-
-            if fig is not None:
-                self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} успешно выполнена')
-            else:
-                self.logger.warning(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                                    f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не выполнена')
-
-            if type_plot == 'isofields_pressure':
-                if self._save_isofields_pressure:
-                    self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-                    flag_save = True
-
-            elif type_plot == 'isofields_coefficients':
-                if self._save_isofields_coefficients:
-                    self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
-                    flag_save = True
-
-            if flag_save:
-                self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} сохранены в буфер')
-
-            else:
-                self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не сохранены в буфер')
-
-        else:
-            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
             self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
-                             f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+                             f'угол = {angle} режим = {mode.ljust(4, " ")} из буфера')
+            flag_save = False
+
+            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+            if not self.clipboard_dict['isolated'][alpha][model_scale][angle].get(id_fig):
+                pressure_coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_scale,
+                                                                       angle=angle)
+                coordinates = self.get_coordinates(db, alpha=alpha, model_scale=model_scale)
+
+                self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
+
+                fig = Plot.isofields_coefficients(db='isolated',
+                                                  model_scale=model_scale,
+                                                  model_size=model_size,
+                                                  scale_factors=scale_factors,
+                                                  alpha=alpha,
+                                                  mode=mode,
+                                                  angle=angle,
+                                                  pressure_coefficients=pressure_coefficients,
+                                                  coordinates=coordinates,
+                                                  pressure_plot_parameters=pressure_plot_parameters)
+
+                if fig is not None:
+                    self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                     f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} успешно выполнена')
+                else:
+                    self.logger.warning(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                        f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не выполнена')
+
+                if type_plot == 'isofields_pressure':
+                    if self._save_isofields_pressure:
+                        self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig] = fig
+                        flag_save = True
+
+                elif type_plot == 'isofields_coefficients':
+                    if self._save_isofields_coefficients:
+                        self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig] = fig
+                        flag_save = True
+
+                if flag_save:
+                    self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                     f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} сохранены в буфер')
+
+                else:
+                    self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                     f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не сохранены в буфер')
+
+            else:
+                fig = self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig]
+                self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
+                                 f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
+        elif db == 'interference':
+            type_plot = kwargs['type_plot']
+            angle = kwargs['angle']
+            case = kwargs['case']
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            pressure_plot_parameters = kwargs['pressure_plot_parameters']
+
+            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+            if not self.clipboard_dict['interference'][model_scale][case][angle].get(id_fig):
+                pressure_coefficients = self.get_pressure_coefficients('interference', case=case,
+                                                                       model_name=model_scale,
+                                                                       angle=angle)
+                coordinates = get_coordinates_interference(len(pressure_coefficients[0]), model_scale / 1000)
+
+                fig = Plot.isofields_coefficients(db='interference',
+                                                  model_scale=model_scale,
+                                                  model_size=model_size,
+                                                  scale_factors=scale_factors,
+                                                  case=case,
+                                                  mode=mode,
+                                                  angle=angle,
+                                                  pressure_coefficients=pressure_coefficients,
+                                                  coordinates=coordinates,
+                                                  pressure_plot_parameters=pressure_plot_parameters)
+
+                if type_plot == 'isofields_pressure':
+                    if self._save_isofields_pressure:
+                        self.clipboard_dict['interference'][model_scale][case][angle][id_fig] = fig
+
+                elif type_plot == 'isofields_coefficients':
+                    if self._save_isofields_coefficients:
+                        self.clipboard_dict['interference'][model_scale][case][angle][id_fig] = fig
+
+            else:
+                fig = self.clipboard_dict['interference'][model_scale][case][angle][id_fig]
 
         return fig
 
@@ -372,9 +554,10 @@ class Clipboard:
 
         model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
 
-        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            pressure_coefficients = self.get_pressure_coefficients(alpha, model_scale, angle)
-            coordinates = self.get_coordinates(alpha, model_scale)
+        if not self.clipboard_dict['isolated'][alpha][model_scale][angle].get(id_fig):
+            pressure_coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_scale,
+                                                                   angle=angle)
+            coordinates = self.get_coordinates('isolated',alpha=alpha, model_scale=model_scale)
 
             self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
                              f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')
@@ -389,7 +572,7 @@ class Clipboard:
                                     f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не выполнена')
 
             if self._save_pseudocolor_coefficients:
-                self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+                self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig] = fig
 
                 self.logger.info(f'       {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
                                  f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} сохранены в буфер')
@@ -399,132 +582,221 @@ class Clipboard:
                                  f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} не сохранены в буфер')
 
         else:
-            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
+            fig = self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig]
             self.logger.info(f'Запрос {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
                              f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")} из буфера успешно выполнен')
 
         return fig
 
-    def get_data_summary(self, alpha: str, angle: str, mode: str, model_scale: str):
-        data = dict()
-        f_cx = 'cx' in mode
-        f_cy = 'cy' in mode
-        f_cmz = 'cmz' in mode
+    def get_data_summary(self, db='isolated', **kwargs):
+        if db == 'isolated':
+            mode = kwargs['mode']
+            alpha = kwargs['alpha']
+            model_scale = kwargs['model_scale']
+            angle = kwargs['angle']
 
-        if f_cx or f_cy:
-            cx, cy = self.get_cx_cy(alpha, model_scale, str(angle))
-            if f_cx:
-                data['cx'] = cx
-            if f_cy:
-                data['cy'] = cy
-
-        if f_cmz:
-            data['cmz'] = self.get_cmz(alpha, model_scale, str(angle))
-
-        return data
-
-    def get_summary_spectres(self,
-                             alpha: str,
-                             model_size: Tuple[str, str, str],
-                             angle: str,
-                             mode: str,
-                             scale: str,
-                             type_plot: str):
-        mode = mode.lower().replace(' ', '_')
-        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
-        id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
-
-        message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
-
-        self.logger.info(f'Запрос суммарных спектров {message} из буфера')
-        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
+            data = dict()
             f_cx = 'cx' in mode
             f_cy = 'cy' in mode
             f_cmz = 'cmz' in mode
 
-            data = self.get_data_summary(alpha, angle, mode, model_scale)
+            if f_cx or f_cy:
+                cx, cy = self.get_cx_cy(db='isolated', angle=angle,
+                                        model_scale=model_scale, alpha=alpha)
+                if f_cx:
+                    data['cx'] = cx
+                if f_cy:
+                    data['cy'] = cy
 
-            self.logger.info(f'Отрисовка суммарных спектров {message}')
-            fig = Plot.welch_graphs(data, model_size, alpha, angle)
+            if f_cmz:
+                data['cmz'] = self.get_cmz(db='isolated', angle=angle,
+                                           model_scale=model_scale, alpha=alpha)
 
-            if all((self._save_summary_spectres_cx or f_cx, self._save_summary_spectres_cy or f_cy,
-                    self._save_summary_spectres_cmz or f_cmz)):
-                self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+        elif db == 'interference':
+            mode = kwargs['mode']
+            model_scale = kwargs['model_scale']
+            angle = kwargs['angle']
+            case = kwargs['case']
+
+            data = dict()
+            f_cx = 'cx' in mode
+            f_cy = 'cy' in mode
+            f_cmz = 'cmz' in mode
+
+            if f_cx or f_cy:
+                cx, cy = self.get_cx_cy(db='interference', height=model_scale / 1000, angle=angle,
+                                        model_scale=model_scale, case=case)
+                if f_cx:
+                    data['cx'] = cx
+                if f_cy:
+                    data['cy'] = cy
+
+            if f_cmz:
+                data['cmz'] = self.get_cmz(db='interference', height=model_scale / 1000, angle=angle,
+                                           model_scale=model_scale, case=case)
+
+        return data
+
+    def get_summary_spectres(self, db='isolated', **kwargs):
+        type_plot = kwargs['type_plot']
+        scale = kwargs['scale']
+        if db == 'isolated':
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            alpha = kwargs['alpha']
+            angle = kwargs['angle']
+
+            mode = mode.lower().replace(' ', '_')
+            model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+            id_fig = f'{type_plot}_{mode}_{scale}_{"_".join(model_size)}'
+
+            message = f'{" ".join(list(model_size))} {alpha} {int(angle):02} {mode}'
+
+            self.logger.info(f'Запрос суммарных спектров {message} из буфера')
+            if not self.clipboard_dict['isolated'][alpha][model_scale][angle].get(id_fig):
+                f_cx = 'cx' in mode
+                f_cy = 'cy' in mode
+                f_cmz = 'cmz' in mode
+
+                data = self.get_data_summary(db='isolated', alpha=alpha, angle=angle, mode=mode,
+                                             model_scale=model_scale)
+
+                self.logger.info(f'Отрисовка суммарных спектров {message}')
+                fig = Plot.welch_graphs(db='isolated', data=data, model_size=model_size, alpha=alpha, angle=angle)
+
+                if all((self._save_summary_spectres_cx or f_cx, self._save_summary_spectres_cy or f_cy,
+                        self._save_summary_spectres_cmz or f_cmz)):
+                    self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig] = fig
+                else:
+                    self.logger.info(f'       Cуммарные спектры {message} не сохранены в буфер')
             else:
-                self.logger.info(f'       Cуммарные спектры {message} не сохранены в буфер')
-        else:
-            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
-            self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+                fig = self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig]
+                self.logger.info(f'Запрос суммарных спектров {message} из буфера успешно выполнен')
+        elif db == 'interference':
+            mode = kwargs['mode']
+            case = kwargs['case']
+            model_size = kwargs['model_size']
+            angle = int(kwargs['angle'])
+
+            mode = mode.lower().replace(' ', '_')
+            model_scale, _ = get_model_and_scale_factors_interference(*model_size)
+            id_fig = f'interference_spec_{mode}_{"_".join(model_size)}'
+            if not self.clipboard_dict['interference'][model_scale][case][angle].get(id_fig):
+                f_cx = 'cx' in mode
+                f_cy = 'cy' in mode
+                f_cmz = 'cmz' in mode
+
+                data = self.get_data_summary(db='interference', mode=mode, case=case, angle=angle,
+                                             model_scale=model_scale)
+
+                fig = Plot.welch_graphs(db='interference', data=data, model_size=model_size, case=case, angle=angle)
+
+                if all((self._save_summary_spectres_cx or f_cx, self._save_summary_spectres_cy or f_cy,
+                        self._save_summary_spectres_cmz or f_cmz)):
+                    self.clipboard_dict['interference'][model_scale][case][angle][id_fig] = fig
+            else:
+                fig = self.clipboard_dict['interference'][model_scale][case][angle][id_fig]
 
         return fig
 
     def get_summary_coefficients(self,
-                                 alpha: str,
-                                 model_size: Tuple[str, str, str],
-                                 angle: str,
-                                 mode: str, ):
-        mode = mode.lower()
-        model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
-        type_plot = 'summary_coefficients'
-        id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
-        if not self.clipboard_dict[alpha][model_scale][angle].get(id_fig):
-            f_cx = 'cx' in mode
-            f_cy = 'cy' in mode
-            f_cmz = 'cmz' in mode
-            data = self.get_data_summary(alpha, angle, mode, model_scale)
-            fig = Plot.summary_coefficients(data, model_scale, alpha, str(angle))
+                                 db='isolated',
+                                 **kwargs):
+        if db == 'isolated':
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            alpha = kwargs['alpha']
+            angle = kwargs['angle']
 
-            if all((self._save_summary_coefficients_cx or f_cx, self._save_summary_coefficients_cy or f_cy,
-                    self._save_summary_coefficients_cmz or f_cmz)):
-                self.clipboard_dict[alpha][model_scale][angle][id_fig] = fig
+            mode = mode.lower()
+            model_scale, _ = get_model_and_scale_factors(*model_size, alpha)
+            type_plot = 'summary_coefficients'
+            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
+            if not self.clipboard_dict['isolated'][alpha][model_scale][angle].get(id_fig):
+                f_cx = 'cx' in mode
+                f_cy = 'cy' in mode
+                f_cmz = 'cmz' in mode
+                data = self.get_data_summary(db='isolated', alpha=alpha, angle=angle, mode=mode,
+                                             model_scale=model_scale)
+                fig = Plot.summary_coefficients(db='isolated', alpha=alpha, angle=angle, mode=mode,
+                                                model_scale=model_scale, data=data)
+
+                if all((self._save_summary_coefficients_cx or f_cx, self._save_summary_coefficients_cy or f_cy,
+                        self._save_summary_coefficients_cmz or f_cmz)):
+                    self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig] = fig
+                else:
+                    self.logger.info(f'       Cуммарные коэф график не сохранены в буфер')
+
             else:
-                self.logger.info(f'       Cуммарные коэф график не сохранены в буфер')
+                fig = self.clipboard_dict['isolated'][alpha][model_scale][angle][id_fig]
+                self.logger.info(f'Запрос суммарных коэф из буфера успешно выполнен')
+        elif db == 'interference':
+            mode = kwargs['mode']
+            model_size = kwargs['model_size']
+            case = kwargs['case']
+            angle = int(kwargs['angle'])
 
-        else:
-            fig = self.clipboard_dict[alpha][model_scale][angle][id_fig]
-            self.logger.info(f'Запрос суммарных коэф из буфера успешно выполнен')
+            mode = mode.lower()
+            model_scale, _ = get_model_and_scale_factors_interference(*model_size)
+            type_plot = 'summary_coefficients'
+            id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}_{case}'
+            if not self.clipboard_dict[db][model_scale][case][angle].get(id_fig):
+                f_cx = 'cx' in mode
+                f_cy = 'cy' in mode
+                f_cmz = 'cmz' in mode
+                data = self.get_data_summary(db=db, case=case, angle=angle, mode=mode,
+                                             model_scale=model_scale)
+                fig = Plot.summary_coefficients(db=db, case=case, angle=angle, mode=mode,
+                                                model_scale=model_scale, data=data)
+
+                if all((self._save_summary_coefficients_cx or f_cx, self._save_summary_coefficients_cy or f_cy,
+                        self._save_summary_coefficients_cmz or f_cmz)):
+                    self.clipboard_dict[db][model_scale][case][angle][id_fig] = fig
+
+            else:
+                fig = self.clipboard_dict[db][model_scale][case][angle][id_fig]
 
         return fig
 
     def get_plot_pressure_tap_locations(self, model_size, alpha):
         id_fig = f'model_polar_{"_".join(model_size)}'
-        if not self.clipboard_dict['unique_stuff_for_size'].get(id_fig):
+        if not self.clipboard_dict['isolated']['unique_stuff_for_size'].get(id_fig):
             model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-            coordinates = self.get_coordinates(alpha, model_scale)
+            coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_scale)
             coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale)
             fig = Plot.model_pic(model_size, model_scale, coordinates)
             if self._save_model_polar:
-                self.clipboard_dict['unique_stuff_for_size'][id_fig] = fig
+                self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig] = fig
             else:
                 ...
         else:
-            fig = self.clipboard_dict['unique_stuff_for_size'][id_fig]
+            fig = self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig]
 
         return fig
 
     def get_plot_model_3d(self, model_size):
         id_fig = f'model_3d_{"_".join(model_size)}'
-        if not self.clipboard_dict['unique_stuff_for_size'].get(id_fig):
+        if not self.clipboard_dict['isolated']['unique_stuff_for_size'].get(id_fig):
             fig = Plot.model_3d(model_size)
             if self._save_model_3d:
-                self.clipboard_dict['unique_stuff_for_size'][id_fig] = fig
+                self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig] = fig
             else:
                 ...
         else:
-            fig = self.clipboard_dict['unique_stuff_for_size'][id_fig]
+            fig = self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig]
 
         return fig
 
     def get_model_polar(self, model_size):
         id_fig = f'model_polar_{"_".join(model_size)}'
-        if not self.clipboard_dict['unique_stuff_for_size'].get(id_fig):
+        if not self.clipboard_dict['isolated']['unique_stuff_for_size'].get(id_fig):
             fig = Plot.model_polar(model_size)
             if self._save_model_3d:
-                self.clipboard_dict['unique_stuff_for_size'][id_fig] = fig
+                self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig] = fig
             else:
                 ...
         else:
-            fig = self.clipboard_dict['unique_stuff_for_size'][id_fig]
+            fig = self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig]
 
         return fig
 

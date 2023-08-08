@@ -21,7 +21,7 @@
                 adaptive_size: True
                 text: 'Назад'
                 on_release:
-                    root.manager.current = root.manager.previous()
+                    root.manager.current = 'Home_screen'
 
         MDScrollView:
             do_scroll_x: False
@@ -56,7 +56,7 @@
 
                 MDFlatButton:
                     id: wind_region_button
-                    text: 'Выбор'
+                    text: 'Iа'
                     font_size: 18
                     on_release:
                         root.drop_down_menu_wind_regions.open()
@@ -211,23 +211,24 @@
                 MDFlatButton:
                     disabled: True
 
-                MDRaisedButton:
-                    adaptive_size: True
-                    id: button_clipboard
-                    font_size: 18
-                    text: 'Сохранить буфер'
-                    on_release:
-                        root.save_clipboard()
-                    disabled: False
-
-                MDFlatButton:
-                    disabled: True
+#                MDRaisedButton:
+#                    adaptive_size: True
+#                    id: button_clipboard
+#                    font_size: 18
+#                    text: 'Сохранить буфер'
+#                    on_release:
+#                        root.save_clipboard()
+#                    disabled: False
+#
+#                MDFlatButton:
+#                    disabled: True
 
                 MDRaisedButton:
                     id: report_button
                     text: 'Отчет'
                     font_size: 18
                     on_release:
+                        app.screen_for_report = 'IsolatedHighriseScreen_screen'
                         root.manager.current = 'ReportContent_screen'
 
                 MDSpinner:

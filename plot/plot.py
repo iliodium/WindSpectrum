@@ -105,11 +105,18 @@ class Plot:
         return fig
 
     @staticmethod
-    def isofields_coefficients(model_name: str, model_size, scale_factors, alpha: str, mode: str, angle: str,
-                               pressure_coefficients, coordinates, pressure_plot_parameters = None):
+    def isofields_coefficients(db='isolated', **kwargs):
         """Отрисовка интегральных изополей"""
+
+        model_name = kwargs['model_scale']
+        model_size = kwargs['model_size']
+        scale_factors = kwargs['scale_factors']
+        mode = kwargs['mode']
+        angle = kwargs['angle']
+        pressure_coefficients = kwargs['pressure_coefficients']
+        coordinates = kwargs['coordinates']
+        pressure_plot_parameters = kwargs['pressure_plot_parameters']
         coefficient_for_pressure = None
-        levels = None
 
         # Виды изополей
         mods = {
@@ -123,20 +130,41 @@ class Plot:
         x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
 
         pressure_coefficients = mods[mode]
-        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle = int(model_name[0]) * 5
+            count_sensors_on_side = int(model_name[1]) * 5
+            # Шаги для изополей коэффициентов
+            steps = {
+                'max': 0.2,
+                'mean': 0.2 if alpha == '6' else 0.1,
+                'min': 0.2,
+                'std': 0.05,
+            }
+            num_fig = f'Коэффициенты изополя {model_name} {model_size} {mode} {alpha} {angle}'
+
+        elif db == 'interference':
+            model_scale = kwargs['model_scale']
+            case = kwargs['case']
+
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+            # Шаги для изополей коэффициентов
+            steps = {
+                'max': 0.2,
+                'mean': 0.2,
+                'min': 0.2,
+                'std': 0.05,
+            }
+            num_fig = f'Коэффициенты изополя {model_name} {model_size} {mode} {case} {angle}'
+
         count_sensors_on_model = len(pressure_coefficients)
-        count_sensors_on_middle = int(model_name[0]) * 5
-        count_sensors_on_side = int(model_name[1]) * 5
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
         x, z = np.array(coordinates)
-        # Шаги для изополей коэффициентов
-        steps = {
-            'max': 0.2,
-            'mean': 0.2 if alpha == '6' else 0.1,
-            'min': 0.2,
-            'std': 0.05,
-        }
         # Уровни для изополей коэффициентов
         if not pressure_plot_parameters:
             min_v = np.min(pressure_coefficients)
@@ -210,7 +238,6 @@ class Plot:
         z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]
         x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
-        num_fig = f'Коэффициенты изополя {model_name} {model_size} {mode} {alpha} {angle}'
         fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
         cmap = cm.get_cmap(name="jet")
         data_colorbar = None
@@ -292,7 +319,7 @@ class Plot:
             z_old_list.append(z_old)
 
             data_new_list.append(data_new)
-            #data_old_list.append(data_old)
+            # data_old_list.append(data_old)
 
         # Уровни для изополей давления
         if pressure_plot_parameters:
@@ -310,27 +337,28 @@ class Plot:
         #     min_value = np.min(data_new_list[i])
         #     max_value = np.max(data_new_list[i])
 
-        all_levels = np.linspace(np.min([np.min(data_new_list[i]) for i in range(4)]), np.max([np.max(data_new_list[i]) for i in range(4)]), 11)
+        all_levels = np.linspace(np.min([np.min(data_new_list[i]) for i in range(4)]),
+                                 np.max([np.max(data_new_list[i]) for i in range(4)]), 11)
 
         for i in range(4):
             triang = mtri.Triangulation(x_new_list[i], z_new_list[i])
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(data_new_list[i], subdiv=4)
-            #min_value = np.min(data_new_list[i])
-            #max_value = np.max(data_new_list[i])
-            #temp_levels = np.linspace(min_value, max_value, 11)
-            #print(all_levels)
-            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=11)
-            #print(data_colorbar.levels)
+            # min_value = np.min(data_new_list[i])
+            # max_value = np.max(data_new_list[i])
+            # temp_levels = np.linspace(min_value, max_value, 11)
+            # print(all_levels)
+            # data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=11)
+            # print(data_colorbar.levels)
             data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=all_levels)
-            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=temp_levels)
-            #data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
+            # data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=temp_levels)
+            # data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
 
-            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=11)
-            #print(aq.levels)
+            # aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=11)
+            # print(aq.levels)
             aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=all_levels)
-            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=temp_levels)
-            #aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
+            # aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=temp_levels)
+            # aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
             ax[i].clabel(aq, fontsize=10)
 
             ax[i].set_ylim([0, h_scaled])
@@ -351,26 +379,39 @@ class Plot:
             if not pressure_plot_parameters:
                 x_dots, y_dots = np.meshgrid(x_old_list[i], z_old_list[i])
                 ax[i].plot(x_dots, y_dots, '.k', **dict(markersize=3))
-        #print(all_levels)
-        #fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
+        # print(all_levels)
+        # fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
         fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=all_levels).ax.tick_params(labelsize=4)
 
         return fig
 
     @staticmethod
-    def summary_coefficients(data, model_scale: str, alpha: str, angle: str):
+    def summary_coefficients(db='isolated',
+                             **kwargs):
         """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
         data = {name:array,
                 ...
                 }
         """
-        num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {alpha} {angle}'
-        fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+        data = kwargs['data']
+        model_scale = kwargs['model_scale']
+        angle = kwargs['angle']
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {alpha} {angle} isolated'
+            fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+            ax.set_xlim(0, 32.768)
+            ox = np.linspace(0, 32.768, 32768)
+        elif db == 'interference':
+            case = kwargs['case']
+            num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {case} {angle} interference'
+            fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+            ax.set_xlim(0, 7.5)
+            ox = np.linspace(0, 7.5, 5858)
+
         ax.grid()
-        ax.set_xlim(0, 32.768)
         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
         ax.set_xlabel('Время, с', labelpad=.3)
-        ox = np.linspace(0, 32.768, 32768)
         for name in data.keys():
             if data[name] is not None:
                 ax.plot(ox, data[name], label=name)
@@ -379,7 +420,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def scaling_data(x, y = None, angle_border = 50):
+    def scaling_data(x, y=None, angle_border=50):
         """Масштабирование данных до 360 градусов"""
         if angle_border == 50:
             if y is not None:
@@ -421,14 +462,23 @@ class Plot:
                 return x_scale
 
     @staticmethod
-    def polar_plot(data, title: str, model_size, alpha: str):
+    def polar_plot(db='isolated', **kwargs):
         """Графики суммарных аэродинамических коэффициентов в полярной системе координат.
         data = {name:array,
                 ...
                 }
         """
+        data = kwargs['data']
+        title = kwargs['title']
+        model_size = kwargs['model_size']
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {alpha}'
+        elif db == 'interference':
+            case = kwargs['case']
+            num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {case}'
+
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
-        num_fig = f'Суммарные коэффициенты декартовая система координат {title} {" ".join(model_size)} {alpha}'
 
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
 
@@ -646,7 +696,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle: str, mods):
+    def envelopes(pressure_coefficients, alpha: str, model_scale: str, angle, mods):
         """Отрисовка огибающих"""
 
         colors = ('b', 'g', 'r', 'c', 'y')[:len(mods)]
@@ -712,9 +762,24 @@ class Plot:
         return figs
 
     @staticmethod
-    def welch_graphs(data, model_size, alpha: str, angle: str):
+    def welch_graphs(db='isolated', **kwargs):
         """Отрисовка графиков спектральной плотности мощности"""
-        num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
+        data = kwargs['data']
+        if db == 'isolated':
+            model_size = kwargs['model_size']
+            alpha = kwargs['alpha']
+            angle = kwargs['angle']
+            num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
+            fs = 1000
+            counts = 32768
+        elif db == 'interference':
+            model_size = kwargs['model_size']
+            case = kwargs['case']
+            angle = kwargs['angle']
+            fs = 781
+            counts = 5858
+            num_fig = f'Спектральная плотность мощности {model_size} {case} {angle}'
+
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
 
         ax.set_xlim([10 ** -2, 10 ** 3])
@@ -727,7 +792,7 @@ class Plot:
 
         for name in data.keys():
             if data[name] is not None:
-                temp, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
+                temp, psd = welch(data[name], fs=fs, nperseg=int(counts / 5))
                 ax.plot(temp, psd, label=name)
 
         ax.legend(loc='upper right', fontsize=9)

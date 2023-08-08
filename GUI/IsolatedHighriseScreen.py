@@ -1,7 +1,6 @@
 from typing import List, Union, Tuple, Any
 from dataclasses import dataclass, field
 
-import numpy as np
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.metrics import dp
@@ -9,7 +8,6 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.screen import MDScreen
 
 from utils import open_fig, get_model_and_scale_factors
-from utils import interpolator as intp
 
 
 @dataclass
@@ -564,13 +562,15 @@ class IsolatedHighriseScreen(MDScreen):
     # Блок отрисовки графиков
     @check_parameters('model')
     def plot_spectrum(self, mode: str):
-        fig = self.core_ws.get_plot_summary_spectres(self._alpha_ws, self.model_size_ws, self.angle_ws, mode)
+        fig = self.core_ws.get_plot_summary_spectres(db='isolated', alpha=self._alpha_ws, model_size=self.model_size_ws,
+                                                     angle=self.angle_ws, mode=mode, scale=None, type_plot=None)
         open_fig(fig)
 
     @check_parameters('model')
     def plot_envelopes(self):
         model_scale, _ = get_model_and_scale_factors(*self.model_size_ws, self.alpha_ws)
-        figs = self.core_ws.get_envelopes(self.alpha_ws, model_scale, self.angle_ws)
+        figs = self.core_ws.get_envelopes(db='isolated', alpha=self.alpha_ws, model_scale=model_scale,
+                                          angle=self.angle_ws)
         open_fig(figs)
 
     @check_parameters('all')
@@ -587,17 +587,22 @@ class IsolatedHighriseScreen(MDScreen):
 
     @check_parameters('model')
     def plot_isofields_coefficients(self, mode: str):
-        fig = self.core_ws.get_plot_isofields(self._alpha_ws,
-                                              self.model_size_ws,
-                                              self.angle_ws,
-                                              mode,
-                                              None)
+        fig = self.core_ws.get_plot_isofields(db='isolated',
+                                              alpha=self._alpha_ws,
+                                              model_size=self.model_size_ws,
+                                              angle=self.angle_ws,
+                                              mode=mode,
+                                              pressure_plot_parameters=None)
 
         open_fig(fig)
 
     @check_parameters('model')
     def plot_summary_coefficients(self, mode: str):
-        fig = self.core_ws.get_plot_summary_coefficients(self._alpha_ws, self.model_size_ws, self.angle_ws, mode, )
+        fig = self.core_ws.get_plot_summary_coefficients(db='isolated',
+                                                         alpha=self.alpha_ws,
+                                                         model_size=self.model_size_ws,
+                                                         mode=mode,
+                                                         angle=self.angle_ws)
         open_fig(fig)
 
     @check_parameters('model')
@@ -608,11 +613,12 @@ class IsolatedHighriseScreen(MDScreen):
         else:
             angle_border = 95
 
-        fig = self.core_ws.get_plot_summary_coefficients_polar(self._alpha_ws,
-                                                               model_scale,
-                                                               self.model_size_ws,
-                                                               angle_border,
-                                                               mode,
+        fig = self.core_ws.get_plot_summary_coefficients_polar(db='isolated',
+                                                               alpha=self.alpha_ws,
+                                                               model_scale=model_scale,
+                                                               model_size=self.model_size_ws,
+                                                               mode=mode,
+                                                               angle_border=angle_border,
                                                                )
         open_fig(fig)
 

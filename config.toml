@@ -35,9 +35,9 @@ read_clipboard_binary = false
 dpi = 200  # Качество отрисовки графиков
 
 [core]
-count_threads = 8  # Количество запускаемых потоков при работе
+count_threads = 16  # Количество запускаемых потоков при работе
 
 [databasetoolkit]
-min_count_connections = 4
-max_count_connections = 8
-time_sleep = 3  # Время между запросами нового подлючения если доступных нет, в секундах
+min_count_connections = 16
+max_count_connections = 16
+time_sleep = 1  # Время между запросами нового подлючения если доступных нет, в секундах
