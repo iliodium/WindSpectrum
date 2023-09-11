@@ -86,12 +86,23 @@ class Clipboard:
                                             },
                                'interference': {140: dict(),
                                                 196: dict(),
-                                                289: dict(),
+                                                280: dict(),
                                                 420: dict(),
                                                 560: dict(),
                                                 },
-
-                               }
+                               'without_eaves': {
+                                   'flat roof': dict(),
+                                   'gable roof': dict(),
+                                   'hipped roof': dict(),
+                               },
+                               'with_eaves': {
+                                   'gable roof': dict(),
+                               },
+                               'non_isolated': {
+                                   'flat roof': dict(),
+                                   'gable roof': dict(),
+                                   'hip roof': dict(),
+                               }}
 
         # isolated
         experiments = self.database_obj.get_experiments()
@@ -138,6 +149,58 @@ class Clipboard:
                     self.clipboard_dict['interference'][hr][c][angle] = dict()
 
                 self.clipboard_dict['interference'][hr][c]['const_stuff'] = dict()
+
+        # without_eaves
+        t = 'with_eaves'
+        for rt in self.clipboard_dict[t].keys():
+            self.clipboard_dict[t][rt][16] = dict()
+            for depth in (16, 24, 40):
+                self.clipboard_dict[t][rt][16][depth] = dict()
+                for height in (4, 8, 12, 16):
+                    self.clipboard_dict[t][rt][16][depth][height] = dict()
+                    for pitch in (0, 5, 10, 14, 18, 22, 27, 30, 45):
+                        self.clipboard_dict[t][rt][16][depth][height][pitch] = dict()
+                        for angle in (0, 15, 30, 45, 60, 75, 90):
+                            self.clipboard_dict[t][rt][16][depth][height][pitch][angle] = dict()
+
+                        self.clipboard_dict[t][rt][16][depth][height][pitch]['const_stuff'] = dict()
+
+        # with_eaves
+        t = 'with_eaves'
+        b = 16
+        d = 24
+        p = 26.7
+        for rt in self.clipboard_dict[t].keys():
+            self.clipboard_dict[t][rt][b] = dict()
+            self.clipboard_dict[t][rt][b][d] = dict()
+            for height in (6, 12, 18):
+                self.clipboard_dict[t][rt][b][d][height] = dict()
+                self.clipboard_dict[t][rt][b][d][height][p] = dict()
+                for angle in (0, 15, 30, 45, 60, 75, 90):
+                    self.clipboard_dict[t][rt][b][d][height][p][angle] = dict()
+
+                self.clipboard_dict[t][rt][b][d][height][p]['const_stuff'] = dict()
+
+        # non_isolated
+        t = 'non_isolated'
+        b = 16
+        d = 24
+        for rt in self.clipboard_dict[t].keys():
+            self.clipboard_dict[t][rt] = dict()
+            for arr_o in ('Regular', 'Staggerd', 'Random'):
+                self.clipboard_dict[t][rt][arr_o] = dict()
+                for area in (0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6):
+                    self.clipboard_dict[t][rt][arr_o][area] = dict()
+                    self.clipboard_dict[t][rt][arr_o][area][b] = dict()
+                    self.clipboard_dict[t][rt][arr_o][area][b][d] = dict()
+                    for height in (6, 12, 18):
+                        self.clipboard_dict[t][rt][arr_o][area][b][d][height] = dict()
+                        for pitch in (0, 26.7, 45):
+                            self.clipboard_dict[t][rt][arr_o][area][b][d][height][pitch] = dict()
+                            for angle in (0, 23, 45, 68, 90, 113, 135, 158, 180, 203, 225, 248, 270, 293, 315, 338):
+                                self.clipboard_dict[t][rt][arr_o][area][b][d][height][pitch][angle] = dict()
+
+                            self.clipboard_dict[t][rt][arr_o][area][b][d][height][pitch]['const_stuff'] = dict()
 
     def get_pressure_coefficients(self, db, **kwargs):
         if db == 'isolated':
@@ -352,9 +415,10 @@ class Clipboard:
                     not any(self.clipboard_dict['isolated'][alpha][model_name][angle].get('Cy')):
                 pressure_coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_name,
                                                                        angle=angle)
+                coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_name)
 
                 cx, cy = calculate_cx_cy(db='isolated', model_name=model_name,
-                                         pressure_coefficients=pressure_coefficients)
+                                         pressure_coefficients=pressure_coefficients,coordinates=coordinates)
                 if self.save_mode:
                     self.clipboard_dict['isolated'][alpha][model_name][angle]['Cx'] = cx
                     self.clipboard_dict['isolated'][alpha][model_name][angle]['Cy'] = cy
@@ -509,6 +573,7 @@ class Clipboard:
             id_fig = f'{type_plot}_{mode}_{"_".join(model_size)}'
 
             model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+            print(model_scale, scale_factors)
             if not self.clipboard_dict['interference'][model_scale][case][angle].get(id_fig):
                 pressure_coefficients = self.get_pressure_coefficients('interference', case=case,
                                                                        model_name=model_scale,
@@ -557,7 +622,7 @@ class Clipboard:
         if not self.clipboard_dict['isolated'][alpha][model_scale][angle].get(id_fig):
             pressure_coefficients = self.get_pressure_coefficients('isolated', alpha=alpha, model_name=model_scale,
                                                                    angle=angle)
-            coordinates = self.get_coordinates('isolated',alpha=alpha, model_scale=model_scale)
+            coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_scale)
 
             self.logger.info(f'Отрисовка {type_plot} альфа = {alpha} размер = {" ".join(model_size)} '
                              f'угол = {angle.rjust(2, "0")} режим = {mode.ljust(4, " ")}')

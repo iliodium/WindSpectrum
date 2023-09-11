@@ -1,4 +1,3 @@
-import os
 import time
 
 import toml
@@ -108,11 +107,11 @@ class DataBaseToolkit:
 
         connection = self.get_connection()
         cursor = connection.cursor()
+        angle = kwargs['angle']
 
         if db == 'isolated':
             alpha = kwargs['alpha']
             model_name = kwargs['model_name']
-            angle = kwargs['angle']
 
             self.logger.info(
                 f"Запрос коэффициентов давления модель = {model_name} альфа = {alpha} угол = {angle.rjust(2, '0')} из БД")
@@ -155,7 +154,6 @@ class DataBaseToolkit:
         elif db == 'interference':
             case = kwargs['case']
             model_name = kwargs['model_name']
-            angle = kwargs['angle']
 
             cursor.execute("""select pressure_coefficients
                 from interference
@@ -163,6 +161,53 @@ class DataBaseToolkit:
                 join sample_periods sp on interference.id_sample_period = sp.id_sample_period
                 where instance = (%s) and id_interfering_building=(%s) and angle=(%s)""",
                            (case, interference_id_building[model_name], angle))
+
+            pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
+        elif db == 'without_eaves':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            roof_type = kwargs['roof_type']
+            pitch = kwargs['pitch']
+
+            cursor.execute("""select pressure_coefficients
+            from building_without_eaves
+            join roof_types rt on building_without_eaves.id_roof = rt.id_roof
+            join roof_pitches rp on building_without_eaves.id_pitch = rp.id_pitch
+            where roof_type = (%s) and angle =  (%s) and breadth = (%s) and depth = (%s) and height = (%s) and pitch = (%s)::real""",
+                           (roof_type, angle, breadth, depth, height, pitch))
+            pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
+        elif db == 'with_eaves':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            eave = kwargs['eave']
+
+            cursor.execute("""select pressure_coefficients
+                            from building_with_eaves
+                            join eave_types et on et.id_eave = building_with_eaves.id_eave
+                            join wind_azimuths wa on wa.id_wind_azimuth = building_with_eaves.id_wind_azimuth
+                            where wind_azimuth =  (%s) and eave = (%s) and breadth = (%s) and depth = (%s) and height = (%s)""",
+                           (angle, eave, breadth, depth, height))
+            pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
+        elif db == 'non_isolated':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            roof_type = kwargs['roof_type']
+            pitch = kwargs['pitch']
+            arrange_order = kwargs['arrange_order']
+            area_density = kwargs['area_density']
+
+            cursor.execute("""select pressure_coefficients
+            from non_isolated_building
+            join roof_types rt on non_isolated_building.id_roof = rt.id_roof
+            join roof_pitches rp on non_isolated_building.id_pitch = rp.id_pitch
+            join arrange_orders ao on ao.id_arrange_order = non_isolated_building.id_arrange_order
+            join areas_density ad on ad.id_area_density = non_isolated_building.id_area_density
+            join wind_azimuths wa on wa.id_wind_azimuth = non_isolated_building.id_wind_azimuth
+            where roof_type = (%s) and wind_azimuth = (%s) and breadth = (%s) and depth = (%s) and height = (%s) and pitch = (%s) and arrange_order = (%s) and area_density = (%s)""",
+                           (roof_type, angle, breadth, depth, height, pitch, arrange_order, area_density))
 
             pressure_coefficients = [i[0] for i in cursor.fetchall()][0]
 
@@ -264,32 +309,74 @@ class DataBaseToolkit:
 
         return face_number
 
+    def get_x_y_surface(self, db, **kwargs):
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        angle = kwargs['angle']
+
+        if db == 'without_eaves':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            roof_type = kwargs['roof_type']
+            pitch = kwargs['pitch']
+
+            cursor.execute("""select id_x_coordinates,id_y_coordinates, id_surface
+            from building_without_eaves
+            join roof_types rt on building_without_eaves.id_roof = rt.id_roof
+            join roof_pitches rp on building_without_eaves.id_pitch = rp.id_pitch
+            where roof_type = (%s) and angle = (%s) and breadth = (%s) and depth = (%s) and height = (%s) and pitch = (%s)::real""",
+                           (roof_type, angle, breadth, depth, height, pitch))
+            id_x, id_y, id_surface = cursor.fetchall()[0]
+        elif db == 'with_eaves':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            eave = kwargs['eave']
+
+            cursor.execute("""select id_x_coordinates,id_y_coordinates, id_surface
+            from building_with_eaves
+            where id_wind_azimuth =  (%s) and id_eave = (%s) and breadth = (%s) and depth = (%s) and height = (%s)""",
+                           (angle, eave, breadth, depth, height))
+
+            id_x, id_y, id_surface = cursor.fetchall()[0]
+
+        elif db == 'non_isolated':
+            breadth = kwargs['breadth']
+            depth = kwargs['depth']
+            height = kwargs['height']
+            roof_type = kwargs['roof_type']
+            pitch = kwargs['pitch']
+            arrange_order = kwargs['arrange_order']
+            area_density = kwargs['area_density']
+
+            cursor.execute("""select id_x_coordinates,id_y_coordinates, id_surface
+            from non_isolated_building
+            join roof_types rt on non_isolated_building.id_roof = rt.id_roof
+            join roof_pitches rp on non_isolated_building.id_pitch = rp.id_pitch
+            where roof_type = (%s) and id_wind_azimuth =  (%s) and breadth = (%s) and depth = (%s) and height = (%s) and pitch = (%s)::real and id_arrange_order = (%s) and id_area_density = (%s)""",
+                           (roof_type, angle, breadth, depth, height, pitch, arrange_order, area_density))
+
+            id_x, id_y, id_surface = cursor.fetchall()[0]
+
+        cursor.execute("""select x_coordinates
+        from x_coordinates_roof
+        where id_x_coordinates = (%s)""", (id_x,))
+        x_coordinates = cursor.fetchall()[0][0]
+        cursor.execute("""select y_coordinates
+        from y_coordinates_roof
+        where id_y_coordinates = (%s)""", (id_y,))
+        y_coordinates = cursor.fetchall()[0][0]
+        cursor.execute("""select surface
+        from surfaces_roof
+        where id_surface = (%s)""", (id_surface,))
+        surface = cursor.fetchall()[0][0]
+
+        cursor.close()
+        self.connection_pool.putconn(connection)
+
+        return x_coordinates, y_coordinates, surface
+
 
 if __name__ == '__main__':
     d = DataBaseToolkit()
-    # d.get_experiments()
-    # for model_name, angel in a:
-    #     print(model_name, angel)
-    # d1 = d.get_connection()
-    # d1 = d.get_connection()
-    # d1 = d.get_connection()
-    # d1 = d.get_connection()
-    # d1 = d.get_connection()
-    # d1 = d.get_connection1(1, '1')
-    # d.get_pressure_coefficients('6', '111', '0', d.connection_pool)
-    # print(type(d.connection_pool))
-    # import time
-    #
-    # args_pres = [('6', '115', str(i)) for i in range(0, 50, 5)]
-    # # list_pres = []
-    # t1 = time.time()
-    # with ThreadPoolExecutor(max_workers=20) as executor:
-    #     list_pres = executor.map(lambda i: DataBaseToolkit.get_pressure_coefficients(*i), args_pres)
-    # # for i in args_pres:
-    # #     list_pres.append(DataBaseToolkit.get_pressure_coefficients(*i))
-    # print(time.time() - t1)
-    # # time.sleep(10)
-    # # print(list(list_pres))
-    # # d = DataBaseToolkit()
-    # # print(d.get_experiments())
-    # # print(d.get_uh_average_wind_speed('4', '111')) 118 сек

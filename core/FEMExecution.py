@@ -116,6 +116,7 @@ if __name__ == "__main__":
     se.G = 1.05e11
 
     neu = NewmarkExecutionUnit(r"./test.dat")
+
     neu.dt = 0.05
     neu += se
     neu += se
@@ -124,7 +125,7 @@ if __name__ == "__main__":
         neu,
         np.array([list(range(12)) for _ in range(neu.N)]),
         os.getenv("MECHANICS_SOLVER"),
-        "./config_file.json"
+        "./example.json"
     )
 
     # hack to wait till finish of subprocess

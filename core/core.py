@@ -751,62 +751,61 @@ class Core:
             with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
                 executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(i[0], **i[1], **i[2]), args)
 
-        # # Отрисовка графиков
-        # self.logger.info(f'Отрисовка графиков')
-        # # isofieldsPressure
-        # if content['isofieldsPressure'][0]:
-        #     mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
-        #                               content['isofieldsPressure'][1][k]]
-        #     self.draw_isofields_pressure(db, **kwargs, mods=mods_isofieldsPressure,
-        #                                  pressure_plot_parameters=pressure_plot_parameters)
-        #     self.logger.info(f'isofieldsPressure')
-        #
-        # # isofieldsCoefficients
-        # if content['isofieldsCoefficients'][0]:
-        #     mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
-        #                                   content['isofieldsCoefficients'][1][k]]
-        #     self.draw_isofields_coefficients(db, **kwargs, mods=mods_isofieldsCoefficients)
-        #     self.logger.info(f'isofieldsCoefficients')
-        #
-        # # pseudocolorCoefficients
-        # if content['pseudocolorCoefficients'][0] and db == 'isolated':
-        #     mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
-        #                                     content['pseudocolorCoefficients'][1][k]]
-        #     self.draw_pseudocolor_coefficients(alpha=kwargs['alpha'], model_size=kwargs['model_size'],
-        #                                        angle_border=kwargs['angle_border'], path_report=kwargs['path_report'],
-        #                                        mods=mods_pseudocolorCoefficients)
-        #     self.logger.info(f'pseudocolorCoefficients')
-        # # envelopes
-        # if content['envelopes'][0]:
-        #     mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
-        #     self.draw_envelopes(db, **kwargs, mods=mods_envelopes)
-        #     self.logger.info(f'envelopes')
-        #
-        # # polarSummaryCoefficients
-        # if content['polarSummaryCoefficients'][0]:
-        #     mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
-        #                                      content['polarSummaryCoefficients'][1][k]]
-        #     self.draw_summary_coefficients_polar(db, **kwargs, mods=mods_polarSummaryCoefficients)
-        #     self.logger.info(f'polarSummaryCoefficients')
-        #
-        # # summaryCoefficients
-        # if content['summaryCoefficients'][0]:
-        #     mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
-        #                                 content['summaryCoefficients'][1][k]]
-        #     self.draw_summary_coefficients(db, **kwargs, mods=mods_summaryCoefficients)
-        #     self.logger.info(f'summaryCoefficients')
-        #
-        # # summarySpectres
-        # if content['summarySpectres'][0]:
-        #     mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
-        #     self.draw_welch_graphs(db, **kwargs, mods=mods_summarySpectres)
-        #     self.logger.info(f'summarySpectres')
+        # Отрисовка графиков
+        self.logger.info(f'Отрисовка графиков')
+        # isofieldsPressure
+        if content['isofieldsPressure'][0]:
+            mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
+                                      content['isofieldsPressure'][1][k]]
+            self.draw_isofields_pressure(db, **kwargs, mods=mods_isofieldsPressure,
+                                         pressure_plot_parameters=pressure_plot_parameters)
+            self.logger.info(f'isofieldsPressure')
 
-        # pressureTapLocations
-        # if db == 'isolated':
-        #     if content['pressureTapLocations'][0]:
-        #         self.draw_plot_pressure_tap_locations(model_size, alpha, path_report)
-        #         self.logger.info(f'pressureTapLocations')
+        # isofieldsCoefficients
+        if content['isofieldsCoefficients'][0]:
+            mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
+                                          content['isofieldsCoefficients'][1][k]]
+            self.draw_isofields_coefficients(db, **kwargs, mods=mods_isofieldsCoefficients)
+            self.logger.info(f'isofieldsCoefficients')
+
+        # pseudocolorCoefficients
+        if content['pseudocolorCoefficients'][0] and db == 'isolated':
+            mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
+                                            content['pseudocolorCoefficients'][1][k]]
+            self.draw_pseudocolor_coefficients(alpha=kwargs['alpha'], model_size=kwargs['model_size'],
+                                               angle_border=kwargs['angle_border'], path_report=kwargs['path_report'],
+                                               mods=mods_pseudocolorCoefficients)
+            self.logger.info(f'pseudocolorCoefficients')
+        # envelopes
+        if content['envelopes'][0]:
+            mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
+            self.draw_envelopes(db, **kwargs, mods=mods_envelopes)
+            self.logger.info(f'envelopes')
+
+        # polarSummaryCoefficients
+        if content['polarSummaryCoefficients'][0]:
+            mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
+                                             content['polarSummaryCoefficients'][1][k]]
+            self.draw_summary_coefficients_polar(db, **kwargs, mods=mods_polarSummaryCoefficients)
+            self.logger.info(f'polarSummaryCoefficients')
+
+        # summaryCoefficients
+        if content['summaryCoefficients'][0]:
+            mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
+                                        content['summaryCoefficients'][1][k]]
+            self.draw_summary_coefficients(db, **kwargs, mods=mods_summaryCoefficients)
+            self.logger.info(f'summaryCoefficients')
+
+        # summarySpectres
+        if content['summarySpectres'][0]:
+            mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
+            self.draw_welch_graphs(db, **kwargs, mods=mods_summarySpectres)
+            self.logger.info(f'summarySpectres')
+
+        # # pressureTapLocations
+        # if db == 'isolated' and content['pressureTapLocations'][0]:
+        #     self.draw_plot_pressure_tap_locations(model_size, alpha, path_report)
+        #     self.logger.info(f'pressureTapLocations')
 
         if db == 'isolated':
             self.draw_plot_model_3d(model_size, path_report)
@@ -1037,6 +1036,7 @@ class Core:
                     f'здания {breadth}x{depth}x{height} угол {angle:02}º')
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 counter_tables += 1
+
                 table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
                 table_sensors.style = 'Table Grid'
                 head_cells = table_sensors.rows[0].cells
@@ -1051,7 +1051,10 @@ class Core:
                 for row in statistics_sensors[angle // 5]:
                     cells = table_sensors.add_row().cells
                     for i, value in enumerate(row):
-                        cells[i].text = str(value)
+                        if i == 0:
+                            cells[i].text = str(int(value))
+                        else:
+                            cells[i].text = str(value)
 
                         cells[i].paragraphs[0].runs[0].font.size = Pt(12)
 
@@ -1089,11 +1092,6 @@ class Core:
             header_sum.extend([id_to_name[mode] for mode in mods_statisticsSummaryCoefficients])
 
             for angle in range(0, angle_border, 5):
-                doc.add_paragraph().add_run(
-                    f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
-                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
-                counter_tables += 1
-
                 table = doc.add_table(rows=1, cols=len(header_sum))
                 table.style = 'Table Grid'
                 head_cells = table.rows[0].cells
@@ -1111,6 +1109,10 @@ class Core:
                         cells[i].text = str(value)
 
                         cells[i].paragraphs[0].runs[0].font.size = Pt(12)
+                doc.add_paragraph().add_run(
+                    f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
+                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+                counter_tables += 1
 
             del statistics_summary_coefficients
             doc.add_page_break()
@@ -1143,12 +1145,12 @@ class Core:
             counter_head += 1
             path_temp = 'Спектральная плотность мощности'
             for i1 in os.listdir(f'{path_report}\\{path_temp}\\Логарифмическая шкала'):
-                    p = doc.add_paragraph()
-                    run = p.add_run()
-                    run.add_picture(f'{path_report}\\{path_temp}\\Логарифмическая шкала\\{i1}')
-                    run.add_text(f'Рисунок {counter_plots}. {i1[:-4]}')
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    counter_plots += 1
+                p = doc.add_paragraph()
+                run = p.add_run()
+                run.add_picture(f'{path_report}\\{path_temp}\\Логарифмическая шкала\\{i1}')
+                run.add_text(f'Рисунок {counter_plots}. {i1[:-4]}')
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                counter_plots += 1
             doc.add_page_break()
 
         if db == 'isolated':
@@ -1162,22 +1164,23 @@ class Core:
         self.logger.info(f'{time.time() - t1} Затраченное время на создание отчета')
 
     # Интегрирование по высоте
-    def height_integration(self,
-                           alpha: str,
-                           model_size: Tuple[str, str, str],
-                           angle: str,
-                           mode: str,
-                           pressure_plot_parameters: dict,
-                           faces: tuple,
-                           step: tuple):
-
+    def height_integration(self, db, **kwargs):
         COUNT_DOTS = 100
+        model_size = kwargs['model_size']
+        mode = kwargs['mode']
+        pressure_plot_parameters = kwargs['pressure_plot_parameters']
+        step = kwargs['step']
+        faces = kwargs['faces']
 
-        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients('isolated', alpha=alpha,
-                                                                             model_name=model_scale,
-                                                                             angle=angle)
-        coordinates = self.clipboard_obj.get_coordinates(alpha, model_scale)
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
         model_name = model_scale
 
         # Виды изополей
@@ -1192,10 +1195,19 @@ class Core:
         x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
 
         pressure_coefficients = mods[mode]
-        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle = int(model_name[0]) * 5
+            count_sensors_on_side = int(model_name[1]) * 5
+
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+
         count_sensors_on_model = len(pressure_coefficients)
-        count_sensors_on_middle = int(model_name[0]) * 5
-        count_sensors_on_side = int(model_name[1]) * 5
+
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
         x, z = np.array(coordinates)
@@ -1300,7 +1312,7 @@ class Core:
                 for dots in z_dots:
                     data_new.append(np.mean([float(interpolator([[X, Y]])) for X, Y in zip(y_dots, dots)]))
 
-            print(data_new)
+            print(data_new, 'face', i + 1)
 
     def create_word_isolated(self):
         pass

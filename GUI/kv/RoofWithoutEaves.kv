@@ -2,9 +2,9 @@
 #:import ScrollEffect  kivy.effects.scroll.ScrollEffect
 
 
-<InterferenceHighriseScreen>:
-    id: interference_highrise_screen
-    name : 'InterferenceHighriseScreen_screen'
+<RoofWithoutEaves>:
+    id: RoofWithoutEaves_screen
+    name : 'RoofWithoutEaves_screen'
 
     canvas:
         Color:
@@ -86,49 +86,6 @@
                     MDLabel:
                         adaptive_size: True
                         font_size: 18
-                        text: 'Угол атака ветра (RUMB)'
-                    MDLabel:
-                        adaptive_size: True
-                        font_size: 10
-                        font_style: 'Caption'
-                        text: '[Описание]'
-
-                MDTextField:
-                    id: angle
-                    hint_text: 'RUMB'
-                    helper_text: "углы кратные 5"
-                    text: '0'
-                    helper_text_mode: "on_focus"
-                    font_size: 18
-                    mode: "rectangle"
-                    size_hint_x: None
-                    width: 75
-                    on_text_validate:
-                        root.get_angle()
-
-                MDLabel:
-                    adaptive_size: True
-                    font_size: 18
-                    text: 'Вариант'
-
-                MDTextField:
-                    id: case
-                    hint_text: 'Вариант'
-                    text: '1'
-                    helper_text_mode: "on_focus"
-                    font_size: 18
-                    mode: "rectangle"
-                    size_hint_x: None
-                    width: 75
-                    on_text_validate:
-                        root.get_case()
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    adaptive_size: True
-                    MDLabel:
-                        adaptive_size: True
-                        font_size: 18
                         text: 'Размеры здания'
                     MDLabel:
                         adaptive_size: True
@@ -140,54 +97,59 @@
                     id: model_size
                     hint_text: 'X Y Z'
                     helper_text: "через пробел"
-                    text:'10 10 50'
+                    text:'10 10 10'
                     helper_text_mode: "on_focus"
                     font_size: 18
                     mode: "rectangle"
                     size_hint_x: None
                     width: 150
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    adaptive_size: True
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 18
+                        text: 'Угол атака ветра (RUMB)'
+                    MDLabel:
+                        adaptive_size: True
+                        font_size: 10
+                        font_style: 'Caption'
+                        text: '[Описание]'
+
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: angle
+                    font_size: 18
+                    text: 'Угол'
+                    on_release:
+                        root.drop_down_menu_plots.open()
 
                 MDLabel:
                     adaptive_size: True
                     font_size: 18
-                    text: 'Параметры интегрирования по высоте'
-                MDFlatButton:
-                    disabled: True
-                MDFlatButton:
-                    id: height_integration
-                    text: 'Интегрирование по высоте'
-                    font_size: 18
-                    on_release: root.drop_down_menu_mode_integration.open()
-                MDFlatButton:
-                    disabled: True
+                    text: 'Тип крыши'
 
-                MDFlatButton:
-                    text: 'Поверхность интегрирования'
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: roof_type
                     font_size: 18
-                MDTextField:
-                    id: face_integration
-                    hint_text: 'Грани'
-                    helper_text: "через пробел"
-                    text:'1 2 3 4'
-                    helper_text_mode: "on_focus"
-                    font_size: 18
-                    mode: "rectangle"
-                    size_hint_x: None
-                    width: 150
+                    text: 'Тип крыши'
+                    on_release:
+                        root.hide_widget(root.ids.roof_angle, root.ids.roof_angle_label)
 
-                MDFlatButton:
-                    text: 'Шаг интегрирования'
+                MDLabel:
+                    adaptive_size: True
+                    id: roof_angle_label
                     font_size: 18
-                MDTextField:
-                    id: step_integration
-                    hint_text: 'Шаг'
-                    helper_text: "через пробел"
-                    text:'2 7 9'
-                    helper_text_mode: "on_focus"
+                    text: 'Угол крыши'
+
+                MDRaisedButton:
+                    adaptive_size: True
+                    id: roof_angle
                     font_size: 18
-                    mode: "rectangle"
-                    size_hint_x: None
-                    width: 150
+                    text: 'Угол крыши'
+                    disabled: True if root._roof_type == 'flat' else False
 
                 MDLabel:
                     adaptive_size: True
@@ -212,7 +174,7 @@
                     text: 'Отчет'
                     font_size: 18
                     on_release:
-                        app.screen_for_report = 'InterferenceHighriseScreen_screen'
+                        #app.screen_for_report = 'InterferenceHighriseScreen_screen'
                         root.manager.current = 'ReportContent_screen'
 
                 MDSpinner:

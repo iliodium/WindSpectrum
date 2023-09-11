@@ -174,7 +174,8 @@ def get_view_permutation_data(type_base: str, angle: int):
         else:
             return 'forward'
 
-def calculate_cmz(db = 'isolated', **kwargs):
+
+def calculate_cmz(db='isolated', **kwargs):
     """Вычисление моментов сил CMz"""
     pr_coeff = kwargs['pressure_coefficients']
     angle = kwargs['angle']
@@ -282,6 +283,7 @@ def calculate_cmz(db = 'isolated', **kwargs):
 def calculate_cx_cy(db='isolated', **kwargs):
     """Вычисление CX и CY"""
     pr_coeff = kwargs['pressure_coefficients']
+    coordinates = kwargs['coordinates']
 
     cx = []
     cy = []
@@ -304,15 +306,78 @@ def calculate_cx_cy(db='isolated', **kwargs):
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
     count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
     count_sensors_on_2_4_face = count_sensors_on_side_row * count_row
+    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
-    # Площадь для каждого датчика
-    s13 = breadth * height
-    s24 = depth * height
-    s13i = s13 / count_sensors_on_1_3_face
-    s24i = s24 / count_sensors_on_2_4_face
+    # # Площадь для каждого датчика
+    # s13 = breadth * height
+    # s24 = depth * height
+    # s13i = s13 / count_sensors_on_1_3_face
+    # s24i = s24 / count_sensors_on_2_4_face
+    #
+    # # print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
+    # # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
+    # for coeff in pr_coeff:
+    #     coeff = np.reshape(coeff, (count_row, -1))
+    #     coeff = np.split(coeff, [count_sensors_on_middle_row,
+    #                              count_sensors_on_middle_row + count_sensors_on_side_row,
+    #                              2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+    #                              2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+    #                              ], axis=1)
+    #
+    #     del coeff[4]
+    #
+    #     gran1 = np.sum(coeff[0] * s13i) / (count_sensors_on_1_3_face * s13)
+    #     gran3 = np.sum(coeff[2] * s13i) / (count_sensors_on_1_3_face * s13)
+    #
+    #     gran2 = np.sum(coeff[1] * s24i) / (count_sensors_on_2_4_face * s24)
+    #     gran4 = np.sum(coeff[3] * s24i) / (count_sensors_on_2_4_face * s24)
+    #
+    #     cx.append(gran1 - gran3)
+    #     cy.append(gran2 - gran4)
+    # coordinates_x = np.reshape(coordinates, (count_row, -1))
+    # coeff = np.split(coeff, [count_sensors_on_middle_row,
+    #                          count_sensors_on_middle_row + count_sensors_on_side_row,
+    #                          2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+    #                          2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+    #                          ], axis=1)
 
-    # print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
-    # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
+    x = coordinates[0]
+    x = np.reshape(x, (-1, count_sensors_on_row))
+    x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+    x = np.insert(x, 0, 0, axis=1)
+
+    y = coordinates[1]
+    y = [height for _ in range(count_sensors_on_row)] + y
+    y = np.reshape(y, (-1, count_sensors_on_row))
+    y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+    y = np.reshape(y, (-1, count_sensors_on_row))
+
+    squares = []
+    for y_i in range(count_row):
+        for x_i in range(count_sensors_on_row):
+            y_t = y[y_i][x_i]
+            y_m = y[y_i + 1][x_i]
+            y_b = y[y_i + 2][x_i]
+            if y_i == 0:
+                dy = y_t - y_m + (y_m - y_b) / 2
+            elif y_i == count_row - 1:
+                dy = (y_t - y_m) / 2 + y_m - y_b
+            else:
+                dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+            x_l = x[y_i][x_i]
+            x_m = x[y_i][x_i + 1]
+            x_r = x[y_i][x_i + 2]
+
+            if x_i == 0:
+                dx = x_m - x_l + (x_r - x_m) / 2
+            elif x_i == count_sensors_on_row - 1:
+                dx = (x_m - x_l) / 2 + x_r - x_m
+            else:
+                dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+            squares.append(dy * dx)
+    print(sum(squares))
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))
         coeff = np.split(coeff, [count_sensors_on_middle_row,
@@ -322,15 +387,17 @@ def calculate_cx_cy(db='isolated', **kwargs):
                                  ], axis=1)
 
         del coeff[4]
+        faces_x = []
+        faces_y = []
+        for face in range(4):
+            print(coeff[face])
 
-        gran1 = np.sum(coeff[0] * s13i) / (count_sensors_on_1_3_face * s13)
-        gran3 = np.sum(coeff[2] * s13i) / (count_sensors_on_1_3_face * s13)
-
-        gran2 = np.sum(coeff[1] * s24i) / (count_sensors_on_2_4_face * s24)
-        gran4 = np.sum(coeff[3] * s24i) / (count_sensors_on_2_4_face * s24)
-
-        cx.append(gran1 - gran3)
-        cy.append(gran2 - gran4)
+            if face in [0, 2]:
+                faces_x.append(np.sum(coeff[face]) / count_sensors_on_1_3_face)
+            else:
+                faces_y.append(np.sum(coeff[face]) / count_sensors_on_2_4_face)
+        cx.append(faces_x[0] - faces_x[1])
+        cy.append(faces_y[0] - faces_y[1])
 
     return np.array(cx), np.array(cy)
 
@@ -522,6 +589,7 @@ def converter_coordinates(x_old, breadth: float, depth: float, face_number, coun
     """Возвращает из (x_old) -> (x,y)"""
     x = []
     y = []
+    accuracy = 3
     for i in range(count_sensors):
         if face_number[i] == 1:
             x.append(float('%.5f' % (-depth / 2)))
@@ -535,6 +603,9 @@ def converter_coordinates(x_old, breadth: float, depth: float, face_number, coun
         else:
             x.append(float('%.5f' % (3 * depth / 2 - x_old[i] + 2 * breadth)))
             y.append(float('%.5f' % (breadth / 2)))
+
+    x = np.array(x).round(accuracy)
+    y = np.array(y).round(accuracy)
 
     return x, y
 
@@ -630,7 +701,4 @@ def get_coordinates_interference(count_p, height):
 
 
 if __name__ == '__main__':
-    # generate_directory_for_report('D:\Projects\WindSpectrum')
-    # print(get_model_and_scale_factors('4', '6', '12', 6))
-    # print(get_model_and_scale_factors_interference('12', '22', '30'))
-    get_coordinates_interference(252, 0.28)
+    print(get_model_and_scale_factors_interference('10', '10', '10'))

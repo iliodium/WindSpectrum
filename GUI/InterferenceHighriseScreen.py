@@ -100,6 +100,7 @@ class InterferenceHighriseScreen(MDScreen):
             self.init_drop_down_menu_summary_spectrum(),
             self.init_drop_down_menu_mode_integration(),
             self.init_drop_down_menu_plots(),
+            self.init_drop_down_menu_mode_integration(),
         ]
 
     def init_drop_down_menu_wind_regions(self):
@@ -240,6 +241,7 @@ class InterferenceHighriseScreen(MDScreen):
             } for mode in ('mean',
                            'min',
                            'max',
+                           'rms',
                            'std',
                            )
         ]
@@ -388,6 +390,31 @@ class InterferenceHighriseScreen(MDScreen):
         else:
             self.plot_summary_coefficients(mode)
 
+    def init_drop_down_menu_mode_integration(self):
+        items = [
+            {
+                "text": mode,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=mode: self.height_integration(x),
+            } for mode in ('mean',
+                           'min',
+                           'max',
+                           'std',
+                           )
+        ]
+        self.drop_down_menu_mode_integration = MDDropdownMenu(
+            items=items,
+            caller=self.ids.height_integration,
+            radius=self.radius_ws,
+            width_mult=self.width_mult_ws,
+            max_height=self.max_height_ws,
+            hor_growth=self.hor_growth_ws,
+            ver_growth=self.ver_growth_ws,
+
+        )
+
+        return self.drop_down_menu_mode_integration
+
     @staticmethod
     def popup(warning_text):
         Popup(
@@ -482,6 +509,40 @@ class InterferenceHighriseScreen(MDScreen):
 
         return True
 
+    @property
+    def face_integration(self):
+        values = self.ids.face_integration.text
+        if len(values) == 1:
+            values = int(values),
+            self.face_integration = values
+
+        else:
+            values = tuple(map(int, values.split()))
+            self.face_integration = values
+
+        return values
+
+    @face_integration.setter
+    def face_integration(self, value: tuple):
+        self._face_integration = value
+
+    @property
+    def step_integration(self):
+        values = self.ids.step_integration.text
+        if len(values) == 1:
+            values = float(values),
+            self.step_integration = values
+
+        else:
+            values = tuple(map(float, values.split()))
+            self.step_integration = values
+
+        return values
+
+    @step_integration.setter
+    def step_integration(self, value: tuple):
+        self._step_integration = value
+
     # Блок отрисовки графиков
     @check_parameters('model')
     def plot_spectrum(self, mode: str):
@@ -549,12 +610,13 @@ class InterferenceHighriseScreen(MDScreen):
     # Интегрирование по высоте
     @check_parameters('all')
     def height_integration(self, mode):
-        self.core_ws.height_integration(self._alpha_ws,
-                                        self.model_size_ws,
-                                        self.angle_ws,
-                                        mode,
-                                        {'type_area': self.type_area_ws,
-                                         'wind_region': self.wind_region_ws,
-                                         },
-                                        self.face_integration,
-                                        self.step_integration)
+        self.core_ws.height_integration(db='interference',
+                                        case=self.case,
+                                        model_size=self.model_size_ws,
+                                        angle=self.angle_ws,
+                                        mode=mode,
+                                        pressure_plot_parameters={'type_area': self.type_area_ws,
+                                                                  'wind_region': self.wind_region_ws,
+                                                                  },
+                                        faces=self.face_integration,
+                                        step=self.step_integration)

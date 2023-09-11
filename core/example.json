@@ -1,0 +1,34 @@
+{
+  "method": 2,
+  "dt": 0.01,
+  "N": 50000,
+  "newmark_alpha": 0.3025,
+  "newmark_delta": 0.6,
+  "f_dat_file_path": "D:\\Projects\\WindSpectrum\\core\\test.dat",
+  "elements": [
+    {
+      "alpha": 0,
+      "beta": 0,
+      "rho": 0,
+      "J": 1,
+      "A": 1,
+      "L": 5,
+      "I_y": 0.1,
+      "I_z": 0.1,
+      "E": 1.75e7,
+      "G": 1.05e11
+    },
+    {
+      "alpha": 0,
+      "beta": 0,
+      "rho": 0,
+      "J": 1,
+      "A": 1,
+      "L": 5,
+      "I_y": 0.1,
+      "I_z": 0.1,
+      "E": 5.75e7,
+      "G": 1.05e11
+    }
+  ]
+}

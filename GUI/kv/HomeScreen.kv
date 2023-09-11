@@ -42,11 +42,20 @@
                     on_release:
                         root.manager.current = 'InterferenceHighriseScreen_screen'
                 MDFlatButton:
-                    text: 'Изолированные низкоэтажные здания'
+                    text: 'Изолированные низкоэтажные здания без карниза'
                     font_size: 18
+                    on_release:
+                        root.manager.current = 'RoofWithoutEaves_screen'
+                MDFlatButton:
+                    text: 'Изолированные низкоэтажные здания с карнизом'
+                    font_size: 18
+                    on_release:
+                        root.manager.current = 'RoofWithEaves_screen'
                 MDFlatButton:
                     text: 'Аэродинамическая интерференция низкоэтажных зданий'
                     font_size: 18
+#                    on_release:
+#                        root.manager.current = 'RoofWithEaves_screen'
 
             # Динамический отклик
                 MDLabel:

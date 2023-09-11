@@ -575,10 +575,12 @@ class IsolatedHighriseScreen(MDScreen):
 
     @check_parameters('all')
     def plot_isofields_pressure(self, mode: str):
-        fig = self.core_ws.get_plot_isofields(self._alpha_ws,
-                                              self.model_size_ws,
-                                              self.angle_ws,
-                                              mode,
+        fig = self.core_ws.get_plot_isofields(db='isolated',
+                                              alpha=self._alpha_ws,
+                                              model_size=self.model_size_ws,
+                                              angle=self.angle_ws,
+                                              mode=mode,
+                                              pressure_plot_parameters=
                                               {'type_area': self.type_area_ws,
                                                'wind_region': self.wind_region_ws,
                                                })
@@ -645,12 +647,13 @@ class IsolatedHighriseScreen(MDScreen):
     # Интегрирование по высоте
     @check_parameters('all')
     def height_integration(self, mode):
-        self.core_ws.height_integration(self._alpha_ws,
-                                        self.model_size_ws,
-                                        self.angle_ws,
-                                        mode,
-                                        {'type_area': self.type_area_ws,
-                                         'wind_region': self.wind_region_ws,
-                                         },
-                                        self.face_integration,
-                                        self.step_integration)
+        self.core_ws.height_integration(db='isolated',
+                                        alpha=self._alpha_ws,
+                                        model_size=self.model_size_ws,
+                                        angle=self.angle_ws,
+                                        mode=mode,
+                                        pressure_plot_parameters={'type_area': self.type_area_ws,
+                                                                  'wind_region': self.wind_region_ws,
+                                                                  },
+                                        faces=self.face_integration,
+                                        step=self.step_integration)

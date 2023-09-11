@@ -6,7 +6,13 @@ if __name__ == '__main__':
     from core import Core
     from utils import get_logger
     # окна
-    from GUI import HomeScreen, IsolatedHighriseScreen, ReportContent, InterferenceHighriseScreen
+    from GUI import (
+        HomeScreen,
+        IsolatedHighriseScreen,
+        ReportContent,
+        InterferenceHighriseScreen,
+        RoofWithEaves,
+        RoofWithoutEaves)
     # виджеты
     from GUI import NavigationBar
 
