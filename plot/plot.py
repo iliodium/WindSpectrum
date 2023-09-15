@@ -1,7 +1,7 @@
 import time
 from typing import Tuple
 
-from utils.utils import interpolator as intp
+from utils.utils import interpolator as intp, round_list_model_pic
 from utils.utils import ks10, alpha_standards, wind_regions
 
 import toml
@@ -768,12 +768,11 @@ class Plot:
 
         # Виды изополей
         mods = {
-            'mean': lambda coefficients: np.mean(coefficients, axis=0).round(4),
-            'rms': lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]).round(4),
-            'std': lambda coefficients: np.std(coefficients, axis=0).round(4),
-            'max': lambda coefficients: np.max(coefficients, axis=0).round(4),
-            'min': lambda coefficients: np.min(coefficients, axis=0).round(4),
-
+            'mean': lambda coefficients: np.mean(coefficients, axis=0),
+            'rms': lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
+            'std': lambda coefficients: np.std(coefficients, axis=0),
+            'max': lambda coefficients: np.max(coefficients, axis=0),
+            'min': lambda coefficients: np.min(coefficients, axis=0),
         }
 
         size_x, size_y, size_z = map(float, model_size)
@@ -788,7 +787,7 @@ class Plot:
             # Шаги для изополей коэффициентов
             steps = {
                 'max': 0.2,
-                'mean': 0.2 if alpha == '6' else 0.1,
+                'mean': 0.2,
                 'min': 0.2,
                 'std': 0.05,
             }
@@ -816,11 +815,6 @@ class Plot:
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
         x, z = np.array(coordinates)
-        # Уровни для изополей коэффициентов
-        if not pressure_plot_parameters:
-            min_v = np.min(pressure_coefficients)
-            max_v = np.max(pressure_coefficients)
-            levels = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.1, steps[mode]).round(2)
 
         pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
         pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
@@ -889,8 +883,8 @@ class Plot:
         z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]
         x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
 
-        #fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
-        sum_size = size_x+size_y+size_z
+        # fig, ax = plt.subplots(1, 4, num=num_fig, dpi=Plot.dpi, clear=True)
+        sum_size = size_x + size_y + size_z
 
         breadth_ratios = size_x / sum_size
         depth_ratios = size_y / sum_size
@@ -917,7 +911,6 @@ class Plot:
         z_old_list = []
 
         data_new_list = []
-        data_old_list = []
 
         if pressure_plot_parameters:
             type_area = pressure_plot_parameters['type_area']
@@ -995,7 +988,8 @@ class Plot:
             max_1_3 = np.max(np.array([data_new_list[1], data_new_list[3]]))
             max_v = np.max(np.array(max_0_2, max_1_3))
 
-            all_levels = np.arange(min_v, max_v, (np.abs(min_v) + np.abs(max_v)) * 0.1).round(2)
+            all_levels = np.arange(min_v, max_v, (np.abs(min_v) + np.abs(max_v)) * 0.1)
+            all_levels = all_levels.astype(np.int32, copy=False)
 
         if db == 'isolated' and not pressure_plot_parameters:
             all_levels = np.linspace(np.min([np.min(data_new_list[i]) for i in range(4)]),
@@ -1029,7 +1023,10 @@ class Plot:
             # aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=temp_levels)
             # aq = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
 
-            ax[i].clabel(aq, fontsize=10, fmt='%.2f')
+            if pressure_plot_parameters:
+                ax[i].clabel(aq, fontsize=10, fmt='%i')
+            else:
+                ax[i].clabel(aq, fontsize=10, fmt='%.2f')
 
             ax[i].set_ylim([0, h_scaled])
             ax[i].set_yticks(np.arange(0, h_scaled + h_scaled * 0.01, h_scaled * 0.2))
@@ -1052,7 +1049,7 @@ class Plot:
 
         # print(all_levels)
         # fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels).ax.tick_params(labelsize=4)
-        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=all_levels).ax.tick_params(labelsize=4)
+        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=all_levels).ax.tick_params(labelsize=7)
 
         return fig
 
@@ -1152,8 +1149,9 @@ class Plot:
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
 
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
-
+        means = []
         for name in data.keys():
+            means.append(np.mean(data[name]))
             ax.plot(angles, data[name], label=name)
 
         ax.set_theta_direction(-1)
@@ -1162,11 +1160,47 @@ class Plot:
         ax.legend(loc='upper right', fontsize=9)
         ax.set_title(title)
 
+        x, y, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        min_size = min(x, y)
+        b_scale, d_scale = x / min_size, y / min_size
+
+        ax.patch.set_alpha(0)
+        ax.set_theta_zero_location('N')
+        ax.set_theta_direction(-1)
+
+        #angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
+        max_means = np.max(means)
+        ax.annotate("", xy=(angles[0], max_means), xytext=(0, 0),
+                    arrowprops=dict(arrowstyle="->",
+                                    linewidth=2.5))
+        ax.annotate("", xy=(angles[18], max_means), xytext=(0, 0),
+                    arrowprops=dict(arrowstyle="->",
+                                    linewidth=2.5))
+        ax.annotate("y", xy=(angles[0], 2))
+        ax.annotate("x", xy=(angles[18], 2))
+
+        # ax = fig.add_subplot(111, position=pos)
+        ax.set_visible(True)
+        ax.set_autoscale_on(False)
+        ax.set_aspect(1)
+
+        dx = dy = (0.7 - 0.3) / 3
+        b = dx * b_scale
+        d = dy * d_scale
+        mid = 0.5
+        x0 = mid - b / 2
+        x1 = mid + b / 2
+        y0 = mid - d / 2
+        y1 = mid + d / 2
+        ax.fill_between([x0, x1], [y0, y0], [y1, y1], color='grey', alpha=0.5)
+
         return fig
 
     @staticmethod
     def model_pic(model_size, model_scale, coordinates):
         """Отрисовка развертки модели"""
+        accuracy = 2
+
         breadth_real, depth_real, height_real = float(model_size[0]), float(model_size[1]), float(model_size[2])
 
         size_x = 2 * (breadth_real + depth_real)
@@ -1180,14 +1214,14 @@ class Plot:
         ax.set_ylim(0, height_real)
         ax.set_xlim(0, size_x)
 
-        xticks = np.array([0, breadth_real, breadth_real + depth_real, 2 * breadth_real + depth_real, size_x])
+        xticks = [0, breadth_real, breadth_real + depth_real, 2 * breadth_real + depth_real, size_x]
         yticks = np.arange(0, height_real + height_real * 0.01, height_real * 0.2)
 
         ax.set_xticks(ticks=xticks)
         ax.set_yticks(ticks=yticks)
 
-        ax.set_xticklabels(labels=(xticks / 10).round(3))
-        ax.set_yticklabels(labels=(yticks / 10).round(3))
+        ax.set_xticklabels(labels=round_list_model_pic(xticks))
+        ax.set_yticklabels(labels=round_list_model_pic(yticks))
 
         ax.xaxis.set_minor_locator(MultipleLocator(size_x * 0.03125))
         ax.yaxis.set_minor_locator(MultipleLocator(height_real * 0.05))
@@ -1195,11 +1229,11 @@ class Plot:
         ax.xaxis.set_minor_formatter(ScalarFormatter())
         ax.yaxis.set_minor_formatter(ScalarFormatter())
 
-        minor_xticks = (np.array(ax.get_xticks(minor=True)) / 10).round(3)
-        minor_yticks = (np.array(ax.get_yticks(minor=True)) / 10).round(3)
+        minor_xticks = np.array(ax.get_xticks(minor=True))
+        minor_yticks = np.array(ax.get_yticks(minor=True))
 
-        ax.set_xticklabels(labels=minor_xticks, minor=True)
-        ax.set_yticklabels(labels=minor_yticks, minor=True)
+        ax.set_xticklabels(labels=round_list_model_pic(minor_xticks), minor=True)
+        ax.set_yticklabels(labels=round_list_model_pic(minor_yticks), minor=True)
 
         ax.tick_params(axis='x', which='minor', pad=5, labelsize=7)
         ax.tick_params(axis='x', which='major', pad=10, labelsize=10)
@@ -1270,10 +1304,10 @@ class Plot:
         polar.set_yticklabels([0, 1, 2, 3], visible=False)
         polar.set_autoscale_on(False)
         angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
-        polar.annotate("", xy=(angles[0], 2), xytext=(0, 0),
+        polar.annotate("", xy=(angles[0], 4), xytext=(0, 0),
                        arrowprops=dict(arrowstyle="->",
                                        linewidth=2.5))
-        polar.annotate("", xy=(angles[18], 2), xytext=(0, 0),
+        polar.annotate("", xy=(angles[18], 4), xytext=(0, 0),
                        arrowprops=dict(arrowstyle="->",
                                        linewidth=2.5))
         polar.annotate("y", xy=(angles[0], 2))
@@ -1300,6 +1334,8 @@ class Plot:
     def model_3d(model_size):
         """Отрисовка модели в трехмерном виде"""
         x, y, z = float(model_size[0]), float(model_size[1]), float(model_size[2])
+        breadth, depth, height = x, y, z
+
         min_size = min(x, y, z)
         b_scale, d_scale, h_scale = x / min_size, y / min_size, z / min_size
 
@@ -1326,9 +1362,13 @@ class Plot:
         Y_side, X_side = np.meshgrid(y, ones1d + b_scale)
         ax.plot_surface(X_side, Y_side, Z_face, color='grey')
 
-        ax.set_xlabel('Depth')
-        ax.set_ylabel('Breadth')
-        ax.set_zlabel('Height')
+        breadth = int(breadth) if breadth.is_integer() else f'{round(breadth, 2):.2f}'
+        depth = int(depth) if depth.is_integer() else f'{round(depth, 2):.2f}'
+        height = int(height) if height.is_integer() else f'{round(height, 2):.2f}'
+
+        ax.set_xlabel(breadth)
+        ax.set_ylabel(depth)
+        ax.set_zlabel(height)
 
         # Get rid of the panes
         ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
@@ -1373,11 +1413,11 @@ class Plot:
         colors = ('b', 'g', 'r', 'c', 'y')[:len(mods)]
         names = [i for i in ('mean', 'rms', 'std', 'max', 'min') if i in mods]
         lambdas = {
-            'mean': lambda coefficients: np.mean(coefficients, axis=0).round(4),
-            'rms': lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]).round(4),
-            'std': lambda coefficients: np.std(coefficients, axis=0).round(4),
-            'max': lambda coefficients: np.max(coefficients, axis=0).round(4),
-            'min': lambda coefficients: np.min(coefficients, axis=0).round(4),
+            'mean': lambda coefficients: np.mean(coefficients, axis=0),
+            'rms': lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
+            'std': lambda coefficients: np.std(coefficients, axis=0),
+            'max': lambda coefficients: np.max(coefficients, axis=0),
+            'min': lambda coefficients: np.min(coefficients, axis=0),
         }
 
         figs = []  # массив для графиков так как на 1 графике максимум 100 датчиков
@@ -1427,6 +1467,8 @@ class Plot:
 
             ax.legend(loc='upper right', fontsize=9)
             ax.set_title('Огибающие')
+            ax.set_xlabel('Номер датчика')
+            ax.set_ylabel('Аэродинамический коэффициент')
 
             figs.append(fig)
 

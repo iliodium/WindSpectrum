@@ -48,7 +48,7 @@ class WindSpectrum(MDApp):
     def build(self):
         Window.minimum_height = 400
         Window.minimum_width = 800
-        #Window.size = (400, 1000)
+        Window.size = (800, 1000)
         self.title = 'Wind Spectrum'
         self.gui = Builder.load_file("GUI/kv/WindSpectrum.kv")
         self.logger.info("Графический интерфейс успешно создан")

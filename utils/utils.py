@@ -201,11 +201,10 @@ def calculate_cmz(db='isolated', **kwargs):
 
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
-    count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
-    count_sensors_on_2_4_face = count_sensors_on_side_row * count_row
+    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
     angle = int(angle)
-    shirina = np.cos(angle) * breadth + np.sin(angle) * depth
+    shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
 
     x, _ = coordinates
     x = np.reshape(x, (count_row, -1))
@@ -217,7 +216,6 @@ def calculate_cmz(db='isolated', **kwargs):
 
     del x[4]
 
-    # print(breadth,depth)
     # центры граней
     mid13_x = breadth / 2
     mid24_x = depth / 2
@@ -240,41 +238,66 @@ def calculate_cmz(db='isolated', **kwargs):
         x[3] - mid24_x,
     ])
 
-    # print(mx13)
-    # print(mx24)
-    # Площадь для каждого датчика
+    # Площадь
     s13 = breadth * height
     s24 = depth * height
-    s13i = s13 / count_sensors_on_1_3_face
-    s24i = s24 / count_sensors_on_2_4_face
-    # print(s13)
-    # print(s24)
-    # print(len(pr_coeff))
-    # print(len(pr_coeff[0]))
-    # print(mx13)
-    # print(mx24)
+
+    x = coordinates[0]
+    x = np.reshape(x, (-1, count_sensors_on_row))
+    x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+    x = np.insert(x, 0, 0, axis=1)
+
+    y = coordinates[1]
+    y = [height for _ in range(count_sensors_on_row)] + y
+    y = np.reshape(y, (-1, count_sensors_on_row))
+    y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+    y = np.reshape(y, (-1, count_sensors_on_row))
+
+    squares = []
+    for y_i in range(count_row):
+        for x_i in range(count_sensors_on_row):
+            y_t = y[y_i][x_i]
+            y_m = y[y_i + 1][x_i]
+            y_b = y[y_i + 2][x_i]
+            if y_i == 0:
+                dy = y_t - y_m + (y_m - y_b) / 2
+            elif y_i == count_row - 1:
+                dy = (y_t - y_m) / 2 + y_m - y_b
+            else:
+                dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+            x_l = x[y_i][x_i]
+            x_m = x[y_i][x_i + 1]
+            x_r = x[y_i][x_i + 2]
+
+            if x_i == 0:
+                dx = x_m - x_l + (x_r - x_m) / 2
+            elif x_i == count_sensors_on_row - 1:
+                dx = (x_m - x_l) / 2 + x_r - x_m
+            else:
+                dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+            squares.append(dy * dx)
+
+    squares_faces = np.reshape(squares, (count_row, -1))
+    squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                             count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                             ], axis=1)
 
     for coeff in pr_coeff:
-        t_cmz = 0
         coeff = np.reshape(coeff, (count_row, -1))
         coeff = np.split(coeff, [count_sensors_on_middle_row,
                                  count_sensors_on_middle_row + count_sensors_on_side_row,
                                  2 * count_sensors_on_middle_row + count_sensors_on_side_row,
                                  2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                  ], axis=1)
-        # print(coeff)
-        # print(mx13[0] * coeff[0])
-        # print(mx24[0] * coeff[1])
-        # t_cmz += np.sum(mx13[0] * coeff[0] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
-        # t_cmz += np.sum(mx24[0] * coeff[1] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
-        # t_cmz += np.sum(mx13[1] * coeff[2] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
-        # t_cmz += np.sum(mx24[1] * coeff[3] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
-        t1 = np.sum(mx13[0] * coeff[0] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
-        t2 = np.sum(mx24[0] * coeff[1] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
-        t3 = np.sum(mx13[1] * coeff[2] * s13i) / (count_sensors_on_1_3_face * s13 * shirina)
-        t4 = np.sum(mx24[1] * coeff[3] * s24i) / (count_sensors_on_2_4_face * s24 * shirina)
 
-        # cmz = np.append(cmz, (t_cmz))
+        t1 = np.sum(mx13[0] * coeff[0] * squares_faces[0]) / (s13 * shirina)
+        t2 = np.sum(mx24[0] * coeff[1] * squares_faces[1]) / (s24 * shirina)
+        t3 = np.sum(mx13[1] * coeff[2] * squares_faces[2]) / (s13 * shirina)
+        t4 = np.sum(mx24[1] * coeff[3] * squares_faces[3]) / (s24 * shirina)
+
         cmz = np.append(cmz, sum([t1, t2, t3, t4]))
 
     return np.array(cmz)
@@ -304,42 +327,11 @@ def calculate_cx_cy(db='isolated', **kwargs):
         count_sensors_on_side_row = 7
 
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-    count_sensors_on_1_3_face = count_sensors_on_middle_row * count_row
-    count_sensors_on_2_4_face = count_sensors_on_side_row * count_row
     count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
-    # # Площадь для каждого датчика
-    # s13 = breadth * height
-    # s24 = depth * height
-    # s13i = s13 / count_sensors_on_1_3_face
-    # s24i = s24 / count_sensors_on_2_4_face
-    #
-    # # print(s13, s24, count_sensors_on_1_3_face, count_sensors_on_2_4_face)
-    # # Домнажать на площадь каждого датчика, а потом делить на площадь данной грани
-    # for coeff in pr_coeff:
-    #     coeff = np.reshape(coeff, (count_row, -1))
-    #     coeff = np.split(coeff, [count_sensors_on_middle_row,
-    #                              count_sensors_on_middle_row + count_sensors_on_side_row,
-    #                              2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-    #                              2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-    #                              ], axis=1)
-    #
-    #     del coeff[4]
-    #
-    #     gran1 = np.sum(coeff[0] * s13i) / (count_sensors_on_1_3_face * s13)
-    #     gran3 = np.sum(coeff[2] * s13i) / (count_sensors_on_1_3_face * s13)
-    #
-    #     gran2 = np.sum(coeff[1] * s24i) / (count_sensors_on_2_4_face * s24)
-    #     gran4 = np.sum(coeff[3] * s24i) / (count_sensors_on_2_4_face * s24)
-    #
-    #     cx.append(gran1 - gran3)
-    #     cy.append(gran2 - gran4)
-    # coordinates_x = np.reshape(coordinates, (count_row, -1))
-    # coeff = np.split(coeff, [count_sensors_on_middle_row,
-    #                          count_sensors_on_middle_row + count_sensors_on_side_row,
-    #                          2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-    #                          2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-    #                          ], axis=1)
+    # Площадь
+    s13 = breadth * height
+    s24 = depth * height
 
     x = coordinates[0]
     x = np.reshape(x, (-1, count_sensors_on_row))
@@ -377,7 +369,12 @@ def calculate_cx_cy(db='isolated', **kwargs):
                 dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
 
             squares.append(dy * dx)
-    print(sum(squares))
+    squares_faces = np.reshape(squares, (count_row, -1))
+    squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                             count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                             ], axis=1)
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))
         coeff = np.split(coeff, [count_sensors_on_middle_row,
@@ -386,16 +383,14 @@ def calculate_cx_cy(db='isolated', **kwargs):
                                  2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                  ], axis=1)
 
-        del coeff[4]
         faces_x = []
         faces_y = []
         for face in range(4):
-            print(coeff[face])
-
             if face in [0, 2]:
-                faces_x.append(np.sum(coeff[face]) / count_sensors_on_1_3_face)
+                faces_x.append(np.sum(coeff[face] * squares_faces[face]) / s13)
             else:
-                faces_y.append(np.sum(coeff[face]) / count_sensors_on_2_4_face)
+                faces_y.append(np.sum(coeff[face] * squares_faces[face]) / s24)
+
         cx.append(faces_x[0] - faces_x[1])
         cy.append(faces_y[0] - faces_y[1])
 
@@ -589,7 +584,7 @@ def converter_coordinates(x_old, breadth: float, depth: float, face_number, coun
     """Возвращает из (x_old) -> (x,y)"""
     x = []
     y = []
-    accuracy = 3
+    accuracy = 1
     for i in range(count_sensors):
         if face_number[i] == 1:
             x.append(float('%.5f' % (-depth / 2)))
@@ -608,6 +603,21 @@ def converter_coordinates(x_old, breadth: float, depth: float, face_number, coun
     y = np.array(y).round(accuracy)
 
     return x, y
+
+
+def round_list_model_pic(arr) -> List[str]:
+    new_arr = []
+    for val in arr:
+        if isinstance(val, int):
+            new_arr.append(str(val))
+            continue
+
+        elif isinstance(val, str):
+            val = float(val)
+
+        new_arr.append(f'{round(val, 2):.1f}')
+
+    return new_arr
 
 
 def converter_coordinates_to_real(x, z, model_size, model_scale):

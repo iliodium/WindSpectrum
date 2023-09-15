@@ -418,7 +418,7 @@ class Clipboard:
                 coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_name)
 
                 cx, cy = calculate_cx_cy(db='isolated', model_name=model_name,
-                                         pressure_coefficients=pressure_coefficients,coordinates=coordinates)
+                                         pressure_coefficients=pressure_coefficients, coordinates=coordinates)
                 if self.save_mode:
                     self.clipboard_dict['isolated'][alpha][model_name][angle]['Cx'] = cx
                     self.clipboard_dict['isolated'][alpha][model_name][angle]['Cy'] = cy
@@ -823,20 +823,24 @@ class Clipboard:
 
         return fig
 
-    def get_plot_pressure_tap_locations(self, model_size, alpha):
-        id_fig = f'model_polar_{"_".join(model_size)}'
-        if not self.clipboard_dict['isolated']['unique_stuff_for_size'].get(id_fig):
-            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-            coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_scale)
-            coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale)
-            fig = Plot.model_pic(model_size, model_scale, coordinates)
-            if self._save_model_polar:
-                self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig] = fig
+    def get_plot_pressure_tap_locations(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        id_fig = f'pressure_tap_locations{db}_{"_".join(model_size)}'
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            if not self.clipboard_dict['isolated']['unique_stuff_for_size'].get(id_fig):
+                model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+                coordinates = self.get_coordinates('isolated', alpha=alpha, model_scale=model_scale)
+                coordinates = converter_coordinates_to_real(*coordinates, model_size, model_scale)
+                fig = Plot.model_pic(model_size, model_scale, coordinates)
+                if self._save_model_polar:
+                    self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig] = fig
+                else:
+                    ...
             else:
-                ...
-        else:
-            fig = self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig]
-
+                fig = self.clipboard_dict['isolated']['unique_stuff_for_size'][id_fig]
+        elif db == 'interference':
+            ...
         return fig
 
     def get_plot_model_3d(self, model_size):
