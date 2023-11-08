@@ -528,7 +528,7 @@ class InterferenceHighriseScreen(MDScreen):
 
     @property
     def step_integration(self):
-        values = self.ids.step_integration.text
+        values = self.ids.parameters_integration.text
         if len(values) == 1:
             values = float(values),
             self.step_integration = values
@@ -610,13 +610,12 @@ class InterferenceHighriseScreen(MDScreen):
     # Интегрирование по высоте
     @check_parameters('all')
     def height_integration(self, mode):
-        self.core_ws.height_integration(db='interference',
-                                        case=self.case,
-                                        model_size=self.model_size_ws,
-                                        angle=self.angle_ws,
-                                        mode=mode,
-                                        pressure_plot_parameters={'type_area': self.type_area_ws,
-                                                                  'wind_region': self.wind_region_ws,
-                                                                  },
-                                        faces=self.face_integration,
-                                        step=self.step_integration)
+
+        for case_t in (34, 29, 23, 19):
+            for t_angle in (0, 45, 90):
+                self.core_ws.height_integration_cx_cy_cmz_floors_to_txt_inr(db='interference',
+                                                                            case=case_t,
+                                                                            angle=t_angle,
+                                                                            model_size=self.model_size_ws,
+                                                                            )
+                print(case_t, t_angle, t_angle)

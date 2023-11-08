@@ -54,12 +54,12 @@ class ReportContent(MDScreen):
             'cmz': False,
         }
         mode_coefficients_all = mode_coefficients.copy()
-        mode_coefficients_all.update({
-            'cx_cy': False,
-            'cx_cmz': False,
-            'cy_cmz': False,
-            'cx_cy_cmz': False,
-        })
+        # mode_coefficients_all.update({
+        #     'cx_cy': False,
+        #     'cx_cmz': False,
+        #     'cy_cmz': False,
+        #     'cx_cy_cmz': False,
+        # })
 
         sensors = {
             'x': False,
@@ -78,7 +78,7 @@ class ReportContent(MDScreen):
             'summarySpectres': [False, mode_coefficients_all.copy()],
             # 'pressureTapLocations': [False],
             'statisticsSensors': [False, sensors.copy()],
-            'statisticsSummaryCoefficients': [False, mode_8.copy()],
+            #'statisticsSummaryCoefficients': [False, mode_8.copy()],
         }
 
     def on_pre_enter(self):

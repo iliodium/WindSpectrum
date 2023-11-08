@@ -375,6 +375,7 @@ def calculate_cx_cy(db='isolated', **kwargs):
                                              2 * count_sensors_on_middle_row + count_sensors_on_side_row,
                                              2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                              ], axis=1)
+
     for coeff in pr_coeff:
         coeff = np.reshape(coeff, (count_row, -1))
         coeff = np.split(coeff, [count_sensors_on_middle_row,
@@ -460,9 +461,9 @@ def get_model_and_scale_factors(x: str, y: str, z: str, alpha: str) -> (str, tup
     z_nearest = z_from_db[index_z]
 
     # Коэффициенты масштабирования
-    x_scale_factor = x / x_nearest
-    y_scale_factor = y / y_nearest
-    z_scale_factor = z / z_nearest
+    x_scale_factor = x / x_nearest * 10
+    y_scale_factor = y / y_nearest * 10
+    z_scale_factor = z / z_nearest * 10
 
     model_from_db = ''.join(map(str, (x_nearest, y_nearest, z_nearest)))  # Модель из БД
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
@@ -710,5 +711,106 @@ def get_coordinates_interference(count_p, height):
     return [x, z]
 
 
+W0 = 230 * 1.4
+
+
+def speed_sp_a(z):
+    scale_ks = 1 / 400
+    a = 0.15
+    k10 = 1
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+def speed_sp_b(z, scale_ks=1 / 400):
+    a = 0.2
+    k10 = 0.65
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+def speed_sp_c(z):
+    scale_ks = 1 / 400
+    a = 0.25
+    k10 = 0.4
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+def speed_sp_a_m(z):
+    scale_ks = 1
+    a = 0.15
+    k10 = 1
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+def speed_sp_b_m(z, scale_ks=1):
+    a = 0.2
+    k10 = 0.65
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+def speed_sp_c_m(z):
+    scale_ks = 1
+    a = 0.25
+    k10 = 0.4
+    po = 1.225
+    y = 1
+    u10 = (2 * y * k10 * W0 / po) ** 0.5
+    return u10 * (scale_ks * z / 10) ** a
+
+
+file = open('Uz_a_0_16.txt', mode='r')
+f_025 = file.read().split('\n')
+x_025 = []
+y_025 = []
+
+for i in f_025:
+    x, y = list(map(float, i.split()))
+    x_025.append(x)
+    y_025.append(y)
+
+file.close()
+
+file1 = open('Uz_a_0_25.txt', mode='r')
+f_016 = file1.read().split('\n')
+x_016 = []
+y_016 = []
+
+for i in f_016:
+    x, y = list(map(float, i.split()))
+    x_016.append(x)
+    y_016.append(y)
+
+file1.close()
+
+UH = 11
+x_016 = np.array(x_016) * UH
+x_025 = np.array(x_025) * UH
+
+y_016 = np.array(y_016) / 100
+y_025 = np.array(y_025) / 100
+
+interp_016_tpu = scipy.interpolate.interp1d(y_016, x_016)
+interp_025_tpu = scipy.interpolate.interp1d(y_025, x_025)
+
+interp_016_tpu_400 = scipy.interpolate.interp1d(y_016 * 400, x_016)
+interp_025_tpu_400 = scipy.interpolate.interp1d(y_025 * 400, x_025)
+
+interp_016_real_tpu = scipy.interpolate.interp1d(y_016 / 100, x_016)
+interp_025_real_tpu = scipy.interpolate.interp1d(y_025 / 100, x_025)
+
 if __name__ == '__main__':
-    print(get_model_and_scale_factors_interference('10', '10', '10'))
+    print(get_model_and_scale_factors('1', '1', '5', '4'))

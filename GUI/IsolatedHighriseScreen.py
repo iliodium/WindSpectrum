@@ -1,13 +1,17 @@
+import os
+from random import random
 from typing import List, Union, Tuple, Any
 from dataclasses import dataclass, field
 
+import numpy as np
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.metrics import dp
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.screen import MDScreen
+from matplotlib import pyplot as plt
 
-from utils import open_fig, get_model_and_scale_factors
+from utils import open_fig, get_model_and_scale_factors, speed_sp_b, interp_025_tpu, speed_sp_a, interp_016_tpu
 
 
 @dataclass
@@ -197,20 +201,20 @@ class IsolatedHighriseScreen(MDScreen):
         self._face_integration = value
 
     @property
-    def step_integration(self):
-        values = self.ids.step_integration.text
+    def parameters_integration(self):
+        values = self.ids.parameters_integration.text
         if len(values) == 1:
-            values = float(values),
-            self.step_integration = values
+            values = float(values),  # tuple
+            self.parameters_integration = values
 
         else:
             values = tuple(map(float, values.split()))
-            self.step_integration = values
+            self.parameters_integration = values
 
         return values
 
-    @step_integration.setter
-    def step_integration(self, value: tuple):
+    @parameters_integration.setter
+    def parameters_integration(self, value: tuple):
         self._step_integration = value
 
     # Блок создания выпадающих меню
@@ -225,6 +229,7 @@ class IsolatedHighriseScreen(MDScreen):
         self.init_drop_down_menu_model_plots()
         self.init_drop_down_menu_summary_spectrum()
         self.init_drop_down_menu_mode_integration()
+        self.init_drop_down_menu_mode_integration_spectre()
 
         self.init_drop_down_menu_plots()
 
@@ -337,16 +342,41 @@ class IsolatedHighriseScreen(MDScreen):
             {
                 "text": mode,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x=mode: self.height_integration(x),
-            } for mode in ('mean',
-                           'min',
-                           'max',
-                           'std',
-                           )
+                "on_release": lambda x=mode, y=ind, z=plot: self.height_integration(x, y, z),
+            } for mode, ind, plot in (('по этажам', 0, 'summary'),
+                                      ('по шагу', 1, 'summary'),
+                                      ('по области', 2, 'summary'),
+                                      ('по областям', 3, 'summary'),
+                                      ('по количеству', 4, 'summary'),
+                                      )
         ]
         self.drop_down_menu_mode_integration = MDDropdownMenu(
             items=items,
             caller=self.ids.height_integration,
+            radius=self.radius_ws,
+            width_mult=self.width_mult_ws,
+            max_height=self.max_height_ws,
+            hor_growth=self.hor_growth_ws,
+            ver_growth=self.ver_growth_ws,
+
+        )
+
+    def init_drop_down_menu_mode_integration_spectre(self):
+        items = [
+            {
+                "text": mode,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=mode, y=ind, z=plot: self.height_integration(x, y, z),
+            } for mode, ind, plot in (('по этажам', 0, 'spectre'),
+                                      ('по шагу', 1, 'spectre'),
+                                      ('по области', 2, 'spectre'),
+                                      ('по областям', 3, 'spectre'),
+                                      ('по количеству', 4, 'spectre'),
+                                      )
+        ]
+        self.drop_down_menu_mode_integration_spectre = MDDropdownMenu(
+            items=items,
+            caller=self.ids.height_integration_spectre,
             radius=self.radius_ws,
             width_mult=self.width_mult_ws,
             max_height=self.max_height_ws,
@@ -555,6 +585,7 @@ class IsolatedHighriseScreen(MDScreen):
             self.drop_down_menu_model_plots,
             self.drop_down_menu_mode_pseudocolor_coefficients,
             self.drop_down_menu_mode_integration,
+            self.drop_down_menu_mode_integration_spectre,
         ]
         for i in menus:
             i.dismiss()
@@ -604,7 +635,8 @@ class IsolatedHighriseScreen(MDScreen):
                                                          alpha=self.alpha_ws,
                                                          model_size=self.model_size_ws,
                                                          mode=mode,
-                                                         angle=self.angle_ws)
+                                                         angle=self.angle_ws,
+                                                         )
         open_fig(fig)
 
     @check_parameters('model')
@@ -646,14 +678,189 @@ class IsolatedHighriseScreen(MDScreen):
 
     # Интегрирование по высоте
     @check_parameters('all')
-    def height_integration(self, mode):
-        self.core_ws.height_integration(db='isolated',
-                                        alpha=self._alpha_ws,
-                                        model_size=self.model_size_ws,
-                                        angle=self.angle_ws,
-                                        mode=mode,
-                                        pressure_plot_parameters={'type_area': self.type_area_ws,
-                                                                  'wind_region': self.wind_region_ws,
-                                                                  },
-                                        faces=self.face_integration,
-                                        step=self.step_integration)
+    def height_integration(self, mode, ind, plot):
+        steps = []
+        figs = []
+        labels = []
+
+        flag_save = self.ids.checkbox_integration_save_plots.active if plot == 'summary' else self.ids.checkbox_integration_spectre_save_plots.active
+        flag_open = self.ids.checkbox_integration_open_plots.active if plot == 'summary' else self.ids.checkbox_integration_spectre_open_plots.active
+
+        model_size = self.model_size_ws
+        angle = self.angle_ws
+        alpha = self._alpha_ws
+        parameter = self.parameters_integration
+
+        breadth, depth, height = model_size
+
+        breadth = float(breadth)
+        depth = float(depth)
+        height = float(height)
+        print(ind)
+        if ind == 0:
+            # figs, labels = self.core_ws.height_integration_cx_cy_cmz_floors(db='isolated',
+            #                                                                 alpha=alpha,
+            #                                                                 model_size=model_size,
+            #                                                                 angle=angle,
+            #                                                                 plot=plot
+            #                                                                 )
+
+            # data -> (cx, cy, cmz)
+            # data = self.core_ws.get_height_integration_cx_cy_cmz_floors(db='isolated',
+            #                                                             alpha=alpha,
+            #                                                             model_size=model_size,
+            #                                                             angle=angle,
+            #                                                             plot=plot
+            #                                                             )
+
+            # TO TXT
+            # self.core_ws.height_integration_cx_cy_cmz_floors_to_txt(db='isolated',
+            #                                                         alpha=alpha,
+            #                                                         model_size=model_size,
+            #                                                         angle=angle,
+            #                                                         )
+            #
+            for x_t, y_t, z_t, alp_t in zip(
+                    ('0.1', '0.3', '0.1', '0.3', '0.2', '0.2'),
+                    ('0.1', '0.1', '0.1', '0.1', '0.1', '0.1'),
+                    ('0.5', '0.5', '0.5', '0.5', '0.4', '0.5'),
+                    ('4', '4', '6', '6', '4', '4'),
+            ):
+                t_mode_size = x_t, y_t, z_t
+                for t_angle in range(0, 105, 15):
+                    self.core_ws.height_integration_cx_cy_cmz_floors_to_txt(db='isolated',
+                                                                            alpha=alp_t,
+                                                                            model_size=t_mode_size,
+                                                                            angle=str(t_angle),
+                                                                            )
+                    print(t_mode_size, alp_t, t_angle)
+                    # return
+
+            # from openpyxl import Workbook, load_workbook
+            # from openpyxl.styles import Alignment
+            #
+            # press_tap = [i for i in range(1, 21)]
+            #
+            # for mode in ('mean', 'std'):
+            #     workbook = Workbook()
+            #     sheet = workbook.active
+            #     sheet.append(press_tap)
+            #     for t_angle in range(0, 105, 15):
+            #         sheet.append([t_angle])
+            #
+            #         data_new_out = self.core_ws.get_coeff_for_melbourne(db='isolated',
+            #                                                             alpha=alpha,
+            #                                                             model_size=model_size,
+            #                                                             angle=str(t_angle),
+            #                                                             mode=mode
+            #                                                             )
+            #         # sheet.append(data_new_out)
+            #         # print(data_new_out[0])
+            #         # print(data_new_out[0]+data_new_out[3]+data_new_out[2]+data_new_out[1])
+            #         sheet.append(data_new_out[0] + data_new_out[3] + data_new_out[2] + data_new_out[1])
+            #
+            #     workbook.save(filename=f'veronika\\tpu_coeff_{mode}.xlsx')
+
+            if plot == 'spectre':
+                angle = int(angle)
+                if alpha == '4':
+                    speed_tpu = interp_025_tpu(height)
+
+                elif alpha == '6':
+                    speed_tpu = interp_016_tpu(height)
+
+                l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+                sh = lambda f: f * l_m / speed_tpu
+
+                figs, labels = self.plot_integrated_summary_sh(sh, *data)
+            else:
+                figs, labels = self.plot_integrated_summary(*data)
+
+        elif ind == 1:
+            steps_temp = np.arange(0, height, parameter[0])
+            steps_temp = np.append(steps_temp, height)
+
+            for i in range(0, len(steps_temp) - 1):
+                steps += (steps_temp[i], steps_temp[i + 1]),  # tuple
+
+        elif ind == 2:
+            steps += parameter,  # tuple
+
+        elif ind == 3:
+            for i in range(0, len(parameter), 2):
+                steps += parameter[i:i + 2],  # tuple
+
+        elif ind == 4:
+            steps_temp = np.linspace(0, height, parameter)
+
+            for i in range(0, len(steps_temp) - 1):
+                steps += (steps_temp[i], steps_temp[i + 1]),  # tuple
+
+        if ind != 0:
+            print(steps)
+            figs, labels = self.core_ws.height_integration_cx_cy_cmz(db='isolated',
+                                                                     alpha=alpha,
+                                                                     model_size=model_size,
+                                                                     angle=angle,
+                                                                     steps=steps,
+                                                                     plot=plot
+                                                                     )
+
+        if flag_open:
+            open_fig(figs)
+
+        breadth = int(breadth) if breadth.is_integer() else f'{round(breadth, 2):.2f}'
+        depth = int(depth) if depth.is_integer() else f'{round(depth, 2):.2f}'
+        height = int(height) if height.is_integer() else f'{round(height, 2):.2f}'
+
+        if flag_save:
+            path = 'Интегрирование' if plot == 'summary' else 'Спектры'
+
+            if not os.path.isdir(path):
+                os.mkdir(path)
+
+            path = f'{path}\\{breadth} {depth} {height} {angle} {mode}'
+
+            if not os.path.isdir(path):
+                os.mkdir(path)
+
+            for fig, label in zip(figs, labels):
+                fig.savefig(f'{path}\\{label}', bbox_inches='tight')
+
+        for fig in figs:
+            plt.close(fig)
+
+        # figs = self.core_ws.sh_floors(db='isolated',
+        #                               alpha=self._alpha_ws,
+        #                               model_size=self.model_size_ws,
+        #                               angle=self.angle_ws,
+        #                               mode=mode,
+        #                               faces=self.face_integration,
+        #                               step=self.step_integration)
+
+    @check_parameters('all')
+    def run_FEA(self):
+        count_floors = self.ids.FEA_count_floors.text
+        try:
+            count_floors = int(count_floors) + 1
+        except Exception as e:
+            self.popup('Неверное количество этажей для FEA')
+            return
+
+        steps = []
+
+        model_size = self.model_size_ws
+        angle = self.angle_ws
+        alpha = self._alpha_ws
+
+        _, _, height = model_size
+
+        steps_temp = np.linspace(0, float(height), count_floors)
+
+        for i in range(0, len(steps_temp) - 1):
+            steps += (steps_temp[i], steps_temp[i + 1]),  # tuple
+
+        #self.core_ws.FEA(model_size=model_size, angle=angle, alpha=alpha, steps=steps)
+
+        figs,_ =  self.core_ws.FEA(model_size=model_size, angle=angle, alpha=alpha, steps=steps)
+        open_fig(figs)

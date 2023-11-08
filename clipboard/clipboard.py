@@ -724,10 +724,11 @@ class Clipboard:
                 f_cmz = 'cmz' in mode
 
                 data = self.get_data_summary(db='isolated', alpha=alpha, angle=angle, mode=mode,
-                                             model_scale=model_scale)
+                                             model_scale=model_scale, model_size=model_size)
 
                 self.logger.info(f'Отрисовка суммарных спектров {message}')
-                fig = Plot.welch_graphs(db='isolated', data=data, model_size=model_size, alpha=alpha, angle=angle)
+                fig = Plot.welch_graphs(db='isolated', data=data, model_size=model_size, alpha=alpha, angle=angle,
+                                        model_scale=model_scale)
 
                 if all((self._save_summary_spectres_cx or f_cx, self._save_summary_spectres_cy or f_cy,
                         self._save_summary_spectres_cmz or f_cmz)):
@@ -784,7 +785,7 @@ class Clipboard:
                 data = self.get_data_summary(db='isolated', alpha=alpha, angle=angle, mode=mode,
                                              model_scale=model_scale)
                 fig = Plot.summary_coefficients(db='isolated', alpha=alpha, angle=angle, mode=mode,
-                                                model_scale=model_scale, data=data)
+                                                model_scale=model_scale, data=data, model_size=model_size)
 
                 if all((self._save_summary_coefficients_cx or f_cx, self._save_summary_coefficients_cy or f_cy,
                         self._save_summary_coefficients_cmz or f_cmz)):

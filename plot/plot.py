@@ -1,19 +1,17 @@
-import time
-from typing import Tuple
-
-from utils.utils import interpolator as intp, round_list_model_pic
-from utils.utils import ks10, alpha_standards, wind_regions
-
-import toml
-import numpy as np
-from scipy.signal import welch
-import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
-from matplotlib.axis import rcParams
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+import scipy
+import toml
 from matplotlib.colors import Normalize
 from matplotlib.ticker import MultipleLocator, ScalarFormatter
+from scipy.signal import welch
+from mpl_toolkits.mplot3d import Axes3D
+
+from utils.utils import interpolator as intp, round_list_model_pic, speed_sp_b, speed_sp_a, interp_016_tpu, \
+    interp_025_tpu, speed_sp_b_m, speed_sp_a_m, interp_016_tpu_400, interp_025_tpu_400, y_016, x_016
+from utils.utils import ks10, alpha_standards, wind_regions
 
 plt.switch_backend('Agg')
 
@@ -994,6 +992,9 @@ class Plot:
         if db == 'isolated' and not pressure_plot_parameters:
             all_levels = np.linspace(np.min([np.min(data_new_list[i]) for i in range(4)]),
                                      np.max([np.max(data_new_list[i]) for i in range(4)]), 11)
+            step = 0.1
+            LEVELS = np.arange(-1.2, 1.2 + step, step)
+            all_levels = LEVELS
         elif db == 'interference' and not pressure_plot_parameters:
             if mode in ('max', 'min'):
                 all_levels = np.arange(-6, 6.2, .2)
@@ -1054,8 +1055,7 @@ class Plot:
         return fig
 
     @staticmethod
-    def summary_coefficients(db='isolated',
-                             **kwargs):
+    def summary_coefficients(db='isolated', **kwargs):
         """Графики суммарных аэродинамических коэффициентов в декартовой системе координат
         data = {name:array,
                 ...
@@ -1063,13 +1063,39 @@ class Plot:
         """
         data = kwargs['data']
         model_scale = kwargs['model_scale']
-        angle = kwargs['angle']
+        angle = int(kwargs['angle'])
+        model_size = kwargs['model_size']
+
+        breadth, depth, height = map(float, model_size)
+        breadth_tpu, depth_tpu, height_tpu = map(int, list(model_scale))
+
         if db == 'isolated':
             alpha = kwargs['alpha']
             num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {alpha} {angle} isolated'
             fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+            if alpha == '4':
+                speed_sp = speed_sp_b(height)
+                speed_tpu = interp_025_tpu(height)
+
+            elif alpha == '6':
+                speed_sp = speed_sp_a(height)
+                speed_tpu = interp_016_tpu(height)
+
+            l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+            l_tpu = breadth_tpu * np.cos(np.deg2rad(angle)) + depth_tpu * np.sin(np.deg2rad(angle))
+
+            kv = speed_sp / speed_tpu
+            km = l_m / l_tpu
+
+            kt = km / kv
+
+            # ax.set_xlim(0, 32.768 * kt)
+            # ox = np.linspace(0, 32.768 * kt, 32768)
+
             ax.set_xlim(0, 32.768)
             ox = np.linspace(0, 32.768, 32768)
+
         elif db == 'interference':
             case = kwargs['case']
             num_fig = f'Суммарные коэффициенты декартовая система координат {model_scale} {case} {angle} interference'
@@ -1080,6 +1106,34 @@ class Plot:
         ax.grid()
         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
         ax.set_xlabel('Время, с', labelpad=.3)
+        import pandas as pd
+
+        accuracy = 5
+
+        n_arr = np.array([ox.round(accuracy),
+                          data['cx'].round(accuracy),
+                          data['cy'].round(accuracy),
+                          data['cmz'].round(accuracy)
+                          ]).T
+        df1 = pd.DataFrame(n_arr)
+
+        # df1 = pd.DataFrame([ox.round(3).tolist(),
+        #                     data['cx'].round(3).tolist(),
+        #                     data['cy'].round(3).tolist(),
+        #                     data['cmz'].round(3).tolist()
+        #                     ])
+
+        # df1 = pd.DataFrame([[1,2,3,4,5,6,7,8]])
+        # df2 = pd.DataFrame([[1,2,3,4,5,6,7,8]])
+        # df3 = pd.DataFrame([[1,2,3,4,5,6,7,8]])
+        # df4 = pd.DataFrame([[1,2,3,4,5,6,7,8]])
+
+        # df1 = df1.append(df2)
+        # df1 = df1.append(df3)
+        # df1 = df1.append(df4)
+
+        df1.to_csv('Интегрирование\\cx_cy_cmz_115_0_sum.csv', index=False, header=False, sep=',')
+
         for name in data.keys():
             if data[name] is not None:
                 ax.plot(ox, data[name], label=name)
@@ -1150,8 +1204,12 @@ class Plot:
 
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True, subplot_kw={'projection': 'polar'})
         means = []
+        mins = []
+        maxs = []
         for name in data.keys():
             means.append(np.mean(data[name]))
+            mins.append(np.min(data[name]))
+            maxs.append(np.max(data[name]))
             ax.plot(angles, data[name], label=name)
 
         ax.set_theta_direction(-1)
@@ -1160,30 +1218,36 @@ class Plot:
         ax.legend(loc='upper right', fontsize=9)
         ax.set_title(title)
 
+        min_mins = min(mins) * 1.5
+        max_maxs = max(maxs) * 1.1
+
+        ax.set_ylim([min_mins, max_maxs])
+
         x, y, _ = float(model_size[0]), float(model_size[1]), float(model_size[2])
         min_size = min(x, y)
         b_scale, d_scale = x / min_size, y / min_size
 
         ax.patch.set_alpha(0)
-        ax.set_theta_zero_location('N')
-        ax.set_theta_direction(-1)
 
-        #angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
+        # angles = np.array([angle for angle in range(0, 365, 5)]) * np.pi / 180.0
         max_means = np.max(means)
-        ax.annotate("", xy=(angles[0], max_means), xytext=(0, 0),
+        ax.annotate("", xy=(angles[0], max_means), xytext=(min_mins, min_mins),
                     arrowprops=dict(arrowstyle="->",
-                                    linewidth=2.5))
-        ax.annotate("", xy=(angles[18], max_means), xytext=(0, 0),
+                                    linewidth=2))
+        ax.annotate("", xy=(angles[18], max_means), xytext=(min_mins, min_mins),
                     arrowprops=dict(arrowstyle="->",
-                                    linewidth=2.5))
-        ax.annotate("y", xy=(angles[0], 2))
-        ax.annotate("x", xy=(angles[18], 2))
+                                    linewidth=2))
+        ax.annotate("y", xy=(angles[0], max_means))
+        ax.annotate("x", xy=(angles[18], max_means))
 
-        # ax = fig.add_subplot(111, position=pos)
+        pos1 = ax.get_position()
+        pos2 = [pos1.x0, pos1.y0, pos1.width, pos1.height]
+
+        ax = fig.add_subplot(111, position=pos2)
         ax.set_visible(True)
         ax.set_autoscale_on(False)
         ax.set_aspect(1)
-
+        ax.axis('off')
         dx = dy = (0.7 - 0.3) / 3
         b = dx * b_scale
         d = dy * d_scale
@@ -1478,38 +1542,86 @@ class Plot:
     def welch_graphs(db='isolated', **kwargs):
         """Отрисовка графиков спектральной плотности мощности"""
         data = kwargs['data']
+
+        model_size = kwargs['model_size']
+        breadth, depth, height = map(float, model_size)
+        angle = int(kwargs['angle'])
+        model_scale = kwargs['model_scale']
+        print(model_scale)
+        print(model_size)
+
+        b_s, d_s, h_s = [int(i) / 10 for i in model_scale]
+        h_s = height / min(breadth, depth, height) / 10
+        print(h_s)
+        print(height/h_s)
+        ks = height/h_s
         if db == 'isolated':
-            model_size = kwargs['model_size']
             alpha = kwargs['alpha']
-            angle = kwargs['angle']
-            num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle}'
+            num_fig = f'Спектральная плотность мощности {model_size} {alpha} {angle} isolated'
             fs = 1000
             counts = 32768
+
+            if alpha == '4':
+                # speed_sp_s = speed_sp_b(h_s, scale_ks=1/400)
+                # speed_tpu_s = interp_025_tpu(h_s)
+                #
+                # speed_sp = speed_sp_b_m(height)
+                # # speed_tpu = interp_025_tpu_400(height)
+                # speed_tpu = scipy.interpolate.interp1d(y_016 * height/h_s, x_016)(height)
+                speed_tpu_m_ist_height = interp_025_tpu_400(height)
+                speed_sp = speed_sp_b_m(height)
+
+            elif alpha == '6':
+                speed_sp_s = speed_sp_a(h_s)
+                speed_tpu_s = interp_016_tpu(h_s)
+
+                speed_sp = speed_sp_a_m(height)
+                speed_tpu = interp_016_tpu_400(height)
+
+            l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+
+            print(speed_sp, speed_tpu_m_ist_height)
+            kv1 = speed_sp/speed_tpu_m_ist_height
+
+            # print(speed_sp, speed_tpu)
+            #
+            # kv1 = speed_sp_s / speed_tpu_s
+            # kv2 = speed_sp / speed_tpu
+
+            #print(kv1, kv2)
+
+            sh = lambda f: f * l_m / speed_tpu
+            # sh = lambda f: f * l_m / speed_sp
+
         elif db == 'interference':
-            model_size = kwargs['model_size']
             case = kwargs['case']
-            angle = kwargs['angle']
             fs = 781
             counts = 5858
-            num_fig = f'Спектральная плотность мощности {model_size} {case} {angle}'
+            num_fig = f'Спектральная плотность мощности {model_size} {case} {angle} interference'
 
         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
 
-        ax.set_xlim([10 ** -2, 10 ** 3])
-        ax.set_xscale('log')
-        ax.set_yscale('log')
+        # ax.set_xlim([10 ** -1, 10 ** 3])
+        # ax.set_xlim([10 ** -1, 10 ** 2])
+        # ax.set_xlim([10 ** -1, 0.5])
+        ax.set_xlim([10 ** -1, 2])
+        # ax.set_xscale('log')
+        # ax.set_yscale('log')
 
         ax.grid()
-        ax.set_xlabel('Frequency')
+        # ax.set_xlabel('Frequency')
+        ax.set_xlabel('Sh')
         ax.set_ylabel('PSD, V**2/Hz')
 
         for name in data.keys():
             if data[name] is not None:
-                temp, psd = welch(data[name], fs=fs, nperseg=int(counts / 5))
-                ax.plot(temp, psd, label=name)
-                print(psd.max())
-                print(np.where(psd == psd.max()))
-                print(temp[np.where(psd == psd.max())])
+                freq, psd = welch(data[name], fs=fs, nperseg=int(counts / 5))
+                ax.plot([sh(f) for f in freq], psd, label=name)
+                # print(freq)
+                # print(psd)
+                # print(psd.max())
+                # print(np.where(psd == psd.max()))
+                # print(temp[np.where(psd == psd.max())])
 
         ax.legend(loc='upper right', fontsize=9)
 

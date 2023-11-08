@@ -6,7 +6,13 @@ import pickle
 from typing import Tuple, List
 from multiprocessing import Process, Manager, managers
 from concurrent.futures import ThreadPoolExecutor
-from utils.utils import ks10, alpha_standards, wind_regions
+
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from scipy.signal import welch
+
+from utils.utils import ks10, alpha_standards, wind_regions, speed_sp_b, interp_025_tpu, speed_sp_a, interp_016_tpu, \
+    interp_016_real_tpu, interp_025_real_tpu
 from utils.utils import interpolator as intp
 
 import toml
@@ -454,7 +460,7 @@ class Core:
             alpha = kwargs['alpha']
             model_scale = kwargs['model_scale']
             angle = kwargs['angle']
-            mods = kwargs['mods']
+            # mods = kwargs['mods']
             self.logger.info(f'Запрос огибающих параметры = {" ".join(list(model_scale))} '
                              f'альфа = {alpha} угол = {angle.rjust(2, "0")} из буфера')
 
@@ -599,7 +605,7 @@ class Core:
     def get_summary_coefficients_statistics(self, db, **kwargs):
         mods = kwargs['mods']
 
-        accuracy_values = 3
+        accuracy_values = 2
         statistics = []
 
         data = dict()
@@ -619,14 +625,16 @@ class Core:
             'rms': lambda d: rms(d).round(accuracy_values),
             'rach': lambda d: rach(d).round(accuracy_values),
             'obesP': lambda d: obes_p(d).round(accuracy_values),
-            'obesM': lambda d: obes_m(d).round(accuracy_values)}
+            'obesM': lambda d: obes_m(d).round(accuracy_values)
+        }
 
         for name in data.keys():
             statistics_name = []
             statistics_name.append(name.capitalize())
 
             for mode in mods:
-                statistics_name.append(functions[mode](data[name]))
+                temp_val = functions[mode](data[name])
+                statistics_name.append(int(temp_val) if temp_val.is_integer() else f'{temp_val:.2f}')
 
             statistics.append(statistics_name)
 
@@ -711,7 +719,7 @@ class Core:
     def report(self, pressure_plot_parameters, content, **kwargs):
         t1 = time.time()
         db = kwargs['db']
-
+        del kwargs['db']
         model_size = kwargs['model_size']
         breadth, depth, height = model_size
 
@@ -739,7 +747,7 @@ class Core:
             'min': 'минимальных',
         }
 
-        angle_border = 10
+        # angle_border = 10
 
         current_path = os.getcwd()
 
@@ -751,80 +759,79 @@ class Core:
 
         generate_directory_for_report(current_path, name_report)
 
-        # # Только эти графики используют координаты
-        # if any((content['isofieldsCoefficients'][0],
-        #         # content['pressureTapLocations'][0] if db == 'isolated' else None,
-        #         content['pseudocolorCoefficients'][0],
-        #         content['isofieldsPressure'][0],
-        #         content['summaryCoefficients'][0],
-        #         content['statisticsSensors'][0],
-        #         content['statisticsSummaryCoefficients'][0],
-        #         content['summarySpectres'][0])):
-        #     self.clipboard_obj.get_coordinates(db=db, **kwargs)
-        #     args = [(db, {'angle': angle}, kwargs) for angle in range(0, angle_border, 5)]
-        #
-        #     with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
-        #         executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(i[0], **i[1], **i[2]), args)
-        #
-        # # Отрисовка графиков
-        # self.logger.info(f'Отрисовка графиков')
-        # # isofieldsPressure
-        # if content['isofieldsPressure'][0]:
-        #     mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
-        #                               content['isofieldsPressure'][1][k]]
-        #     self.draw_isofields_pressure(db, **kwargs, mods=mods_isofieldsPressure,
-        #                                  pressure_plot_parameters=pressure_plot_parameters)
-        #     self.logger.info(f'isofieldsPressure')
-        #
-        # # isofieldsCoefficients
-        # if content['isofieldsCoefficients'][0]:
-        #     mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
-        #                                   content['isofieldsCoefficients'][1][k]]
-        #     self.draw_isofields_coefficients(db, **kwargs, mods=mods_isofieldsCoefficients)
-        #     self.logger.info(f'isofieldsCoefficients')
-        #
-        # # pseudocolorCoefficients
-        # if content['pseudocolorCoefficients'][0] and db == 'isolated':
-        #     mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
-        #                                     content['pseudocolorCoefficients'][1][k]]
-        #     self.draw_pseudocolor_coefficients(alpha=kwargs['alpha'], model_size=kwargs['model_size'],
-        #                                        angle_border=kwargs['angle_border'], path_report=kwargs['path_report'],
-        #                                        mods=mods_pseudocolorCoefficients)
-        #     self.logger.info(f'pseudocolorCoefficients')
-        # # envelopes
-        # if content['envelopes'][0]:
-        #     mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
-        #     self.draw_envelopes(db, **kwargs, mods=mods_envelopes)
-        #     self.logger.info(f'envelopes')
-        #
-        # # polarSummaryCoefficients
-        # if content['polarSummaryCoefficients'][0]:
-        #     mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
-        #                                      content['polarSummaryCoefficients'][1][k]]
-        #     self.draw_summary_coefficients_polar(db, **kwargs, mods=mods_polarSummaryCoefficients)
-        #     self.logger.info(f'polarSummaryCoefficients')
-        #
-        # # summaryCoefficients
-        # if content['summaryCoefficients'][0]:
-        #     mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
-        #                                 content['summaryCoefficients'][1][k]]
-        #     self.draw_summary_coefficients(db, **kwargs, mods=mods_summaryCoefficients)
-        #     self.logger.info(f'summaryCoefficients')
-        #
-        # # summarySpectres
-        # if content['summarySpectres'][0]:
-        #     mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
-        #     self.draw_welch_graphs(db, **kwargs, mods=mods_summarySpectres)
-        #     self.logger.info(f'summarySpectres')
-        #
-        # # pressureTapLocations
-        # # if db == 'isolated' and content['pressureTapLocations'][0]:
-        # self.draw_plot_pressure_tap_locations(db, model_size=model_size, alpha=alpha, path_report=path_report)
-        # self.logger.info(f'pressureTapLocations')
-        #
-        # if db == 'isolated':
-        #     self.draw_plot_model_3d(model_size, path_report)
-        #     self.draw_model_polar(model_size, path_report)
+        # Только эти графики используют координаты
+        if any((content['isofieldsCoefficients'][0],
+                # content['pressureTapLocations'][0] if db == 'isolated' else None,
+                content['pseudocolorCoefficients'][0],
+                content['isofieldsPressure'][0],
+                content['summaryCoefficients'][0],
+                content['statisticsSensors'][0],
+                # content['statisticsSummaryCoefficients'][0],
+                content['summarySpectres'][0])):
+            self.clipboard_obj.get_coordinates(db=db, **kwargs)
+            args = [(db, {'angle': angle}, kwargs) for angle in range(0, angle_border, 5)]
+
+            with ThreadPoolExecutor(max_workers=Core._count_threads) as executor:
+                executor.map(lambda i: self.clipboard_obj.get_pressure_coefficients(i[0], **i[1], **i[2]), args)
+
+        # Отрисовка графиков
+        self.logger.info(f'Отрисовка графиков')
+        # isofieldsPressure
+        if content['isofieldsPressure'][0]:
+            mods_isofieldsPressure = [k for k in content['isofieldsPressure'][1].keys() if
+                                      content['isofieldsPressure'][1][k]]
+            self.draw_isofields_pressure(db, **kwargs, mods=mods_isofieldsPressure,
+                                         pressure_plot_parameters=pressure_plot_parameters)
+            self.logger.info(f'isofieldsPressure')
+
+        # isofieldsCoefficients
+        if content['isofieldsCoefficients'][0]:
+            mods_isofieldsCoefficients = [k for k in content['isofieldsCoefficients'][1].keys() if
+                                          content['isofieldsCoefficients'][1][k]]
+            self.draw_isofields_coefficients(db, **kwargs, mods=mods_isofieldsCoefficients)
+            self.logger.info(f'isofieldsCoefficients')
+
+        # pseudocolorCoefficients
+        if content['pseudocolorCoefficients'][0] and db == 'isolated':
+            mods_pseudocolorCoefficients = [k for k in content['pseudocolorCoefficients'][1].keys() if
+                                            content['pseudocolorCoefficients'][1][k]]
+            self.draw_pseudocolor_coefficients(alpha=kwargs['alpha'], model_size=kwargs['model_size'],
+                                               angle_border=kwargs['angle_border'], path_report=kwargs['path_report'],
+                                               mods=mods_pseudocolorCoefficients)
+            self.logger.info(f'pseudocolorCoefficients')
+        # envelopes
+        if content['envelopes'][0]:
+            mods_envelopes = [k for k in content['envelopes'][1].keys() if content['envelopes'][1][k]]
+            self.draw_envelopes(db, **kwargs, mods=mods_envelopes)
+            self.logger.info(f'envelopes')
+
+        # polarSummaryCoefficients
+        if content['polarSummaryCoefficients'][0]:
+            mods_polarSummaryCoefficients = [k for k in content['polarSummaryCoefficients'][1].keys() if
+                                             content['polarSummaryCoefficients'][1][k]]
+            self.draw_summary_coefficients_polar(db, **kwargs, mods=mods_polarSummaryCoefficients)
+            self.logger.info(f'polarSummaryCoefficients')
+
+        # summaryCoefficients
+        if content['summaryCoefficients'][0]:
+            mods_summaryCoefficients = [k for k in content['summaryCoefficients'][1].keys() if
+                                        content['summaryCoefficients'][1][k]]
+            self.draw_summary_coefficients(db, **kwargs, mods=mods_summaryCoefficients)
+            self.logger.info(f'summaryCoefficients')
+
+        # summarySpectres
+        if content['summarySpectres'][0]:
+            mods_summarySpectres = [k for k in content['summarySpectres'][1].keys() if content['summarySpectres'][1][k]]
+            self.draw_welch_graphs(db, **kwargs, mods=mods_summarySpectres)
+            self.logger.info(f'summarySpectres')
+
+        # pressureTapLocations
+        # if db == 'isolated' and content['pressureTapLocations'][0]:
+        self.draw_plot_pressure_tap_locations(db, model_size=model_size, alpha=alpha, path_report=path_report)
+        self.logger.info(f'pressureTapLocations')
+        if db == 'isolated':
+            self.draw_plot_model_3d(model_size, path_report)
+            self.draw_model_polar(model_size, path_report)
 
         self.logger.info(f'Отрисовка графиков все')
 
@@ -872,9 +879,19 @@ class Core:
         #         [cmz ...],
         #     ],
         # ]
-        if content['statisticsSummaryCoefficients'][0]:
-            mods_statisticsSummaryCoefficients = [k for k in content['statisticsSummaryCoefficients'][1].keys()
-                                                  if content['statisticsSummaryCoefficients'][1][k]]
+        if content['summaryCoefficients'][0]:
+            # mods_statisticsSummaryCoefficients = [k for k in content['summaryCoefficients'][1].keys()
+            #                                       if content['summaryCoefficients'][1][k]]
+
+            mods_statisticsSummaryCoefficients = ['max',
+                                                  'mean',
+                                                  'min',
+                                                  'std',
+                                                  'rms',
+                                                  'rach',
+                                                  'obesP',
+                                                  'obesM',
+                                                  ]
 
             args = [(db, {'mods': mods_statisticsSummaryCoefficients, 'angle': angle}, kwargs) for angle in
                     range(0, angle_border, 5)]
@@ -901,6 +918,7 @@ class Core:
         # Шрифт заголовков разного уровня
         head_lvl1 = Pt(20)
         head_lvl2 = Pt(16)
+        head_lvl3 = Pt(16)
 
         counter_plots = 1  # Счетчик графиков для нумерации
         counter_tables = 1  # Счетчик таблиц для нумерации
@@ -931,8 +949,12 @@ class Core:
             run = p.add_run()
             run.add_picture(f'{path_report}\\Модель\\Модель трехмерная.png', width=fig_width / 2)
             run.add_picture(f'{path_report}\\Модель\\Модель в полярной системе.png', width=fig_width / 2)
-            run.add_text(f'Рисунок {counter_plots}. '
-                         f'Геометрические размеры и система координат направления ветровых потоков')
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            p = doc.add_paragraph(f'Рисунок {counter_plots}. '
+                                  f'Геометрические размеры и система координат направления ветровых потоков')
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
             counter_plots += 1
 
         self.logger.info('1. Геометрические размеры здания')
@@ -963,6 +985,39 @@ class Core:
             row_cells = table_model.add_row().cells
             row_cells[0].text = j
             row_cells[1].text = str(i)
+        doc.add_page_break()
+
+        # Создание содержания
+        p = doc.add_paragraph()
+        run = p.add_run('Содержание')
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run.font.size = head_lvl1
+        run.bold = True
+
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+        fldChar = OxmlElement('w:fldChar')  # creates a new element
+        fldChar.set(qn('w:fldCharType'), 'begin')  # sets attribute on element
+        instrText = OxmlElement('w:instrText')
+        instrText.set(qn('xml:space'), 'preserve')  # sets attribute on element
+        instrText.text = 'TOC \\o "1-3" \\h \\z \\u'  # change 1-3 depending on heading levels you need
+
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'separate')
+        fldChar3 = OxmlElement('w:t')
+        fldChar3.text = "Right-click to update field."
+        fldChar2.append(fldChar3)
+
+        fldChar4 = OxmlElement('w:fldChar')
+        fldChar4.set(qn('w:fldCharType'), 'end')
+
+        r_element = run._r
+        r_element.append(fldChar)
+        r_element.append(instrText)
+        r_element.append(fldChar2)
+        r_element.append(fldChar4)
+
+        doc.add_page_break()
 
         # if content['pressureTapLocations'][0]:
         p = doc.add_paragraph()
@@ -1009,23 +1064,31 @@ class Core:
             run.font.size = head_lvl1
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        counter_head += 1
-
         self.logger.info('3.1 Изополя аэродинамических коэффициентов')
-        counter_head_lvl2 = 0.1
+        counter_head_lvl2 = 0
         if content['isofieldsCoefficients'][0]:
+            counter_head_lvl2 += 1
             head = doc.add_heading(level=2)
-            run = head.add_run(f'{counter_head + counter_head_lvl2} Изополя аэродинамических коэффициентов')
+            run = head.add_run(f'{counter_head}.{counter_head_lvl2}. Изополя аэродинамических коэффициентов')
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run.font.size = head_lvl2
 
-            counter_head_lvl2 += 0.1
+            counter_head_lvl3 = 0
+
             path_temp = 'Изополя ветровых нагрузок и воздействий'
             for mode in os.listdir(f'{path_report}\\{path_temp}\\Коэффициенты'):
+                counter_head_lvl3 += 1
+                head = doc.add_heading(level=3)
+                run = head.add_run(
+                    f'{counter_head}.{counter_head_lvl2}.{counter_head_lvl3}. Изополя {mode_names[mode]} аэродинамических коэффициентов')
+                head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run.font.size = head_lvl3
+
                 for i2 in os.listdir(f'{path_report}\\{path_temp}\\Коэффициенты\\{mode}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(f'{path_report}\\{path_temp}\\Коэффициенты\\{mode}\\{i2}', height=fig_height)
+                    run.add_picture(f'{path_report}\\{path_temp}\\Коэффициенты\\{mode}\\{i2}',
+                                    height=fig_height - Mm(10))
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
 
@@ -1044,18 +1107,28 @@ class Core:
             doc.add_page_break()
         self.logger.info('3.2 Изополя давления')
         if content['isofieldsPressure'][0]:
+            counter_head_lvl2 += 1
+
             head = doc.add_heading(level=2)
-            run = head.add_run(f'{counter_head + counter_head_lvl2}. Изополя давления')
+            run = head.add_run(f'{counter_head}.{counter_head_lvl2}. Изополя давления')
             head.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run.font.size = head_lvl2
 
-            counter_head_lvl2 += 0.1
+            counter_head_lvl3 = 0
+
             path_temp = 'Изополя ветровых нагрузок и воздействий'
             for mode in os.listdir(f'{path_report}\\{path_temp}\\Давление'):
+                counter_head_lvl3 += 1
+                head = doc.add_heading(level=3)
+                run = head.add_run(
+                    f'{counter_head}.{counter_head_lvl2}.{counter_head_lvl3}. Изополя {mode_names[mode]} давлений')
+                head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run.font.size = head_lvl3
+
                 for i2 in os.listdir(f'{path_report}\\{path_temp}\\Давление\\{mode}'):
                     p = doc.add_paragraph()
                     run = p.add_run()
-                    run.add_picture(f'{path_report}\\{path_temp}\\Давление\\{mode}\\{i2}', height=fig_height)
+                    run.add_picture(f'{path_report}\\{path_temp}\\Давление\\{mode}\\{i2}', height=fig_height - Mm(10))
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     counter_plots += 1
 
@@ -1073,6 +1146,8 @@ class Core:
 
             if counter_page_break != 0:
                 doc.add_page_break()
+
+        counter_head += 1
 
         self.logger.info('4. Статистика по датчикам в табличном виде')
 
@@ -1094,6 +1169,7 @@ class Core:
                     f'\nТаблица {counter_tables}. Аэродинамический коэффициент в датчиках для '
                     f'здания {breadth}x{depth}x{height} угол {angle:02}º')
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
                 counter_tables += 1
 
                 table_sensors = doc.add_table(rows=1, cols=len(header_sensors))
@@ -1113,6 +1189,7 @@ class Core:
                         if i == 0:
                             cells[i].text = str(int(value))
                         else:
+                            value = int(value) if value.is_integer() else f'{value:.2f}'
                             cells[i].text = str(value)
 
                         cells[i].paragraphs[0].runs[0].font.size = Pt(12)
@@ -1130,30 +1207,34 @@ class Core:
 
             counter_head += 1
             path_temp = 'Суммарные аэродинамические коэффициенты'
-            for mode in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат'):
-                for i2 in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат\\{mode}'):
-                    p = doc.add_paragraph()
-                    run = p.add_run()
-                    run.add_picture(f'{path_report}\\{path_temp}\\Декартовая система координат\\{mode}\\{i2}')
-                    run.add_text(f'Рисунок {counter_plots}. {i2[:-4]}')
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    counter_plots += 1
-
-        if content['statisticsSummaryCoefficients'][0]:
-            head = doc.add_heading()
-            run = head.add_run(f'{counter_head}. Статистика суммарных аэродинамических коэффициентов')
-            run.font.size = head_lvl1
-            head.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-            counter_head += 1
 
             header_sum = ['Сила']
             header_sum.extend([id_to_name[mode] for mode in mods_statisticsSummaryCoefficients])
 
-            for angle in range(0, angle_border, 5):
+            for angle in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат'):
+                for i2 in os.listdir(f'{path_report}\\{path_temp}\\Декартовая система координат\\{angle}'):
+                    p = doc.add_paragraph()
+                    run = p.add_run()
+                    run.add_picture(f'{path_report}\\{path_temp}\\Декартовая система координат\\{angle}\\{i2}',
+                                    height=fig_height)
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    counter_plots += 1
+
+                    p = doc.add_paragraph(f'Рисунок {counter_plots}. {i2[:-4]}')
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                angle = int(angle)
                 table = doc.add_table(rows=1, cols=len(header_sum))
                 table.style = 'Table Grid'
                 head_cells = table.rows[0].cells
+
+                p = doc.add_paragraph(
+                    f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
+                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                counter_tables += 1
+
                 for i, name in enumerate(header_sum):
                     p = head_cells[i].paragraphs[0]
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1168,13 +1249,46 @@ class Core:
                         cells[i].text = str(value)
 
                         cells[i].paragraphs[0].runs[0].font.size = Pt(12)
-                doc.add_paragraph().add_run(
-                    f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
-                    f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
-                counter_tables += 1
 
             del statistics_summary_coefficients
             doc.add_page_break()
+
+        # if content['statisticsSummaryCoefficients'][0]:
+        #     head = doc.add_heading()
+        #     run = head.add_run(f'{counter_head}. Статистика суммарных аэродинамических коэффициентов')
+        #     run.font.size = head_lvl1
+        #     head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        #
+        #     counter_head += 1
+        #
+        #     header_sum = ['Сила']
+        #     header_sum.extend([id_to_name[mode] for mode in mods_statisticsSummaryCoefficients])
+        #
+        #     for angle in range(0, angle_border, 5):
+        #         table = doc.add_table(rows=1, cols=len(header_sum))
+        #         table.style = 'Table Grid'
+        #         head_cells = table.rows[0].cells
+        #         for i, name in enumerate(header_sum):
+        #             p = head_cells[i].paragraphs[0]
+        #             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        #
+        #             cell = p.add_run(name)
+        #             cell.bold = True
+        #             cell.font.size = Pt(8)
+        #
+        #         for row in statistics_summary_coefficients[angle // 5]:
+        #             cells = table.add_row().cells
+        #             for i, value in enumerate(row):
+        #                 cells[i].text = str(value)
+        #
+        #                 cells[i].paragraphs[0].runs[0].font.size = Pt(12)
+        #         doc.add_paragraph().add_run(
+        #             f'Таблица {counter_tables}. Суммарные аэродинамические коэффициенты '
+        #             f'для здания {breadth}x{depth}x{height} угол {angle:02}º')
+        #         counter_tables += 1
+        #
+        #     del statistics_summary_coefficients
+        #     doc.add_page_break()
 
         if content['polarSummaryCoefficients'][0]:
             head = doc.add_heading()
@@ -1188,8 +1302,11 @@ class Core:
                 p = doc.add_paragraph()
                 run = p.add_run()
                 run.add_picture(f'{path_report}\\{path_temp}\\Полярная система координат\\{mode}')
-                run.add_text(f'Рисунок {counter_plots}. {mode[:-4]}')
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                p = doc.add_paragraph(f'Рисунок {counter_plots}. {mode[:-4]}')
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
                 counter_plots += 1
                 doc.add_page_break()
 
@@ -1207,9 +1324,13 @@ class Core:
                 p = doc.add_paragraph()
                 run = p.add_run()
                 run.add_picture(f'{path_report}\\{path_temp}\\Логарифмическая шкала\\{mode}')
-                run.add_text(f'Рисунок {counter_plots}. {mode[:-4]}')
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                p = doc.add_paragraph(f'Рисунок {counter_plots}. {mode[:-4]}')
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
                 counter_plots += 1
+
             doc.add_page_break()
 
         if db == 'isolated':
@@ -1223,12 +1344,282 @@ class Core:
         self.logger.info(f'{time.time() - t1} Затраченное время на создание отчета')
 
     # Интегрирование по высоте
-    def height_integration(self, db, **kwargs):
+    def height_integration_cx_cy_cmz_to_csv(self, db, **kwargs):
         COUNT_DOTS = 100
         model_size = kwargs['model_size']
-        pressure_plot_parameters = kwargs['pressure_plot_parameters']
-        step = kwargs['step']
-        faces = kwargs['faces']
+        angle = kwargs['angle']
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        model_name = model_scale
+
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
+
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                # print(mx13[0][row_i])
+                # print(pr[0][row_i])
+                # print(squares_faces[0][row_i])
+                # print(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i])
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        figs = []
+
+        ox = np.linspace(0, 32.768, 32768)
+        #
+        # cmz1 = np.array(cx)
+        #
+        # cmz1 = np.sum(cmz1, axis=0)/count_row
+        # num_fig = f'Суммарные коэффициенты {123} {123}'
+        # fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+        #
+        # ax.grid()
+        # ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        # ax.set_xlabel('Время, с', labelpad=.3)
+        #
+        # ax.set_xlim(0, 32.768)
+        #
+        # ax.plot(ox, cmz1, label=f'CMZ')
+        #
+        # ax.legend(loc='upper right', fontsize=9)
+        # ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        # ax.set_xlabel('Время, с', labelpad=.3)
+        #
+        # figs.append(fig)
+        # fig.savefig(f'Интегрирование\\{num_fig}CMZ SUM', bbox_inches='tight')
+        #
+        # plt.close(fig)
+
+        # from openpyxl import Workbook, load_workbook
+        # from openpyxl.styles import Alignment
+
+        # workbook = Workbook()
+        # sheet = workbook.active
+        # accuracy_values = 2
+        #
+        # functions = {
+        #     'max': lambda d: np.max(d, axis=0).round(accuracy_values),
+        #     'mean': lambda d: np.mean(d, axis=0).round(accuracy_values),
+        #     'min': lambda d: np.min(d, axis=0).round(accuracy_values),
+        #     'std': lambda d: np.std(d, axis=0).round(accuracy_values),
+        #     'rms': lambda d: rms(d).round(accuracy_values),
+        #     'rach': lambda d: rach(d).round(accuracy_values),
+        #     'obesP': lambda d: obes_p(d).round(accuracy_values),
+        #     'obesM': lambda d: obes_m(d).round(accuracy_values)
+        # }
+        #
+        # mods = list(functions.keys())
+        # head = ['этаж'] + mods
+        #
+
+        import pandas as pd
+
+        for i in range(count_row):
+            n_arr = np.array([ox.round(5),
+                              np.array(cx[i]).round(5),
+                              np.array(cy[i]).round(5),
+                              np.array(cmz[i]).round(5)
+                              ]).T
+
+            df1 = pd.DataFrame(n_arr)
+
+            df1.to_csv(f'Интегрирование\\cx_cy_cmz_115_0_{count_row - i}.csv', index=False, header=False, sep=',')
+
+        # for data, name in zip((cx, cy, cmz), ('CX', 'CY', 'CMZ')):
+        #     # sheet.append([name])
+        #     # sheet.append(head)
+        #     for i, val in enumerate(data):
+        # #         data = [count_row - i]
+        # #         for mode in mods:
+        # #             temp_val = functions[mode](val)
+        # #             data.append(int(temp_val) if temp_val.is_integer() else f'{temp_val:.2f}')
+        # #         sheet.append(data)
+        # #
+        # # workbook.save(filename=f'D:\Projects\WindSpectrum\Интегрирование\Статистика {model_name}.xlsx')
+        # # workbook.close()
+        #
+        #
+        #
+        #
+        #         num_fig = f'Суммарные коэффициенты {name} {count_row - i}'
+        #         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+        #
+        #         ax.grid()
+        #         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        #         ax.set_xlabel('Время, с', labelpad=.3)
+        #
+        #         ax.set_xlim(0, 32.768)
+        #
+        #         ax.plot(ox, val, label=f'{name} {count_row - i}')
+        #
+        #         ax.legend(loc='upper right', fontsize=9)
+        #         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        #         ax.set_xlabel('Время, с', labelpad=.3)
+        #
+        #         figs.append(fig)
+        #         fig.savefig(f'Интегрирование\\{num_fig}', bbox_inches='tight')
+        #
+        #         plt.close(fig)
+
+        # CX = np.array(cx)
+        # CY = np.array(cy)
+        #
+        # CX = np.mean(cx, axis=0)
+        #
+        # fig, ax = plt.subplots(dpi=Plot.dpi, num='sfgniksdbgfkjdfs', clear=True)
+        #
+        # ax.grid()
+        # ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        # ax.set_xlabel('Время, с', labelpad=.3)
+        #
+        # ax.set_xlim(0, 32.768)
+        #
+        # ax.plot(ox, CX)
+        #
+        # ax.legend(loc='upper right', fontsize=9)
+        # ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        # ax.set_xlabel('Время, с', labelpad=.3)
+
+        return figs
+
+    def height_integration_cx_cy_cmz(self, db, **kwargs):
+        COUNT_DOTS = 50
+        model_size = kwargs['model_size']
+        steps = kwargs['steps']
+        plot = kwargs['plot']
 
         if db == 'isolated':
             alpha = kwargs['alpha']
@@ -1246,8 +1637,181 @@ class Core:
 
         if db == 'isolated':
             breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
-            count_sensors_on_middle = int(model_name[0]) * 5
-            count_sensors_on_side = int(model_name[1]) * 5
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
+            if plot == 'spectre':
+                angle = int(kwargs['angle'])
+                if alpha == '4':
+                    speed_sp = speed_sp_b(height)
+                    speed_tpu = interp_025_tpu(height)
+
+                elif alpha == '6':
+                    speed_sp = speed_sp_a(height)
+                    speed_tpu = interp_016_tpu(height)
+
+                l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+                # print(speed_tpu,l_m)
+                sh = lambda f: f * l_m / speed_tpu
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle_row = 7
+            count_sensors_on_side_row = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        s13 = breadth * height
+        s24 = depth * height
+
+        x, z = np.array(coordinates)
+
+        x = np.reshape(x, (count_row, -1))
+        x = np.split(x, [count_sensors_on_middle_row,
+                         count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                         ], axis=1)
+
+        z = np.reshape(z, (count_row, -1))
+        z = np.split(z, [count_sensors_on_middle_row,
+                         count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                         ], axis=1)
+
+        x_old = [x[i].reshape(1, -1)[0] for i in range(4)]
+        z_old = [z[i].reshape(1, -1)[0] * z_scale_factor for i in range(4)]
+        for face in range(4):
+            # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
+            if face == 1:
+                x_old[face] -= breadth
+                x_old[face] = x_old[face] * y_scale_factor
+
+            elif face == 2:
+                x_old[face] -= (breadth + depth)
+                x_old[face] = x_old[face] * x_scale_factor
+
+            elif face == 3:
+                x_old[face] -= (2 * breadth + depth)
+                x_old[face] = x_old[face] * y_scale_factor
+
+            else:
+                x_old[face] = x_old[face] * x_scale_factor
+
+        x_marks_border = breadth * x_scale_factor
+        y_marks_border = depth * y_scale_factor
+
+        x_dots = [random.uniform(0, x_marks_border) for _ in range(COUNT_DOTS)]
+        y_dots = [random.uniform(0, y_marks_border) for _ in range(COUNT_DOTS)]
+        z_dots = [[random.uniform(step[0], step[1]) for _ in range(COUNT_DOTS)] for step in steps]
+        count_zones = len(steps)
+
+        cx = [[] for _ in range(count_zones)]
+        cy = [[] for _ in range(count_zones)]
+
+        squares_x = []
+        squares_y = []
+
+        for ind in range(count_zones):
+            dz = steps[ind][1] - steps[ind][0]
+            squares_x.append(dz * breadth)
+            squares_y.append(dz * depth)
+
+        for t_ind, coeff in enumerate(pressure_coefficients):
+
+            # if t_ind == 10000:
+            #     break
+            print(t_ind)
+            coeff = np.reshape(coeff, (count_row, -1))
+            coeff = np.split(coeff, [count_sensors_on_middle_row,
+                                     count_sensors_on_middle_row + count_sensors_on_side_row,
+                                     2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                     2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                     ], axis=1)
+
+            faces_x = [[] for _ in range(count_zones)]
+            faces_y = [[] for _ in range(count_zones)]
+
+            for face in range(4):
+                data_old = coeff[face].reshape(1, -1)[0]
+
+                coords = [[i1, j1] for i1, j1 in zip(x_old[face], z_old[face])]  # Старые координаты
+                # Интерполятор полученный на основе имеющихся данных
+                interpolator = intp(coords, data_old)
+
+                if face in [0, 2]:
+                    for ind, dots in enumerate(z_dots):
+                        temp_val = np.mean([float(interpolator([[X, Y]])) for X, Y in zip(x_dots, dots)])
+                        faces_x[ind].append(temp_val)
+                else:
+                    for ind, dots in enumerate(z_dots):
+                        temp_val = np.mean([float(interpolator([[X, Y]])) for X, Y in zip(y_dots, dots)])
+                        faces_y[ind].append(temp_val)
+
+            for ind in range(count_zones):
+                cx[ind].append((faces_x[ind][0] - faces_x[ind][1]))  # * squares_x[ind])
+                cy[ind].append((faces_y[ind][0] - faces_y[ind][1]))  # * squares_y[ind])
+
+        figs = []
+        labels = []
+
+        # ox = np.linspace(0, 32.768, 10000)
+        ox = np.linspace(0, 32.768, 32768)
+
+        for ind in range(count_zones):
+            for data, name in zip((cx[ind], cy[ind]), ('CX', 'CY')):
+
+                num_fig = f'Суммарные коэффициенты {"Sh" if plot == "spectre" else ""} {name} {steps[ind][0]} {steps[ind][1]}'
+                fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+                ax.grid()
+                if plot == 'summary':
+                    ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+                    ax.set_xlabel('Время, с', labelpad=.3)
+                    ax.set_xlim(0, 32.768)
+                    ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+                    ax.plot(ox, data, label=f'{name} {steps[ind][0]} {steps[ind][1]}')
+
+                else:
+                    fs = 1000
+                    counts = 32768
+                    ax.set_xlabel('Sh')
+                    ax.set_ylabel('PSD, V**2/Hz')
+                    ax.set_xlim([10 ** -1, 2])
+                    freq, psd = welch(data, fs=fs, nperseg=int(counts / 5))
+                    ax.plot([sh(f) for f in freq], psd, label=f'{name} {steps[ind][0]} {steps[ind][1]}')
+
+                ax.legend(loc='upper right', fontsize=9)
+
+                figs.append(fig)
+                labels.append(num_fig)
+
+        return figs, labels
+
+    def height_integration_cx_cy_cmz_floors(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        plot = kwargs['plot']
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        model_name = model_scale
+
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
 
         elif db == 'interference':
             height = model_scale / 1000
@@ -1255,12 +1819,1030 @@ class Core:
             count_sensors_on_middle = 7
             count_sensors_on_side = 7
 
-        count_sensors_on_model = len(pressure_coefficients)
+        count_sensors_on_model = len(pressure_coefficients[0])
 
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        if plot == 'spectre':
+            angle = int(kwargs['angle'])
+            if alpha == '4':
+                speed_sp = speed_sp_b(height)
+                speed_tpu = interp_025_tpu(height)
+
+            elif alpha == '6':
+                speed_sp = speed_sp_a(height)
+                speed_tpu = interp_016_tpu(height)
+
+            l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+            # print(speed_tpu,l_m)
+            sh = lambda f: f * l_m / speed_tpu
+
+            return self.plot_integrated_summary_sh(sh, cx, cy, cmz)
+        else:
+            return self.plot_integrated_summary(cx, cy, cmz)
+
+    def get_height_integration_cx_cy_cmz_floors(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        plot = kwargs['plot']
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        model_name = model_scale
+
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
+
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        return cx, cy, cmz
+
+    def height_integration_cx_cy_cmz_floors_to_txt(self, db, **kwargs):
+        # добавить кол во этажей после 6
+        # в высоту добавить -1 в начало, для времени
+
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        uh_speed = np.round(float(self.clipboard_obj.get_uh_average_wind_speed(db, alpha, model_scale)), 3)
+
+        model_name = model_scale
+
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
+
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        z_levels = sorted(set(y), reverse=True)
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        cx = (np.array(list(reversed(cx))) / count_row).round(5)
+        cy = (np.array(list(reversed(cy))) / count_row).round(5)
+        cmz = (np.array(list(reversed(cmz))) / count_row).round(5)
+
+        # fig, ax = plt.subplots(dpi=Plot.dpi, num='snfgkjdsnfkjsdnf', clear=True)
+        # ax.plot(list(range(32768)), np.sum(cx, axis=0))
+
+        angle = int(kwargs['angle'])
+
+        time = np.linspace(0, 32.768, 32768).round(5)
+
+        path = r'D:\Projects\WindSpectrum\Интегрирование'
+        if not os.path.exists(f'{path}\\{model_scale}_{alpha}'):
+            os.mkdir(f'{path}\\{model_scale}_{alpha}')
+        path = f'{path}\\{model_scale}_{alpha}'
+
+        if alpha == '4':
+            speed_2_3 = np.round(interp_025_real_tpu([height])[0], 3)
+        elif alpha == '6':
+            speed_2_3 = np.round(interp_016_real_tpu([height])[0], 3)
+
+        file_name = f"{path}\\{model_scale}_{alpha}_{angle}.txt"
+        f = open(file_name, 'w')
+        f.close()
+
+        f = open(file_name, 'ab')
+        alpha_temp = '0.25' if alpha == '4' else '0.16'
+        f.write(
+            f'{model_scale} Вариант модели\n{breadth}, {depth}, {height} м размеры модели b d h\n'
+            f'{alpha_temp} альфа\n{angle} угол\n{uh_speed} Uh скорость на высоте H\n'
+            f'{speed_2_3} скорость на высоте 2/3 H\n'
+            f'{count_row} количество этажей\n'.encode())
+
+        temp_name_str = 'time, '
+
+        # for ind in range(1, count_row + 1):
+        #     temp_name_str += f'cx{count_row - ind}, cy{count_row - ind}, cmz{count_row - ind}, '
+
+        for ind in range(1, count_row + 1):
+            temp_name_str += f'cx{ind}, cy{ind}, cmz{ind}, '
+
+        temp_name_str = temp_name_str + 'cxsum, cysum, cmzsum\n'
+        f.write(temp_name_str.encode())
+
+        # enumerate_str = ', '.join(map(str, reversed(range(count_row * 3 + 1 + 3)))) + '\n'
+        enumerate_str = ', '.join(map(str, range(count_row * 3 + 1 + 3))) + '\n'
+        f.write(enumerate_str.encode())
+
+        temp_lvl_str = '-1, '
+        for z in reversed(z_levels):
+            z /= height
+            temp_lvl_str += f'{z}, {z}, {z}, '
+        temp_lvl_str += '1, 1, 1\n'
+
+        # h_str = ', '.join(map(str, map(lambda x: x / height, z_levels))) + '\n'
+        f.write(temp_lvl_str.encode())
+
+        data_to_txt = np.array([time])
+
+        for ind in range(count_row):
+            data_to_txt = np.append(data_to_txt, [cx[ind]], axis=0)
+            data_to_txt = np.append(data_to_txt, [cy[ind]], axis=0)
+            data_to_txt = np.append(data_to_txt, [cmz[ind]], axis=0)
+
+        data_to_txt = np.append(data_to_txt, [np.sum(cx, axis=0).round(5)], axis=0)
+        data_to_txt = np.append(data_to_txt, [np.sum(cy, axis=0).round(5)], axis=0)
+        data_to_txt = np.append(data_to_txt, [np.sum(cmz, axis=0).round(5)], axis=0)
+
+        np.savetxt(f, data_to_txt.T, newline="\n", delimiter=',', fmt='%.5f')
+
+        f.close()
+
+    def height_integration_cx_cy_cmz_floors_to_txt_inr(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        case = kwargs['case']
+
+        model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+
+        model_name = model_scale
+
+        height = model_scale / 1000
+        breadth, depth = 0.07, 0.07
+        count_sensors_on_middle_row = 7
+        count_sensors_on_side_row = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        z_levels = sorted(set(y), reverse=True)
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        cx = (np.array(list(reversed(cx))) / count_row).round(5)
+        cy = (np.array(list(reversed(cy))) / count_row).round(5)
+        cmz = (np.array(list(reversed(cmz))) / count_row).round(5)
+
+        # fig, ax = plt.subplots(dpi=Plot.dpi, num='snfgkjdsnfkjsdnf', clear=True)
+        # ax.plot(list(range(32768)), np.sum(cx, axis=0))
+
+        angle = int(kwargs['angle'])
+
+        time = np.linspace(0, 7.5, 5858).round(5)
+
+        path = r'D:\Projects\WindSpectrum\Интегрирование'
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        path = os.path.join(path, 'Интерференция')
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        path = os.path.join(path, f'{model_scale}_{case}')
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        file_name = f"{path}\\{model_scale}_{case}_{angle}.txt"
+        f = open(file_name, 'w')
+        f.close()
+
+        f = open(file_name, 'ab')
+        f.write(
+            f'{model_scale} Вариант модели\n{breadth}, {depth}, {height} м размеры модели b d h\n'
+            f'{angle} угол\n8.2 Uh средняя скорость на высоте H\n'
+            f'{count_row} количество этажей\n'.encode())
+
+        temp_name_str = 'time, '
+
+        for ind in range(1, count_row + 1):
+            temp_name_str += f'cx{ind}, cy{ind}, cmz{ind}, '
+
+        temp_name_str = temp_name_str + 'cxsum, cysum, cmzsum\n'
+        f.write(temp_name_str.encode())
+
+        enumerate_str = ', '.join(map(str, range(count_row * 3 + 1 + 3))) + '\n'
+        f.write(enumerate_str.encode())
+
+        temp_lvl_str = '-1, '
+        for z in reversed(z_levels):
+            z /= height
+            z = np.round(z, 3)
+            temp_lvl_str += f'{z}, {z}, {z}, '
+        temp_lvl_str += '1, 1, 1\n'
+
+        # h_str = ', '.join(map(str, map(lambda x: x / height, z_levels))) + '\n'
+        f.write(temp_lvl_str.encode())
+
+        data_to_txt = np.array([time])
+
+        for ind in range(count_row):
+            data_to_txt = np.append(data_to_txt, [cx[ind]], axis=0)
+            data_to_txt = np.append(data_to_txt, [cy[ind]], axis=0)
+            data_to_txt = np.append(data_to_txt, [cmz[ind]], axis=0)
+
+        data_to_txt = np.append(data_to_txt, [np.sum(cx, axis=0).round(5)], axis=0)
+        data_to_txt = np.append(data_to_txt, [np.sum(cy, axis=0).round(5)], axis=0)
+        data_to_txt = np.append(data_to_txt, [np.sum(cmz, axis=0).round(5)], axis=0)
+
+        np.savetxt(f, data_to_txt.T, newline="\n", delimiter=',', fmt='%.5f')
+
+        f.close()
+
+    def plot_integrated_summary(self, *data_in):
+        figs = []
+        labels = []
+        count_row = len(data_in[0])
+        ox = np.linspace(0, 32.768, 32768)
+
+        for data, name in zip(data_in, ('CX', 'CY', 'CMZ')):
+            for i, val in enumerate(data):
+                num_fig = f'Суммарные коэффициенты {name} {count_row - i}'
+                fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+                ax.grid()
+
+                ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+                ax.set_xlabel('Время, с', labelpad=.3)
+                ax.set_xlim(0, 32.768)
+                ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+                ax.plot(ox, val, label=f'{name} {count_row - i}')
+
+                ax.legend(loc='upper right', fontsize=9)
+
+                figs.append(fig)
+                labels.append(num_fig)
+
+        return figs, labels
+
+    def plot_integrated_summary_sh(self, sh, *data_in):
+        figs = []
+        labels = []
+        count_row = len(data_in[0])
+
+        fs = 1000
+        counts = 32768
+
+        for data, name in zip(data_in, ('CX', 'CY', 'CMZ')):
+            for i, val in enumerate(data):
+                num_fig = f'Суммарные коэффициенты Sh {name} {count_row - i}'
+                fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+                ax.grid()
+
+                ax.set_xlabel('Sh')
+                ax.set_ylabel('PSD, V**2/Hz')
+                ax.set_xlim([10 ** -1, 2])
+                freq, psd = welch(val, fs=fs, nperseg=int(counts / 5))
+
+                ax.plot([sh(f) for f in freq], psd, label=f'{name} {count_row - i}')
+
+                ax.legend(loc='upper right', fontsize=9)
+
+                figs.append(fig)
+                labels.append(num_fig)
+
+        return figs, labels
+
+    def sh_floors(self, db='isolated', **kwargs):
+        COUNT_DOTS = 100
+        model_size = kwargs['model_size']
+        angle = int(kwargs['angle'])
+
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        model_name = model_scale
+
+        if db == 'isolated':
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle_row = int(model_name[0]) * 5
+            count_sensors_on_side_row = int(model_name[1]) * 5
+
+            if alpha == '4':
+                speed_sp = speed_sp_b(height)
+                speed_tpu = interp_025_tpu(height)
+
+            elif alpha == '6':
+                speed_sp = speed_sp_a(height)
+                speed_tpu = interp_016_tpu(height)
+
+            l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
+            # print(speed_tpu,l_m)
+            sh = lambda f: f * l_m / speed_tpu
+            # sh = lambda f: f * l_m / speed_sp
+
+        elif db == 'interference':
+            height = model_scale / 1000
+            breadth, depth = 0.07, 0.07
+            count_sensors_on_middle = 7
+            count_sensors_on_side = 7
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+
+        # центры граней
+        mid13_x = breadth / 2
+        mid24_x = depth / 2
+
+        x1 = coordinates[0]
+        x1 = np.reshape(x1, (count_row, -1))
+        x1 = np.split(x1, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
+
+        v2 = breadth
+        v3 = breadth + depth
+        v4 = 2 * breadth + depth
+        x1[1] -= v2
+        x1[2] -= v3
+        x1[3] -= v4
+
+        # mx плечи для каждого сенсора
+        mx13 = np.array([
+            x1[0] - mid13_x,
+            x1[2] - mid13_x,
+        ])
+
+        mx24 = np.array([
+            x1[1] - mid24_x,
+            x1[3] - mid24_x,
+        ])
+
+        # Площадь
+        s13 = breadth * height
+        s24 = depth * height
+
+        x = coordinates[0]
+        x = np.reshape(x, (-1, count_sensors_on_row))
+        x = np.append(x, [[2 * (breadth + depth)] for _ in range(len(x))], axis=1)
+        x = np.insert(x, 0, 0, axis=1)
+
+        y = coordinates[1]
+        y = [height for _ in range(count_sensors_on_row)] + y
+        y = np.reshape(y, (-1, count_sensors_on_row))
+        y = np.append(y, [[0] for _ in range(count_sensors_on_row)])
+        y = np.reshape(y, (-1, count_sensors_on_row))
+
+        squares = []
+        for y_i in range(count_row):
+            for x_i in range(count_sensors_on_row):
+                y_t = y[y_i][x_i]
+                y_m = y[y_i + 1][x_i]
+                y_b = y[y_i + 2][x_i]
+                if y_i == 0:
+                    dy = y_t - y_m + (y_m - y_b) / 2
+                elif y_i == count_row - 1:
+                    dy = (y_t - y_m) / 2 + y_m - y_b
+                else:
+                    dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+                x_l = x[y_i][x_i]
+                x_m = x[y_i][x_i + 1]
+                x_r = x[y_i][x_i + 2]
+
+                if x_i == 0:
+                    dx = x_m - x_l + (x_r - x_m) / 2
+                elif x_i == count_sensors_on_row - 1:
+                    dx = (x_m - x_l) / 2 + x_r - x_m
+                else:
+                    dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+                squares.append(dy * dx)
+        squares_faces = np.reshape(squares, (count_row, -1))
+        squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                 ], axis=1)
+
+        cx = [
+            [] for _ in range(count_row)
+        ]
+        cy = [
+            [] for _ in range(count_row)
+        ]
+        cmz = [
+            [] for _ in range(count_row)
+        ]
+        for pr in pressure_coefficients:
+            pr = np.reshape(pr, (count_row, -1))
+            pr = np.split(pr, [count_sensors_on_middle_row,
+                               count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                               2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                               ], axis=1)
+
+            for row_i in range(count_row):
+                faces_x = []
+                faces_y = []
+                for face in range(4):
+                    if face in [0, 2]:
+                        faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                    else:
+                        faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
+
+                cx[row_i].append(faces_x[0] - faces_x[1])
+                cy[row_i].append(faces_y[0] - faces_y[1])
+
+                t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+                t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+                t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+                t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+                cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+        figs = []
+
+        ox = np.linspace(0, 32.768, 32768)
+        fs = 1000
+        counts = 32768
+
+        for data, name in zip((cx, cy, cmz), ('CX', 'CY', 'CMZ')):
+            for i, val in enumerate(data):
+                num_fig = f'Суммарные коэффициенты Sh {name} {count_row - i}'
+                fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+
+                ax.grid()
+                ax.set_xlabel('Sh')
+                ax.set_ylabel('PSD, V**2/Hz')
+
+                ax.set_xlim([10 ** -1, 2])
+
+                freq, psd = welch(val, fs=fs, nperseg=int(counts / 5))
+                ax.plot([sh(f) for f in freq], psd, label=f'{name} {count_row - i}')
+
+                # ax.plot(ox, val, label=f'{name} {count_row - i}')
+
+                ax.legend(loc='upper right', fontsize=9)
+
+                figs.append(fig)
+                fig.savefig(f'Спектры\\{num_fig}', bbox_inches='tight')
+
+                plt.close(fig)
+
+        return figs
+
+    def get_coeff_for_melbourne(self, db, **kwargs):
+        model_size = kwargs['model_size']
+        mode = kwargs['mode']
+
+        angle = kwargs['angle']
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        elif db == 'interference':
+            model_scale, scale_factors = get_model_and_scale_factors_interference(*model_size)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients(db, model_name=model_scale, **kwargs)
+        coordinates = self.clipboard_obj.get_coordinates(db, model_scale=model_scale, **kwargs)
+        model_name = model_scale
+        # Виды изополей
+        mods = {
+            'mean': lambda coefficients: np.mean(coefficients, axis=0),
+            'rms': lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
+            'std': lambda coefficients: np.std(coefficients, axis=0),
+            'max': lambda coefficients: np.max(coefficients, axis=0),
+            'min': lambda coefficients: np.min(coefficients, axis=0),
+        }
+
+        size_x, size_y, size_z = map(float, model_size)
+        x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
+
+        pressure_coefficients = mods[mode](pressure_coefficients)
+        if db == 'isolated':
+            alpha = kwargs['alpha']
+            breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+            count_sensors_on_middle = int(model_name[0]) * 5
+            count_sensors_on_side = int(model_name[1]) * 5
+
+        count_sensors_on_model = len(pressure_coefficients)
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
 
         x, z = np.array(coordinates)
 
+        pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
+        pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
+                                                                 count_sensors_on_middle + count_sensors_on_side,
+                                                                 2 * count_sensors_on_middle + count_sensors_on_side,
+                                                                 2 * (count_sensors_on_middle + count_sensors_on_side)
+                                                                 ], axis=1)
         x = np.reshape(x, (count_row, -1))
         x = np.split(x, [count_sensors_on_middle,
                          count_sensors_on_middle + count_sensors_on_side,
@@ -1275,92 +2857,326 @@ class Core:
                          2 * (count_sensors_on_middle + count_sensors_on_side)
                          ], axis=1)
 
-        type_area = pressure_plot_parameters['type_area']
-        wind_region = pressure_plot_parameters['wind_region']
-        alpha_standard = alpha_standards[type_area]
-        k10 = ks10[type_area]
-        wind_pressure = wind_regions[wind_region]
+        del pressure_coefficients[4]
+        del x[4]
+        del z[4]
 
-        PO = 1.225
-        yf = 1.4
-        ks = 1
-        w0 = wind_pressure * 1000
-        u10 = np.sqrt(2 * yf * k10 * w0 / PO)
-        wind_profile = u10 * (ks * size_z / 10) ** alpha_standard
-        coefficient_for_pressure = wind_profile ** 2 * PO / 2
+        # x это тензор со всеми координатами граней по ширине,x1...x4 координаты отдельных граней
+        x1, x2, x3, x4 = list(x[0]), list(x[1]), list(x[2]), list(x[3])
+        # z это тензор со всеми координатами граней по высоте,z1...z4 координаты отдельных граней
+        z1, z2, z3, z4 = list(z[0]), list(z[1]), list(z[2]), list(z[3])
 
-        z_marks = [0]
-        scaled_height = height * z_scale_factor
-        if len(step) == 1:
-            pr = step[0] * 100 / size_z
-            step_m = scaled_height * pr / 100
-            z_marks = np.append(np.arange(0, height * z_scale_factor, step_m), scaled_height)
-        else:
-            for s in step:
-                pr = s * 100 / size_z
-                step_m = scaled_height * pr / 100
-                z_marks.append(step_m)
+        # Расширение матрицы координат по бокам
+        for i in range(len(x1)):
+            x1[i] = np.append(np.insert(x1[i], 0, 0), breadth)
+            x2[i] = np.append(np.insert(x2[i], 0, breadth), breadth + depth)
+            x3[i] = np.append(np.insert(x3[i], 0, breadth + depth), 2 * breadth + depth)
+            x4[i] = np.append(np.insert(x4[i], 0, 2 * breadth + depth), 2 * (breadth + depth))
 
-            z_marks.append(scaled_height)
-        l_z_marks = len(z_marks)
+        x1.append(x1[0])
+        x2.append(x2[0])
+        x3.append(x3[0])
+        x4.append(x4[0])
 
-        x_marks_border = breadth * x_scale_factor
-        y_marks_border = depth * y_scale_factor
+        x1.insert(0, x1[0])
+        x2.insert(0, x2[0])
+        x3.insert(0, x3[0])
+        x4.insert(0, x4[0])
 
-        x_dots = None
-        y_dots = None
-        z_dots = []
-        pressure_coefficients = np.reshape(pressure_coefficients, (count_row, -1))
-        pressure_coefficients = np.split(pressure_coefficients, [count_sensors_on_middle,
-                                                                 count_sensors_on_middle + count_sensors_on_side,
-                                                                 2 * count_sensors_on_middle + count_sensors_on_side,
-                                                                 2 * (count_sensors_on_middle + count_sensors_on_side)
-                                                                 ], axis=1)
+        # Расширение матрицы координат по бокам
+        for i in range(len(z1)):
+            z1[i] = np.append(np.insert(z1[i], 0, z1[i][0]), z1[i][0])
+            z2[i] = np.append(np.insert(z2[i], 0, z2[i][0]), z2[i][0])
+            z3[i] = np.append(np.insert(z3[i], 0, z3[i][0]), z3[i][0])
+            z4[i] = np.append(np.insert(z4[i], 0, z4[i][0]), z4[i][0])
 
-        for i in [f - 1 for f in faces]:
+        z1.append(np.array([0 for _ in range(len(z1[0]))]))
+        z2.append(np.array([0 for _ in range(len(z2[0]))]))
+        z3.append(np.array([0 for _ in range(len(z3[0]))]))
+        z4.append(np.array([0 for _ in range(len(z4[0]))]))
+
+        z1.insert(0, np.array([height for _ in range(len(z1[0]))]))
+        z2.insert(0, np.array([height for _ in range(len(z2[0]))]))
+        z3.insert(0, np.array([height for _ in range(len(z3[0]))]))
+        z4.insert(0, np.array([height for _ in range(len(z4[0]))]))
+
+        # Расширенные координаты для изополей
+        z_extended = [np.array(z1), np.array(z2), np.array(z3), np.array(z4)]
+        x_extended = [np.array(x1), np.array(x2), np.array(x3), np.array(x4)]
+
+        x_new_list = []
+        z_new_list = []
+
+        x_old_list = []
+        z_old_list = []
+
+        data_new_list = []
+
+        ft = 0.3048
+
+        x_melbourne_meters = np.array([15, 45, 75, 105, 135]) * ft
+        y_melbourne_meters = np.array([10, 30, 50, 70, 90]) * ft
+        z_2_3 = [size_z * 2 / 3 for _ in range(5)]
+        data_new_out = []
+        for i in range(4):
+            x_new = x_extended[i].reshape(1, -1)[0]
             x_old = x[i].reshape(1, -1)[0]
+
+            z_new = z_extended[i].reshape(1, -1)[0]
             z_old = z[i].reshape(1, -1)[0]
             # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
             if i == 1:
                 x_old -= breadth
+                x_new -= breadth
             elif i == 2:
                 x_old -= (breadth + depth)
+                x_new -= (breadth + depth)
             elif i == 3:
                 x_old -= (2 * breadth + depth)
+                x_new -= (2 * breadth + depth)
 
+            # Масштабирование координат
+            z_new = z_new * z_scale_factor
             z_old = z_old * z_scale_factor
-            if i in [0, 2]:
-                x_old = x_old * x_scale_factor
-                if not x_dots:
-                    x_dots = [random.uniform(0, x_marks_border) for _ in range(COUNT_DOTS)]
-            else:
-                x_old = x_old * y_scale_factor
-                if not y_dots:
-                    y_dots = [random.uniform(0, y_marks_border) for _ in range(COUNT_DOTS)]
 
-            if not z_dots:
-                for b1 in range(l_z_marks - 1):
-                    z_dots.append([random.uniform(z_marks[b1], z_marks[b1 + 1]) for _ in range(COUNT_DOTS)])
+            if i in [0, 2]:
+                x_new = x_new * x_scale_factor
+                x_old = x_old * x_scale_factor
+
+            else:
+                x_new = x_new * y_scale_factor
+                x_old = x_old * y_scale_factor
 
             data_old = pressure_coefficients[i].reshape(1, -1)[0]
-            data_old = [coefficient_for_pressure * coefficient for coefficient in data_old]
 
+            # data_old_integer.append(data_old)
             coords = [[i1, j1] for i1, j1 in zip(x_old, z_old)]  # Старые координаты
             # Интерполятор полученный на основе имеющихся данных
             interpolator = intp(coords, data_old)
-
-            data_new = []
-            if i in [0, 2]:
-                for dots in z_dots:
-                    data_new.append(np.mean([float(interpolator([[X, Y]])) for X, Y in zip(x_dots, dots)]))
+            if i in (0, 2):
+                data_new = [float(interpolator([[X, Y]])) for X, Y in zip(x_melbourne_meters, z_2_3)]
             else:
-                for dots in z_dots:
-                    data_new.append(np.mean([float(interpolator([[X, Y]])) for X, Y in zip(y_dots, dots)]))
+                data_new = [float(interpolator([[X, Y]])) for X, Y in zip(y_melbourne_meters, z_2_3)]
 
-            print(data_new, 'face', i + 1)
+            data_new_out.append(list(reversed(data_new)))
+            # data_new_out += data_new
 
-    def create_word_isolated(self):
-        pass
+        return data_new_out
+
+    def FEA(self, **kwargs):
+        steps = kwargs['steps']
+        model_size = kwargs['model_size']
+        angle = kwargs['angle']
+        alpha = kwargs['alpha']
+
+        COUNT_DOTS_X = 5
+        COUNT_DOTS_Y = 5
+        COUNT_DOTS_Z = 25
+
+        model_scale, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+
+        pressure_coefficients = self.clipboard_obj.get_pressure_coefficients('isolated', alpha=alpha,
+                                                                             model_name=model_scale,
+                                                                             angle=angle)
+        coordinates = self.clipboard_obj.get_coordinates('isolated', alpha=alpha,
+                                                         model_scale=model_scale,
+                                                         angle=angle)
+        model_name = model_scale
+
+        size_x, size_y, size_z = map(float, model_size)
+        x_scale_factor, y_scale_factor, z_scale_factor = scale_factors
+
+        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
+        count_sensors_on_middle_row = int(model_name[0]) * 5
+        count_sensors_on_side_row = int(model_name[1]) * 5
+
+        count_sensors_on_model = len(pressure_coefficients[0])
+
+        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+        count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+        s13 = breadth * height
+        s24 = depth * height
+
+        x, z = np.array(coordinates)
+
+        x = np.reshape(x, (count_row, -1))
+        x = np.split(x, [count_sensors_on_middle_row,
+                         count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                         ], axis=1)
+
+        z = np.reshape(z, (count_row, -1))
+        z = np.split(z, [count_sensors_on_middle_row,
+                         count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                         2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                         ], axis=1)
+
+        x_old = [x[i].reshape(1, -1)[0] for i in range(4)]
+        z_old = [z[i].reshape(1, -1)[0] * z_scale_factor for i in range(4)]
+        for face in range(4):
+            # Вычитаем чтобы все координаты по x находились в интервале [0, 1]
+            if face == 1:
+                x_old[face] -= breadth
+                x_old[face] = x_old[face] * y_scale_factor
+
+            elif face == 2:
+                x_old[face] -= (breadth + depth)
+                x_old[face] = x_old[face] * x_scale_factor
+
+            elif face == 3:
+                x_old[face] -= (2 * breadth + depth)
+                x_old[face] = x_old[face] * y_scale_factor
+
+            else:
+                x_old[face] = x_old[face] * x_scale_factor
+
+        temp_l_x = np.linspace(0, size_x, COUNT_DOTS_X)
+        temp_l_y = np.linspace(0, size_y, COUNT_DOTS_Y)
+
+        temp_l_z = [np.linspace(step[0], step[1], COUNT_DOTS_Z) for step in steps]
+
+        temp_x_d, _ = np.meshgrid(temp_l_x, temp_l_z[0])
+        temp_y_d, _ = np.meshgrid(temp_l_y, temp_l_z[0])
+
+        zx_dots = [np.meshgrid(temp_l_x, temp_l_z[i])[1].ravel() for i in range(len(steps))]
+        zy_dots = [np.meshgrid(temp_l_y, temp_l_z[i])[1].ravel() for i in range(len(steps))]
+
+        x_dots = temp_x_d.ravel()
+        y_dots = temp_y_d.ravel()
+
+        count_zones = len(steps)
+
+        cx = [[] for _ in range(count_zones)]
+        cy = [[] for _ in range(count_zones)]
+        cmz = [[] for _ in range(count_zones)]
+
+        # снизу вверх
+        list_dz = [step[1] - step[0] for step in steps]
+
+        squares_x_face = [i * size_x for i in list_dz]
+        squares_y_face = [i * size_y for i in list_dz]
+
+        count_dots_x = COUNT_DOTS_X * COUNT_DOTS_Z
+        count_dots_y = COUNT_DOTS_Y * COUNT_DOTS_Z
+
+        # снизу вверх
+        squares_x_dot = [i / count_dots_x for i in squares_x_face]
+        squares_y_dot = [i / count_dots_y for i in squares_y_face]
+
+
+        angle = int(angle)
+        shirina = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+        # центры граней
+        mid13_x = size_x / 2
+        mid24_x = size_y / 2
+        TEST = 5
+
+        for t_ind, coeff in enumerate(pressure_coefficients):
+
+            # if t_ind == TEST:
+            #     break
+            print(t_ind)
+            coeff = np.reshape(coeff, (count_row, -1))
+            coeff = np.split(coeff, [count_sensors_on_middle_row,
+                                     count_sensors_on_middle_row + count_sensors_on_side_row,
+                                     2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                     2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                     ], axis=1)
+
+            faces_x = [[] for _ in range(count_zones)]
+            faces_y = [[] for _ in range(count_zones)]
+            faces_cmz = [[] for _ in range(count_zones)]
+
+            for face in range(4):
+                data_old = coeff[face].reshape(1, -1)[0]
+
+                coords = [[i1, j1] for i1, j1 in zip(x_old[face], z_old[face])]
+                # Интерполятор полученный на основе имеющихся данных
+                interpolator = intp(coords, data_old)
+
+                if face in [0, 2]:
+                    for ind, dots in enumerate(zx_dots):
+                        int_dots = np.array([float(interpolator([[X, Y]])) for X, Y in zip(x_dots, dots)])
+                        cmz_dot = np.sum(
+                            int_dots * np.array([X - mid13_x for X in x_dots]) * squares_x_dot[- ind - 1]) / (
+                                          squares_x_face[-ind - 1] * shirina)
+                        temp_val = np.sum(int_dots)
+                        faces_x[ind].append(temp_val * squares_x_dot[- ind - 1])
+                        faces_cmz[ind].append(cmz_dot)
+                else:
+                    for ind, dots in enumerate(zy_dots):
+                        int_dots = np.array([float(interpolator([[X, Y]])) for X, Y in zip(y_dots, dots)])
+                        cmz_dot = np.sum(
+                            int_dots * np.array([X - mid24_x for X in y_dots]) * squares_y_dot[- ind - 1]) / (
+                                          squares_y_face[-ind - 1] * shirina)
+                        temp_val = np.sum(int_dots)
+                        faces_y[ind].append(temp_val * squares_y_dot[- ind - 1])
+                        faces_cmz[ind].append(cmz_dot)
+
+            for ind in range(count_zones):
+                cx[ind].append((faces_x[ind][0] - faces_x[ind][1]))
+                cy[ind].append((faces_y[ind][0] - faces_y[ind][1]))
+                cmz[ind].append(sum(faces_cmz[ind]))
+
+        # figs = []
+        # labels = []
+        #
+        # ox = np.linspace(0, 32.768, TEST)
+        # # ox = np.linspace(0, 32.768, 32768)
+        #
+        # for ind in range(count_zones):
+        #     for data, name in zip((cx[ind], cy[ind], cmz[ind]), ('CX', 'CY', 'CMz')):
+        #         num_fig = f'Суммарные коэффициенты {name} {steps[ind][0]} {steps[ind][1]}'
+        #         fig, ax = plt.subplots(dpi=Plot.dpi, num=num_fig, clear=True)
+        #
+        #         ax.grid()
+        #
+        #         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        #         ax.set_xlabel('Время, с', labelpad=.3)
+        #         ax.set_xlim(0, 32.768)
+        #         ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        #         ax.plot(ox, data, label=f'{name} {steps[ind][0]} {steps[ind][1]}')
+        #
+        #         ax.legend(loc='upper right', fontsize=9)
+        #
+        #         figs.append(fig)
+        #         labels.append(num_fig)
+        #
+        # return figs, labels
+
+        po = 1.225
+        v = 10
+
+        shirina = np.cos(np.deg2rad(angle)) * size_x + np.sin(np.deg2rad(angle)) * size_y
+        S = 2 * list_dz[0] * (size_x + size_y)
+        # снизу вверх
+        cx = np.array([po * v ** 2 * S * np.array(cx[-t_ind - 1]) / 2 for t_ind, sx in enumerate(squares_x_face)])
+        cy = np.array([po * v ** 2 * S * np.array(cy[-t_ind - 1]) / 2 for t_ind, sy in enumerate(squares_y_face)])
+        cmz = np.array(
+            [po * v ** 2 * S * np.array(cmz[-t_ind - 1]) * shirina / 2 for t_ind, sy in enumerate(squares_y_face)])
+        #ox = np.linspace(0, 32.768, TEST)
+        ox = np.linspace(0, 32.768, 32768)
+
+        e = np.concatenate((cx.T, cy.T, cmz.T), axis=1)
+        file_name = f"FEA {model_scale}_{alpha}_{angle}.txt"
+        f = open(file_name, 'w')
+        f.close()
+        f = open(file_name, 'ab')
+        #np.savetxt(f, e, newline="\n", delimiter=' ', fmt='%.5f')
+        for i in range(len(ox)):
+            ltemp = [ox[i]]
+            for j in range(count_zones):
+                ltemp.append(cx[j][i])
+                ltemp.append(cy[j][i])
+                ltemp.append(cmz[j][i])
+            np.savetxt(f, [ltemp], newline="\n", delimiter=' ', fmt='%.5f')
+        f.close()
+
+
+
 
 
 if __name__ == '__main__':
