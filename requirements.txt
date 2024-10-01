@@ -1,0 +1,18 @@
+# DATA MANIPULATION LIBRARY
+
+numpy
+scipy
+
+# QUERING DATA FROM DB
+
+SQLAlchemy
+psycopg2
+
+# PLOTTING DATA
+
+matplotlib
+
+# UI
+
+# QT6
+pyside6

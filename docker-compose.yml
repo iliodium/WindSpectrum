@@ -1,0 +1,18 @@
+version: '3.0'
+
+services:
+  database_service:
+    image: postgres:16-alpine3.20
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - ws_net
+    # volumes:
+    #   - ./db_init:/docker-entrypoint-initdb.d
+    ports:
+      - ${HOST_MACHINE_DB_PORT}:5432
+
+networks:
+  ws_net:
