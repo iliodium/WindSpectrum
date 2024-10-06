@@ -1,8 +1,16 @@
+from typing import Annotated
+
+from pydantic import (Field,
+                      validate_call,)
+
+from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
 
 
-def get_view_permutation_data(type_base: TypeOfBasement, angle: int) -> PermutationView:
+@validate_call
+def get_view_permutation_data(type_base: TypeOfBasement,
+                              angle: AngleType) -> PermutationView:
     """Определяет порядок данных для перестановки.
     reverse = нужно перевернуть [1, 2, 3] -> [3, 2, 1]
     forward = не нужно перевернуть [1, 2, 3] -> [1, 2, 3]"""
@@ -19,17 +27,12 @@ def get_view_permutation_data(type_base: TypeOfBasement, angle: int) -> Permutat
         else:
             return PermutationView.FORWARD
 
-    else:
-        raise ValueError('type_base must be TypeOfBasement.SQUARE or TypeOfBasement.RECTANGLE')
 
-
-def get_sequence_permutation_data(type_base: TypeOfBasement, permutation_view: PermutationView, angle: int):
+@validate_call
+def get_sequence_permutation_data(type_base: TypeOfBasement,
+                                  permutation_view: PermutationView,
+                                  angle: Annotated[AngleType, Field(ge=0, lt=360)]):
     """Определяет как менять расстановку датчиков"""
-
-    assert isinstance(type_base, TypeOfBasement), 'type_base must be TypeOfBasement'
-    assert isinstance(permutation_view, PermutationView), 'permutation_view must be PermutationView'
-    assert isinstance(angle, int), 'angle must be int'
-    assert 0 <= angle < 360
 
     if type_base == TypeOfBasement.SQUARE:
         if permutation_view == PermutationView.REVERSE:
@@ -56,8 +59,7 @@ def get_sequence_permutation_data(type_base: TypeOfBasement, permutation_view: P
             else:
                 raise ValueError('angle must be in one of the following ranges: 0 <= angle <= 45,'
                                  ' 90 <= angle <= 135, 180 <= angle <= 225, 270 <= angle <= 315')
-        else:
-            raise ValueError('permutation_view must be PermutationView.FORWARD or PermutationView.REVERSE')
+
     elif type_base == TypeOfBasement.RECTANGLE:
         if permutation_view == PermutationView.REVERSE:
             if 90 < angle < 180:
@@ -75,7 +77,3 @@ def get_sequence_permutation_data(type_base: TypeOfBasement, permutation_view: P
             else:
                 raise ValueError('angle must be in one of the following ranges: 0 <= angle <= 90,'
                                  ' 180 <= angle <= 270')
-        else:
-            raise ValueError('permutation_view must be PermutationView.FORWARD or PermutationView.REVERSE')
-    else:
-        raise ValueError('type_base must be TypeOfBasement.SQUARE or TypeOfBasement.RECTANGLE')

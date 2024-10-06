@@ -3,6 +3,11 @@
 numpy
 scipy
 
+# DATA VALIDATION
+
+pydantic==2.9.2
+pydantic-async-validation==0.2.0
+
 # QUERING DATA FROM DB
 
 SQLAlchemy

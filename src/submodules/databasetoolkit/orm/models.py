@@ -1,6 +1,13 @@
-from sqlalchemy import ARRAY, Column, Float, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, SmallInteger, Table
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-from sqlalchemy.orm.base import Mapped
+from sqlalchemy import (ARRAY,
+                        Column,
+                        Float,
+                        ForeignKeyConstraint,
+                        Integer,
+                        PrimaryKeyConstraint,
+                        SmallInteger,
+                        Table,)
+from sqlalchemy.orm import (declarative_base,
+                            mapped_column,)
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -53,7 +60,6 @@ t_models_alpha_4 = Table(
     Column('pressure_coefficients', ARRAY(SmallInteger()), nullable=False),
     ForeignKeyConstraint(['model_id'], ['experiments_alpha_4.model_id'], name='fk_e99481390edf4b0e87ccab2040fcde48')
 )
-
 
 t_models_alpha_6 = Table(
     'models_alpha_6', metadata,
