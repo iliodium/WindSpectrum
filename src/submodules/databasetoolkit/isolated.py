@@ -10,7 +10,7 @@ from src.common.annotation import (AlphaType, AngleOrNoneType,
                                    ExperimentIdType, FaceOrNoneType,
 ModelNameIsolatedType,
 PositionXOrNoneType,
-                                   PositionXType,
+PositionXType,
                                    PositionYOrNoneType,
                                    PositionYType,
                                    check_type_engine,)
