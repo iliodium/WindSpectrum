@@ -1,0 +1,29 @@
+name: import_linter    # название скрипта: будет отображаться во вкладке Actions
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.12
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .github/workflows/import_linter/requirements.txt
+      - name: Run import linter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .github/workflows/import_linter/requirements.txt
