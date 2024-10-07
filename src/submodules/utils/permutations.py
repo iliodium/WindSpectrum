@@ -2,7 +2,6 @@ from typing import Annotated
 
 from pydantic import (Field,
                       validate_call,)
-
 from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement

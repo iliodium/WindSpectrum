@@ -2,7 +2,6 @@ import asyncio
 
 from pydantic import validate_call
 from sqlalchemy import Engine
-
 from src.common.annotation import (AlphaType,
                                    AngleOrNoneType,
                                    ExperimentIdType,

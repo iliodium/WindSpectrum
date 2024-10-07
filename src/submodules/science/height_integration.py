@@ -3,7 +3,6 @@ import io
 
 import numpy as np
 from pydantic import validate_call
-
 from src.common import DbType
 from src.common.annotation import (AlphaType,
                                    AngleType,
@@ -256,7 +255,6 @@ if __name__ == "__main__":
     from sqlalchemy import (create_engine,
                             select,)
     from sqlalchemy.orm import Session
-
     from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                            ExperimentsAlpha6,)
 

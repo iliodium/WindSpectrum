@@ -5,7 +5,6 @@ from typing import Union
 
 import numpy as np
 from pydantic import validate_call
-
 from src.common.annotation import (AlphaStandardsType,
                                    Ks10Type,
                                    WindRegionsType,)

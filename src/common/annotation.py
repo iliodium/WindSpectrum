@@ -5,7 +5,6 @@ from typing import (Annotated,
 
 from pydantic import Field
 from sqlalchemy.engine.base import Engine
-
 from src.common.constants import (alpha_standards,
                                   ks10,
                                   wind_regions,)
