@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.common.annotation import (AlphaType, AngleOrNoneType,
                                    ExperimentIdType, FaceOrNoneType,
 ModelNameIsolatedType,
-                                   PositionXOrNoneType,
+PositionXOrNoneType,
                                    PositionXType,
                                    PositionYOrNoneType,
                                    PositionYType,
