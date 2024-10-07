@@ -1,15 +1,13 @@
-import dataclasses
-from typing import Sequence
+from typing import (Any,
+                    Sequence, )
 
 import numpy
 from pydantic import validate_call
-from sqlalchemy import (Engine,
-                        Table,
-                        select,)
+from pydantic.dataclasses import dataclass
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.common.annotation import (AlphaType,
-                                   AngleOrNoneType,
+from src.common.annotation import (AlphaType, AngleOrNoneType,
                                    ExperimentIdType,
                                    FaceOrNoneType,
                                    ModelNameIsolatedType,
@@ -17,12 +15,12 @@ from src.common.annotation import (AlphaType,
                                    PositionXType,
                                    PositionYOrNoneType,
                                    PositionYType,
-                                   check_type_engine,)
+                                   check_type_engine, )
 from src.common.FaceType import FaceType
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
-                                                       t_models_alpha_6,)
+                                                       t_models_alpha_6, )
 
 __SENSOR_VALUES_DISCARD = 1000
 
@@ -52,7 +50,8 @@ async def find_experiment_by_model_name(
 async def load_experiment_by_id(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,
-        _engine) -> ExperimentsAlpha4 | ExperimentsAlpha6 | None:
+        _engine
+) -> ExperimentsAlpha4 | ExperimentsAlpha6 | None:
     check_type_engine(_engine)
 
     models_type = ExperimentsAlpha4 if alpha == 4 else ExperimentsAlpha6
@@ -62,8 +61,8 @@ async def load_experiment_by_id(
     return _m
 
 
-@dataclasses.dataclass(slots=True)
-class ExperimentsList(object):
+@dataclass(slots=True)
+class ExperimentsList:
     __alpha_4: Sequence[ExperimentsAlpha4]
     __alpha_6: Sequence[ExperimentsAlpha6]
 
@@ -85,16 +84,18 @@ async def list_experiments(_engine) -> ExperimentsList:
     return ExperimentsList(result4, result6)
 
 
-@dataclasses.dataclass(slots=True)
-class __FilterPressureCoefficients(object):
+@dataclass(slots=True)
+class __FilterPressureCoefficients:
     __experiment_id: ExperimentIdType
-    __engine: Engine
+    __engine: Any
     __alpha: AlphaType
-    __face_number: int | FaceType
+    __face_number: FaceType
     __position_x: PositionXType
     __position_y: PositionYType
 
-    def __call__(self, *args, **kwargs) -> numpy.ndarray:
+    def __call__(self, *args,
+                 **kwargs
+                 ) -> numpy.ndarray:
         if len(args) != 1 or len(kwargs) != 0:
             raise NotImplementedError(f"Unexpected args: {args} kwargs: {kwargs}")
 
@@ -103,41 +104,27 @@ class __FilterPressureCoefficients(object):
         if not isinstance(value, numpy.ndarray):
             raise NotImplementedError(f"Unexpected value: {value}. Should be numpy.ndarray")
 
-        if isinstance(self.__alpha, str):
-            assert self.__alpha.isnumeric(), "alpha must be numeric"
-            effective_alpha = int(self.__alpha)
-        else:
-            effective_alpha = self.__alpha
-
-        effective_fn = None
-
-        if self.__face_number is not None:
-            if isinstance(self.__face_number, int):
-                effective_fn = self.__face_number
-            elif isinstance(self.__face_number, FaceType):
-                effective_fn = self.__face_number.value
+        effective_fn = self.__face_number.value
 
         experiment_description: ExperimentsAlpha4 | ExperimentsAlpha6
 
-        if effective_alpha == 4:
-            stmt = select(ExperimentsAlpha4).where(ExperimentsAlpha4.model_id == self.__experiment_id)
+        match self.__alpha:
+            case 4:
+                stmt = select(ExperimentsAlpha4).where(ExperimentsAlpha4.model_id == self.__experiment_id)
 
-            with Session(self.__engine) as session:
-                experiment_description: ExperimentsAlpha4 = session.scalars(stmt).first()
+                with Session(self.__engine) as session:
+                    experiment_description: ExperimentsAlpha4 = session.scalars(stmt).first()
 
-            if experiment_description is None:
-                raise ValueError(f"Experiment with id {self.__experiment_id} not found")
+                if experiment_description is None:
+                    raise ValueError(f"Experiment with id {self.__experiment_id} not found")
+            case 6:
+                stmt = select(ExperimentsAlpha6).where(ExperimentsAlpha6.model_id == self.__experiment_id)
 
-        elif effective_alpha == 6:
-            stmt = select(ExperimentsAlpha6).where(ExperimentsAlpha6.model_id == self.__experiment_id)
+                with Session(self.__engine) as session:
+                    experiment_description: ExperimentsAlpha6 = session.scalars(stmt).first()
 
-            with Session(self.__engine) as session:
-                experiment_description: ExperimentsAlpha6 = session.scalars(stmt).first()
-
-            if experiment_description is None:
-                raise ValueError(f"Experiment with id {self.__experiment_id} not found")
-        else:
-            raise ValueError(f"Unexpected alpha: {effective_alpha}")
+                if experiment_description is None:
+                    raise ValueError(f"Experiment with id {self.__experiment_id} not found")
 
         fn = numpy.array(experiment_description.face_number)
         positions_x = numpy.array(experiment_description.x_coordinates)
@@ -182,7 +169,8 @@ async def __load_pressure_coefficients_for_type_and_alpha(
         angle: AngleOrNoneType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None) -> dict[int, numpy.ndarray] | None:
+        position_y: PositionYOrNoneType = None
+) -> dict[int, numpy.ndarray] | None:
     stmt = select(models_type).where(models_type.c.model_id == experiment_id)
 
     if angle is not None:
@@ -218,7 +206,8 @@ async def __load_pressure_coefficients_alpha_4(
         angle: AngleOrNoneType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None):
+        position_y: PositionYOrNoneType = None
+):
     return await __load_pressure_coefficients_for_type_and_alpha(
         experiment_id,
         t_models_alpha_4,
@@ -238,7 +227,8 @@ async def load_positions(
         _engine,
         *,
         load_x: bool = True,
-        load_y: bool = True) -> tuple[numpy.ndarray, numpy.ndarray] | numpy.ndarray:
+        load_y: bool = True
+) -> tuple[numpy.ndarray, numpy.ndarray] | numpy.ndarray:
     check_type_engine(_engine)
 
     if not (load_x or load_y):
@@ -281,7 +271,8 @@ async def __load_pressure_coefficients_alpha_6(
         angle: AngleOrNoneType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None):
+        position_y: PositionYOrNoneType = None
+):
     return await __load_pressure_coefficients_for_type_and_alpha(
         experiment_id,
         t_models_alpha_6,
@@ -303,7 +294,8 @@ async def load_pressure_coefficients(
         angle: AngleOrNoneType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None):
+        position_y: PositionYOrNoneType = None
+):
     check_type_engine(_engine)
 
     if alpha == 4:

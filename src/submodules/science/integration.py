@@ -1,13 +1,13 @@
 from functools import (cache,
-                       wraps,)
+                       wraps, )
 from typing import (Tuple,
-                    Union,)
+                    Union, )
 
 import numpy as np
 from pydantic import validate_call
 
 from src.common.annotation import (AngleType,
-                                   ModelNameIsolatedType,)
+                                   ModelNameIsolatedType, )
 from src.common.DbType import DbType
 
 
@@ -45,7 +45,8 @@ def calculate_cmz(_pressure_coefficients,
                   *,
                   _model_name: Union[ModelNameIsolatedType | None] = None,
                   _height: float | None = None,
-                  _db: DbType = DbType.ISOLATED) -> np.ndarray:
+                  _db: DbType = DbType.ISOLATED
+                  ) -> np.ndarray:
     """Вычисление моментов сил CMz"""
     if _db == DbType.ISOLATED:
         breadth, depth, _height = int(_model_name[0]) / 10, int(_model_name[1]) / 10, int(_model_name[2]) / 10
@@ -178,8 +179,8 @@ def calculate_cx_cy(_pressure_coefficients,
                     *,
                     _model_name: Union[ModelNameIsolatedType | None] = None,
                     _height: float | None = None,
-                    _db: DbType = DbType.ISOLATED) -> \
-        Tuple[np.array, np.array]:
+                    _db: DbType = DbType.ISOLATED
+                    ) -> Tuple[np.array, np.array]:
     """Вычисление CX и CY"""
 
     if _db == DbType.ISOLATED:
@@ -278,7 +279,7 @@ if __name__ == "__main__":
     from sqlalchemy import create_engine
 
     from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients,)
+                                                         load_pressure_coefficients, )
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

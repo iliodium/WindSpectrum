@@ -1,18 +1,20 @@
-from typing import (Literal,
+from typing import (Annotated,
+                    Literal,
                     Tuple,
-                    Union, )
+                    Union,)
 
+from pydantic import Field
 from sqlalchemy.engine.base import Engine
 
 from src.common.constants import (alpha_standards,
                                   ks10,
-                                  wind_regions, )
+                                  wind_regions,)
 from src.common.FaceType import FaceType
 
 type AlphaType = Literal[4, 6]
 type ExperimentIdType = int
 
-type AngleType = int
+type AngleType = Annotated[int, Field(ge=0, lt=360)]
 type AngleOrNoneType = Union[AngleType | None]
 
 type PositionXType = float
