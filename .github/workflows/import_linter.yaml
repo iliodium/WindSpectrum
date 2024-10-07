@@ -34,12 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r .github/workflows/import_linter/requirements.txt
       - name: Give permission
-        run: chmod +x .github/workflows/import_linter/import_linter.bat
+        run: chmod +x .github/workflows/import_linter/import_linter.sh
       - name: Run import-linter
         run: | 
-          .github/workflows/import_linter/import_linter.bat ./src/ --settings-path .github/workflows/import_linter/.isort.cfg
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add .  # Добавляем изменения в индекс
-          git commit -m "Format imports using isort" || echo "No changes to commit"  # Коммитим изменения
-          git push  # Пушим изменения обратно в репозитори
+          .github/workflows/import_linter/import_linter.sh ./src/ --settings-path .github/workflows/import_linter/.isort.cfg
