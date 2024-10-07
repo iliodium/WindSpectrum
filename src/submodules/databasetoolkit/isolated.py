@@ -1,24 +1,26 @@
 from typing import (Any,
-                    Sequence,)
+                    Sequence, )
 
 import numpy
 from pydantic import validate_call
 from pydantic.dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from src.common.annotation import (AlphaType, AngleOrNoneType,
-                                   ExperimentIdType, FaceOrNoneType,
-ModelNameIsolatedType,
-PositionXOrNoneType,
-PositionXType,
+from src.common.annotation import (AlphaType,
+                                   AngleOrNoneType,
+ExperimentIdType,
+                                   FaceOrNoneType,
+                                   ModelNameIsolatedType,
+                                   PositionXOrNoneType,
+                                   PositionXType,
                                    PositionYOrNoneType,
                                    PositionYType,
-                                   check_type_engine,)
+                                   check_type_engine, )
 from src.common.FaceType import FaceType
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
-                                                       t_models_alpha_6,)
+                                                       t_models_alpha_6, )
 
 __SENSOR_VALUES_DISCARD = 1000
 
@@ -65,7 +67,9 @@ class ExperimentsList:
     __alpha_6: Sequence[ExperimentsAlpha6]
 
 
-async def list_experiments(_engine) -> ExperimentsList:
+async def list_experiments(
+        _engine
+) -> ExperimentsList:
     check_type_engine(_engine)
 
     with Session(_engine) as session:
@@ -91,9 +95,11 @@ class __FilterPressureCoefficients:
     __position_x: PositionXType
     __position_y: PositionYType
 
-    def __call__(self, *args,
-                 **kwargs
-                 ) -> numpy.ndarray:
+    def __call__(
+            self,
+            *args,
+            **kwargs
+    ) -> numpy.ndarray:
         if len(args) != 1 or len(kwargs) != 0:
             raise NotImplementedError(f"Unexpected args: {args} kwargs: {kwargs}")
 
@@ -153,7 +159,9 @@ class __FilterPressureCoefficients:
         return _res
 
 
-def __identity(el):
+def __identity(
+        el
+):
     return el
 
 

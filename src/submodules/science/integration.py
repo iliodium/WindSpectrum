@@ -1,19 +1,24 @@
 from functools import (cache,
-                       wraps,)
+                       wraps, )
 from typing import (Tuple,
-                    Union,)
+                    Union, )
 
 import numpy as np
 from pydantic import validate_call
 from src.common.annotation import (AngleType,
-                                   ModelNameIsolatedType,)
+                                   ModelNameIsolatedType, )
 from src.common.DbType import DbType
 
 
 # https://stackoverflow.com/questions/52331944/cache-decorator-for-numpy-arrays
-def np_cache(function):
+def np_cache(
+        function
+):
     @cache
-    def cached_wrapper(*args, **kwargs):
+    def cached_wrapper(
+            *args,
+            **kwargs
+    ):
         args = [np.array(a) if isinstance(a, tuple) else a for a in args]
         kwargs = {
             k: np.array(v) if isinstance(v, tuple) else v for k, v in kwargs.items()
@@ -22,7 +27,10 @@ def np_cache(function):
         return function(*args, **kwargs)
 
     @wraps(function)
-    def wrapper(*args, **kwargs):
+    def wrapper(
+            *args,
+            **kwargs
+    ):
         args = [tuple(a) if isinstance(a, np.ndarray) else a for a in args]
         kwargs = {
             k: tuple(v) if isinstance(v, np.ndarray) else v for k, v in kwargs.items()
@@ -38,14 +46,15 @@ def np_cache(function):
 # @lru_cache(maxsize=32, typed=True)
 # @np_cache
 @validate_call
-def calculate_cmz(_pressure_coefficients,
-                  _angle: AngleType,
-                  _coordinates,
-                  *,
-                  _model_name: Union[ModelNameIsolatedType | None] = None,
-                  _height: float | None = None,
-                  _db: DbType = DbType.ISOLATED
-                  ) -> np.ndarray:
+def calculate_cmz(
+        _pressure_coefficients,
+        _angle: AngleType,
+        _coordinates,
+        *,
+        _model_name: Union[ModelNameIsolatedType | None] = None,
+        _height: float | None = None,
+        _db: DbType = DbType.ISOLATED
+) -> np.ndarray:
     """Вычисление моментов сил CMz"""
     if _db == DbType.ISOLATED:
         breadth, depth, _height = int(_model_name[0]) / 10, int(_model_name[1]) / 10, int(_model_name[2]) / 10
@@ -172,14 +181,15 @@ def calculate_cmz(_pressure_coefficients,
 
 # @lru_cache(maxsize=32, typed=True)
 @validate_call
-def calculate_cx_cy(_pressure_coefficients,
-                    _angle: AngleType,
-                    _coordinates,
-                    *,
-                    _model_name: Union[ModelNameIsolatedType | None] = None,
-                    _height: float | None = None,
-                    _db: DbType = DbType.ISOLATED
-                    ) -> Tuple[np.array, np.array]:
+def calculate_cx_cy(
+        _pressure_coefficients,
+        _angle: AngleType,
+        _coordinates,
+        *,
+        _model_name: Union[ModelNameIsolatedType | None] = None,
+        _height: float | None = None,
+        _db: DbType = DbType.ISOLATED
+) -> Tuple[np.array, np.array]:
     """Вычисление CX и CY"""
 
     if _db == DbType.ISOLATED:
@@ -277,7 +287,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients,)
+                                                         load_pressure_coefficients, )
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

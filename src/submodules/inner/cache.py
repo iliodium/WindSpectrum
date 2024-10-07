@@ -2,7 +2,10 @@ import os
 from functools import lru_cache
 
 
-def cache_decorator(*, disabled=os.environ.get("DISABLE_CACHE", False)):
+def cache_decorator(
+        *,
+        disabled=os.environ.get("DISABLE_CACHE", False)
+):
     if isinstance(disabled, str):
         if disabled == '1':
             disabled = True
