@@ -5,4 +5,4 @@ set setting-path=%3
 
 echo Script is running in directory: %cd%
 
-isort %1 %2 %3
+isort src/ --settings-path .github/workflows/import_linter/.isort.cfg
