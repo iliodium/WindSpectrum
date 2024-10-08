@@ -37,6 +37,6 @@ jobs:
         run: |
           git add .  
           git commit -m "import_linter"
-          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:import_linter
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:import_linter
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
