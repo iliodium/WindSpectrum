@@ -32,11 +32,11 @@ jobs:
         run: |
           git config user.name "CI Bot"
           git config user.email "ci-bot@example.com"
-          git remote add origin 'https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git'
+
       - name: Commit and push changes
         run: |
           git add .  
           git commit -m "import_linter"
-          git push origin HEAD:import_linter
+          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git origin HEAD:import_linter
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
