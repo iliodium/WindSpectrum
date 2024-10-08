@@ -1,17 +1,17 @@
 from typing import (Annotated,
                     Literal,
                     Tuple,
-                    Union,)
+                    Union, )
 
 from pydantic import Field
 from sqlalchemy.engine.base import Engine
 from src.common.constants import (alpha_standards,
                                   ks10,
-                                  wind_regions,)
+                                  wind_regions, )
 from src.common.FaceType import FaceType
 
 type AlphaType = Literal[4, 6]
-type ExperimentIdType = int
+type ExperimentIdType = Annotated[int, Field(ge=0)]
 
 type AngleType = Annotated[int, Field(ge=0, lt=360)]
 type AngleOrNoneType = Union[AngleType | None]
@@ -24,7 +24,7 @@ type PositionYOrNoneType = Union[PositionYType, None]
 
 type FaceOrNoneType = Union[FaceType | None]
 
-type ModelSizeType = Tuple[float, float, float]
+type ModelSizeType = tuple[float, float, float]
 type ModelSizeOrNoneType = Union[ModelSizeType | None]
 
 type ModelNameType = str
@@ -53,6 +53,8 @@ type BuildingSizeType = float
 type AlphaStandardsType = Literal[*alpha_standards]
 type Ks10Type = Literal[*ks10]
 type WindRegionsType = Literal[*wind_regions]
+
+type CoordinatesType = Union[tuple[tuple, tuple] | tuple]
 
 
 def check_type_engine(engine):

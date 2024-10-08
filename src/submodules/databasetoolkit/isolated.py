@@ -2,21 +2,20 @@ from typing import (Any,
                     Sequence, )
 
 import numpy
-from pydantic import validate_call
+from pydantic import validate_call, BaseModel, ConfigDict
 from pydantic.dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from src.common.FaceType import FaceType
 from src.common.annotation import (AlphaType,
                                    AngleOrNoneType,
-ExperimentIdType,
+                                   ExperimentIdType,
                                    FaceOrNoneType,
                                    ModelNameIsolatedType,
                                    PositionXOrNoneType,
-                                   PositionXType,
                                    PositionYOrNoneType,
-                                   PositionYType,
-                                   check_type_engine, )
-from src.common.FaceType import FaceType
+                                   check_type_engine, CoordinatesType, )
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
@@ -61,12 +60,16 @@ async def load_experiment_by_id(
     return _m
 
 
-@dataclass(slots=True)
-class ExperimentsList:
-    __alpha_4: Sequence[ExperimentsAlpha4]
-    __alpha_6: Sequence[ExperimentsAlpha6]
+# @dataclass
+class ExperimentsList(BaseModel):
+    # чтобы работали кастомные типы
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    alpha_4: Sequence[ExperimentsAlpha4]
+    alpha_6: Sequence[ExperimentsAlpha6]
 
 
+@validate_call
 async def list_experiments(
         _engine
 ) -> ExperimentsList:
@@ -83,7 +86,7 @@ async def list_experiments(
             .order_by(ExperimentsAlpha6.model_name)
         ).fetchall()
 
-    return ExperimentsList(result4, result6)
+    return ExperimentsList(alpha_4=result4, alpha_6=result6)
 
 
 @dataclass(slots=True)
@@ -91,9 +94,9 @@ class __FilterPressureCoefficients:
     __experiment_id: ExperimentIdType
     __engine: Any
     __alpha: AlphaType
-    __face_number: FaceType
-    __position_x: PositionXType
-    __position_y: PositionYType
+    __face_number: FaceOrNoneType
+    __position_x: PositionXOrNoneType
+    __position_y: PositionYOrNoneType
 
     def __call__(
             self,
@@ -234,7 +237,7 @@ async def load_positions(
         *,
         load_x: bool = True,
         load_y: bool = True
-) -> tuple[numpy.ndarray, numpy.ndarray] | numpy.ndarray:
+) -> CoordinatesType:
     check_type_engine(_engine)
 
     if not (load_x or load_y):
@@ -322,8 +325,6 @@ async def load_pressure_coefficients(
             position_x=position_x,
             position_y=position_y
         )
-    else:
-        raise RuntimeError(f"alpha must be 4 or 6, not {alpha}")
 
 
 if __name__ == "__main__":

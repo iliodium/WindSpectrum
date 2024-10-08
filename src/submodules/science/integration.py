@@ -1,56 +1,19 @@
-from functools import (cache,
-                       wraps, )
 from typing import (Tuple,
                     Union, )
 
 import numpy as np
 from pydantic import validate_call
-from src.common.annotation import (AngleType,
-                                   ModelNameIsolatedType, )
+
 from src.common.DbType import DbType
+from src.common.annotation import (AngleType,
+                                   ModelNameIsolatedType, CoordinatesType, )
 
 
-# https://stackoverflow.com/questions/52331944/cache-decorator-for-numpy-arrays
-def np_cache(
-        function
-):
-    @cache
-    def cached_wrapper(
-            *args,
-            **kwargs
-    ):
-        args = [np.array(a) if isinstance(a, tuple) else a for a in args]
-        kwargs = {
-            k: np.array(v) if isinstance(v, tuple) else v for k, v in kwargs.items()
-        }
-
-        return function(*args, **kwargs)
-
-    @wraps(function)
-    def wrapper(
-            *args,
-            **kwargs
-    ):
-        args = [tuple(a) if isinstance(a, np.ndarray) else a for a in args]
-        kwargs = {
-            k: tuple(v) if isinstance(v, np.ndarray) else v for k, v in kwargs.items()
-        }
-        return cached_wrapper(*args, **kwargs)
-
-    wrapper.cache_info = cached_wrapper.cache_info
-    wrapper.cache_clear = cached_wrapper.cache_clear
-
-    return wrapper
-
-
-# @lru_cache(maxsize=32, typed=True)
-# @np_cache
 @validate_call
 def calculate_cmz(
         _pressure_coefficients,
         _angle: AngleType,
-        _coordinates,
-        *,
+        _coordinates: CoordinatesType,
         _model_name: Union[ModelNameIsolatedType | None] = None,
         _height: float | None = None,
         _db: DbType = DbType.ISOLATED
@@ -77,7 +40,7 @@ def calculate_cmz(
     count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
     shirina = np.cos(np.deg2rad(_angle)) * breadth + np.sin(np.deg2rad(_angle)) * depth
-
+    _coordinates = tuple(list(c) for c in _coordinates)
     x, _ = _coordinates
     x = np.reshape(x, (count_row, -1))
     x = np.split(x, [count_sensors_on_middle_row,
@@ -179,7 +142,6 @@ def calculate_cmz(
     return result
 
 
-# @lru_cache(maxsize=32, typed=True)
 @validate_call
 def calculate_cx_cy(
         _pressure_coefficients,
@@ -288,7 +250,9 @@ if __name__ == "__main__":
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
                                                          load_pressure_coefficients, )
+    import time
 
+    start = time.time()
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
     engine = create_engine("postgresql://postgres:1234@localhost/postgres")
@@ -297,10 +261,9 @@ if __name__ == "__main__":
     experiment_id = 3
     alpha = 4  # or 6
     model_name = '113'  # связано с experiment_id
-    t = asyncio.run(load_pressure_coefficients(experiment_id, alpha, engine, angle=angle))[angle]
 
     v = calculate_cmz(
-        t,
+        asyncio.run(load_pressure_coefficients(experiment_id, alpha, engine, angle=angle))[angle],
         angle,
         asyncio.run(load_positions(experiment_id, alpha, engine)),
         _model_name=model_name
