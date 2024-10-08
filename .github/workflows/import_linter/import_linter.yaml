@@ -38,7 +38,7 @@ jobs:
       - name: Run import-linter
         run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
 
-      - name: Configure Git
+      - name: Configure Git 1
         run: |
           git config user.name "CI Bot"
           git config user.email "ci-bot@example.com"
