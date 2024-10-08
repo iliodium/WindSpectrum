@@ -4,8 +4,8 @@ from typing import (Tuple,
 import numpy as np
 from pydantic import validate_call
 from src.common.annotation import (AngleType,
-                                   CoordinatesType,
-                                   ModelNameIsolatedType,)
+CoordinatesType,
+ModelNameIsolatedType,)
 from src.common.DbType import DbType
 
 
