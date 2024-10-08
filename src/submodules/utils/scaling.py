@@ -1,25 +1,26 @@
 import numpy as np
+from pydantic import validate_call
+from src.common.annotation import (AlphaType,
+                                   BuildingSizeType,)
 
 
-def get_model_and_scale_factors(x: str | float, y: str | float, z: str | float, alpha: int) -> tuple[str, tuple]:
+@validate_call
+def get_model_and_scale_factors(x: BuildingSizeType,
+                                y: BuildingSizeType,
+                                z: BuildingSizeType,
+                                alpha: AlphaType) -> tuple[str, tuple]:
     """
     Функция для расчета модели и коэффициентов масштабирования на основе входных параметров.
 
     Параметры:
-    x (str): Координата x.
-    y (str): Координата y.
-    z (str): Координата z.
-    alpha (str): Значение альфа, которое должно быть '4' или '6'.
+    x : Значение реального здания x.
+    y : Значение реального здания y.
+    z : Значение реального здания z.
+    alpha : Значение альфа.
 
     Возвращает:
     tuple: Кортеж, содержащий модель из базы данных и коэффициенты масштабирования для x, y и z.
     """
-    assert isinstance(x, (int, float)), "x must be int or float"
-    assert isinstance(y, (int, float)), "y must be int or float"
-    assert isinstance(z, (int, float)), "z must be int or float"
-    assert isinstance(alpha, (int)), "alpha must be int"
-    assert alpha in (4, 6), "alpha must be 4 or 6"
-    x, y, z = float(x), float(y), float(z)
     min_size = min(x, y, z)
 
     # Относительный масштаб фигуры
@@ -73,13 +74,17 @@ def get_model_and_scale_factors(x: str | float, y: str | float, z: str | float, 
 
     return model_from_db, scale_factors
 
-
-def get_model_and_scale_factors_interference(x: str | float, y: str | float, z: str | float) -> tuple[str, tuple]:
+@validate_call
+def get_model_and_scale_factors_interference(x: BuildingSizeType,
+                                             y: BuildingSizeType,
+                                             z: BuildingSizeType) -> tuple[int, tuple]:
     """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели"""
-    assert isinstance(x, (int, float)), "x must be int or float"
-    assert isinstance(y, (int, float)), "y must be int or float"
-    assert isinstance(z, (int, float)), "z must be int or float"
-    x, y, z = float(x), float(y), float(z)
+    z_and_model_from_db = {2: 140,
+                           2.8: 196,
+                           4: 280,
+                           6: 420,
+                           8: 560,
+                           }
     min_size = min(x, y, z)
 
     # Относительный масштаб фигуры
@@ -89,7 +94,7 @@ def get_model_and_scale_factors_interference(x: str | float, y: str | float, z: 
 
     y_nearest = 1
 
-    z_from_db = np.array([2, 2.8, 4, 6, 8])
+    z_from_db = np.array([*z_and_model_from_db])
 
     # Расчет коэффициента для Z
     difference_z = np.absolute(z_from_db - z_scale)
@@ -101,12 +106,7 @@ def get_model_and_scale_factors_interference(x: str | float, y: str | float, z: 
     y_scale_factor = y / y_nearest
     z_scale_factor = z / z_nearest
 
-    model_from_db = {float('2'): 140,
-                     float('2.8'): 196,
-                     float('4'): 280,
-                     float('6'): 420,
-                     float('8'): 560,
-                     }[z_nearest]  # Модель из БД
+    model_from_db = z_and_model_from_db[z_nearest]  # Модель из БД
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors

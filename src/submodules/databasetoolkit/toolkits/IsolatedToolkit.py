@@ -1,9 +1,17 @@
 import asyncio
 
+from pydantic import validate_call
 from sqlalchemy import Engine
-
-from src.common.FaceType import FaceType
-from src.submodules.databasetoolkit.isolated import list_experiments, load_pressure_coefficients, load_positions
+from src.common.annotation import (AlphaType,
+                                   AngleOrNoneType,
+                                   ExperimentIdType,
+                                   FaceOrNoneType,
+                                   PositionXOrNoneType,
+                                   PositionYOrNoneType,
+                                   check_type_engine,)
+from src.submodules.databasetoolkit.isolated import (list_experiments,
+                                                     load_positions,
+                                                     load_pressure_coefficients,)
 
 
 class IsolatedToolkit:
@@ -25,7 +33,13 @@ class IsolatedToolkit:
             )
         )
 
-    def list_positions(self, experiment_id: int, alpha: int | str, *, load_x: bool = True, load_y: bool = True):
+    @validate_call
+    def list_positions(self,
+                       experiment_id: ExperimentIdType,
+                       alpha: AlphaType,
+                       *,
+                       load_x: bool = True,
+                       load_y: bool = True):
         return asyncio.run(
             load_positions(
                 experiment_id,
@@ -36,11 +50,16 @@ class IsolatedToolkit:
             )
         )
 
+    @validate_call
     def load_pressure_coefficients(
-            self, experiment_id: int, alpha: int | str, *, angle: int = None,
-            face_number: int | FaceType = None,
-            position_x: int | float = None,
-            position_y: int | float = None
+            self,
+            experiment_id: ExperimentIdType,
+            alpha: AlphaType,
+            *,
+            angle: AngleOrNoneType,
+            face_number: FaceOrNoneType = None,
+            position_x: PositionXOrNoneType = None,
+            position_y: PositionYOrNoneType = None
     ):
         return asyncio.run(
             load_pressure_coefficients(
@@ -63,7 +82,7 @@ class AsyncIsolatedToolkit:
     ]
 
     def __init__(self, engine: Engine):
-        assert isinstance(engine, Engine), "engine must be an instance of sqlalchemy.engine.Engine"
+        check_type_engine(engine)
         # На самом деле эта штука не thread-safe, но мы пока закроем на это глаза
         self.__engine = engine
 
@@ -72,7 +91,13 @@ class AsyncIsolatedToolkit:
             self.__engine
         )
 
-    async def list_positions(self, experiment_id: int, alpha: int | str, *, load_x: bool = True, load_y: bool = True):
+    @validate_call
+    async def list_positions(self,
+                             experiment_id: ExperimentIdType,
+                             alpha: AlphaType,
+                             *,
+                             load_x: bool = True,
+                             load_y: bool = True):
         return load_positions(
             experiment_id,
             alpha,
@@ -81,11 +106,16 @@ class AsyncIsolatedToolkit:
             load_y=load_y
         )
 
+    @validate_call
     async def load_pressure_coefficients(
-            self, experiment_id: int, alpha: int | str, *, angle: int = None,
-            face_number: int | FaceType = None,
-            position_x: int | float = None,
-            position_y: int | float = None
+            self,
+            experiment_id: ExperimentIdType,
+            alpha: AlphaType,
+            *,
+            angle: AngleOrNoneType = None,
+            face_number: FaceOrNoneType = None,
+            position_x: PositionXOrNoneType = None,
+            position_y: PositionYOrNoneType = None
     ):
         return load_pressure_coefficients(
             experiment_id,

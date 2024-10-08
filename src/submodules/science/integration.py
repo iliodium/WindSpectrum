@@ -1,23 +1,25 @@
-from functools import lru_cache
-from typing import Tuple
+from typing import (Tuple,
+                    Union, )
 
 import numpy as np
+from pydantic import validate_call
 
 from src.common.DbType import DbType
+from src.common.annotation import (AngleType,
+                                   ModelNameIsolatedType, CoordinatesType, )
 
 
-@lru_cache(maxsize=32, typed=True)
-def calculate_cmz(_pressure_coefficients: np.ndarray, _angle: int | str, _coordinates,
-                  *, _model_name: str | None = None, _height: float | None = None,
-                  _db: DbType = DbType.ISOLATED) -> np.ndarray:
+@validate_call
+def calculate_cmz(
+        _pressure_coefficients,
+        _angle: AngleType,
+        _coordinates: CoordinatesType,
+        _model_name: Union[ModelNameIsolatedType | None] = None,
+        _height: float | None = None,
+        _db: DbType = DbType.ISOLATED
+) -> np.ndarray:
     """Вычисление моментов сил CMz"""
-    assert isinstance(_db, DbType), 'db must be DbType'
-    assert isinstance(_pressure_coefficients, np.ndarray), 'pressure_coefficients must be np.ndarray'
-    assert isinstance(_angle, (int, str)), 'angle must be int, str'
-
     if _db == DbType.ISOLATED:
-        assert _model_name is not None and isinstance(_model_name, str) and _model_name.isnumeric(), \
-            'model_name must be not None numeric str when db == DbType.ISOLATED'
         breadth, depth, _height = int(_model_name[0]) / 10, int(_model_name[1]) / 10, int(_model_name[2]) / 10
 
         count_sensors_on_model = _pressure_coefficients.shape[1]
@@ -33,19 +35,12 @@ def calculate_cmz(_pressure_coefficients: np.ndarray, _angle: int | str, _coordi
         count_sensors_on_middle_row = 7
         count_sensors_on_side_row = 7
 
-    else:
-        raise ValueError(f"db type should be DbType.Isolated or DbType.Interference, got {_db}")
-
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
     count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
-    if isinstance(_angle, str):
-        assert _angle.isnumeric(), 'angle must be numeric str'
-        _angle = int(_angle)
-
     shirina = np.cos(np.deg2rad(_angle)) * breadth + np.sin(np.deg2rad(_angle)) * depth
-
+    _coordinates = tuple(list(c) for c in _coordinates)
     x, _ = _coordinates
     x = np.reshape(x, (count_row, -1))
     x = np.split(x, [count_sensors_on_middle_row,
@@ -147,18 +142,19 @@ def calculate_cmz(_pressure_coefficients: np.ndarray, _angle: int | str, _coordi
     return result
 
 
-@lru_cache(maxsize=32, typed=True)
-def calculate_cx_cy(_pressure_coefficients: np.ndarray, _angle: int | str, _coordinates,
-                    *, _model_name: str | None = None, _height: float | None = None, _db: DbType = DbType.ISOLATED) -> \
-        Tuple[np.array, np.array]:
+@validate_call
+def calculate_cx_cy(
+        _pressure_coefficients,
+        _angle: AngleType,
+        _coordinates,
+        *,
+        _model_name: Union[ModelNameIsolatedType | None] = None,
+        _height: float | None = None,
+        _db: DbType = DbType.ISOLATED
+) -> Tuple[np.array, np.array]:
     """Вычисление CX и CY"""
-    assert isinstance(_db, DbType), 'db must be DbType'
-    assert isinstance(_pressure_coefficients, np.ndarray), 'pressure_coefficients must be np.ndarray'
-    assert isinstance(_angle, (int, str)), 'angle must be int, str'
 
     if _db == DbType.ISOLATED:
-        assert _model_name is not None and isinstance(_model_name, str) and _model_name.isnumeric(), \
-            'model_name must be not None numeric str when db == DbType.ISOLATED'
         breadth, depth, _height = int(_model_name[0]) / 10, int(_model_name[1]) / 10, int(_model_name[2]) / 10
 
         count_sensors_on_model = _pressure_coefficients.shape[1]
@@ -173,8 +169,6 @@ def calculate_cx_cy(_pressure_coefficients: np.ndarray, _angle: int | str, _coor
         count_sensors_on_model = _pressure_coefficients.shape[1]
         count_sensors_on_middle_row = 7
         count_sensors_on_side_row = 7
-    else:
-        raise ValueError(f'db must be DbType.ISOLATED or DbType.INTERFERENCE, got {_db}')
 
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
     count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
@@ -251,17 +245,22 @@ def calculate_cx_cy(_pressure_coefficients: np.ndarray, _angle: int | str, _coor
 
 if __name__ == "__main__":
     import asyncio
+
     import matplotlib.pyplot as plt
-
     from sqlalchemy import create_engine
-    from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, load_positions
+    from src.submodules.databasetoolkit.isolated import (load_positions,
+                                                         load_pressure_coefficients, )
+    import time
 
-    engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
+    start = time.time()
+    # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
+    # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
+    engine = create_engine("postgresql://postgres:1234@localhost/postgres")
 
     angle = 0
     experiment_id = 3
-    alpha = 4 # or 6
-    model_name = '113' # связано с experiment_id
+    alpha = 4  # or 6
+    model_name = '113'  # связано с experiment_id
 
     v = calculate_cmz(
         asyncio.run(load_pressure_coefficients(experiment_id, alpha, engine, angle=angle))[angle],

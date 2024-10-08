@@ -1,12 +1,17 @@
-from typing import Tuple, List
+from typing import (List,
+                    Tuple,)
 
 import numpy as np
-
+from pydantic import validate_call
+from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
 
 
-def get_base_angle(angle: int, permutation_view: PermutationView, type_base: TypeOfBasement = TypeOfBasement.SQUARE):
+@validate_call
+def get_base_angle(angle: AngleType,
+                   permutation_view: PermutationView,
+                   type_base: TypeOfBasement = TypeOfBasement.SQUARE):
     if permutation_view == PermutationView.REVERSE:
         return 90 * (angle // 90 + 1) - angle
     elif permutation_view == PermutationView.FORWARD:
@@ -20,13 +25,12 @@ def get_base_angle(angle: int, permutation_view: PermutationView, type_base: Typ
         raise ValueError('permutation_view must be one of PermutationView enum')
 
 
+@validate_call
 def changer_sequence_coefficients(coefficients: np.ndarray,
                                   permutation_view: PermutationView,
                                   model_name: str,
                                   sequence_permutation: Tuple[int, int, int, int]):
     """Меняет порядок следования датчиков тем самым генерируя не существующие углы"""
-    assert isinstance(coefficients, np.ndarray), 'coefficients must be np.ndarray'
-    assert isinstance(permutation_view, PermutationView), 'permutation_view must be PermutationView'
     f1, f2, f3, f4 = sequence_permutation
 
     count_sensors_on_middle = int(model_name[0]) * 5
@@ -64,6 +68,7 @@ def changer_sequence_coefficients(coefficients: np.ndarray,
     return coefficients
 
 
+@validate_call
 def changer_sequence_numbers(numbers: List[int],
                              model_name: str,
                              sequence_permutation: Tuple[int, int, int, int]):
@@ -89,14 +94,18 @@ def changer_sequence_numbers(numbers: List[int],
 
 
 if __name__ == "__main__":
-    from sqlalchemy import create_engine
-    from src.submodules.databasetoolkit.isolated import load_pressure_coefficients
     import asyncio
 
-    engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
+    from sqlalchemy import create_engine
+    from src.submodules.databasetoolkit.isolated import (
+        load_pressure_coefficients,)
 
+    # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
+    # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
+    engine = create_engine("postgresql://postgres:1234@localhost/postgres")
     res = asyncio.run(
-        load_pressure_coefficients(5, 6, engine, angle=0))
+        load_pressure_coefficients(5, 6, engine, angle=0, )
+    )
 
     pressure_coefficients = res[0]
 

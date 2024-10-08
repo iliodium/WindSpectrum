@@ -8,8 +8,7 @@ import sys
 import uuid
 
 import numpy as np
-from sqlalchemy import create_engine, Row, Connection
-from sqlalchemy import text
+from sqlalchemy import Connection, Row, create_engine, text
 
 PATH_TO_DATABASE = "localhost:15432"
 DB_NAME = "postgres"
@@ -447,7 +446,6 @@ if __name__ == "__main__":
 
     alpha = sys.argv[1]
     model_id = sys.argv[2]
-
 
     engine = create_engine(
         f"postgresql://{DB_USER}:{DB_PASSWORD}@{PATH_TO_DATABASE}/{DB_NAME}"

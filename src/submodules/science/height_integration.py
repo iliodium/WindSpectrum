@@ -2,39 +2,38 @@ import asyncio
 import io
 
 import numpy as np
-from sqlalchemy import Engine
-
+from pydantic import validate_call
 from src.common import DbType
-from src.submodules.databasetoolkit.isolated import find_experiment_by_model_name, load_positions, \
-    load_pressure_coefficients
-from src.submodules.inner.interpreted_data import (interp_016_tpu, interp_025_tpu)
+from src.common.annotation import (AlphaType,
+                                   AngleType,
+                                   ModelNameIsolatedOrNoneType,
+                                   ModelSizeOrNoneType,)
+from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
+                                                     load_positions,
+                                                     load_pressure_coefficients,)
+from src.submodules.inner.interpreted_data import (interp_016_tpu,
+                                                   interp_025_tpu,)
 from src.submodules.utils.scaling import (get_model_and_scale_factors,
-                                          get_model_and_scale_factors_interference)
+                                          get_model_and_scale_factors_interference,)
 
 
+@validate_call
 def height_integration_cx_cy_cmz_floors_to_txt(
-        _db: DbType.DbType, _angle: int, _engine: Engine, *,
-        _model_size: tuple[int, int, int] | None = None,
-        _model_name: str | None = None, _alpha: int = 4
+        _db: DbType.DbType,
+        _angle: AngleType,
+        _engine,
+        *,
+        _model_size: ModelSizeOrNoneType = None,
+        _model_name: ModelNameIsolatedOrNoneType = None,
+        _alpha: AlphaType = 4
 ):
     # добавить кол во этажей после 6
     # в высоту добавить -1 в начало, для времени
-
-    assert isinstance(_db, DbType.DbType), 'db must be DbType'
     assert not (_model_size is not None and _model_name is not None), \
         "Either _model_size or _model_name must be set, not both"
     assert _model_size is not None or _model_name is not None, "Either _model_size or _model_name must be set"
-    assert _model_size is None or (
-            isinstance(_model_size, tuple) and len(_model_size) == 3
-    ), "_model_size should be either None or tuple of len = 3"
-    assert _model_name is None or (
-            isinstance(_model_name, str) and len(_model_name) == 3 and _model_name.isnumeric()
-    ), f"_model_name should be either None or str of len = 3 only of digits. got {_model_name}"
-    assert isinstance(_angle, int), "_angle must be an int"
-    assert isinstance(_alpha, int), "_alpha must be an int"
-    assert _alpha == 4 or _alpha == 6, "_alpha must be either 4 or 6"
 
-    x, y, z = _model_size if _model_size is not None else tuple([int(i) / 10 for i in _model_name])
+    x, y, z = _model_size if _model_size is not None else [int(i) / 10 for i in _model_name]
 
     if _db == DbType.DbType.ISOLATED:
         model_name, _ = get_model_and_scale_factors(
@@ -253,24 +252,30 @@ def height_integration_cx_cy_cmz_floors_to_txt(
 
 
 if __name__ == "__main__":
-    from sqlalchemy import create_engine, select
+    from sqlalchemy import (create_engine,
+                            select,)
     from sqlalchemy.orm import Session
-    from src.submodules.databasetoolkit.orm.models import ExperimentsAlpha4, ExperimentsAlpha6
+    from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
+                                                           ExperimentsAlpha6,)
 
-    engine = create_engine("postgresql://postgres:password@localhost:25432/postgres")
+    # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
+    # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
+    engine = create_engine("postgresql://postgres:1234@localhost/postgres")
 
     alpha = 4
 
-    def test_model_name(model_name):
+
+    def ttest_model_name(model_name):
         if str(model_name).startswith("11"):
             return False
         return True
+
 
     with Session(engine) as _session:
         model_names = _session.execute(
             select(ExperimentsAlpha4.model_name).order_by(ExperimentsAlpha4.model_name)).scalars()
     for model_name in model_names:
-        if not test_model_name(model_name):
+        if not ttest_model_name(model_name):
             continue
         if int(model_name) < 314:
             continue
@@ -292,7 +297,7 @@ if __name__ == "__main__":
         model_names = _session.execute(
             select(ExperimentsAlpha6.model_name).order_by(ExperimentsAlpha6.model_name)).scalars()
     for model_name in model_names:
-        if not test_model_name(model_name):
+        if not ttest_model_name(model_name):
             continue
         for angle in range(50, 95, 5):
             with open(f"model_name_{model_name}_angle_{angle}_alpha_{alpha}.txt", mode='w', encoding="utf8") as res:
