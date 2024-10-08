@@ -3,10 +3,10 @@ from typing import (Tuple,
 
 import numpy as np
 from pydantic import validate_call
-
-from src.common.DbType import DbType
 from src.common.annotation import (AngleType,
-                                   ModelNameIsolatedType, CoordinatesType, )
+                                   CoordinatesType,
+                                   ModelNameIsolatedType, )
+from src.common.DbType import DbType
 
 
 @validate_call
@@ -245,12 +245,12 @@ def calculate_cx_cy(
 
 if __name__ == "__main__":
     import asyncio
+    import time
 
     import matplotlib.pyplot as plt
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
                                                          load_pressure_coefficients, )
-    import time
 
     start = time.time()
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")

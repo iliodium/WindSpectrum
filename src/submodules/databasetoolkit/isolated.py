@@ -1,25 +1,27 @@
 from typing import (Any,
-                    Sequence, )
+                    Sequence,)
 
 import numpy
-from pydantic import validate_call, BaseModel, ConfigDict
+from pydantic import (BaseModel,
+                      ConfigDict,
+                      validate_call,)
 from pydantic.dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from src.common.FaceType import FaceType
 from src.common.annotation import (AlphaType,
                                    AngleOrNoneType,
+                                   CoordinatesType,
                                    ExperimentIdType,
                                    FaceOrNoneType,
                                    ModelNameIsolatedType,
                                    PositionXOrNoneType,
                                    PositionYOrNoneType,
-                                   check_type_engine, CoordinatesType, )
+                                   check_type_engine,)
+from src.common.FaceType import FaceType
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
-                                                       t_models_alpha_6, )
+                                                       t_models_alpha_6,)
 
 __SENSOR_VALUES_DISCARD = 1000
 

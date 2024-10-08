@@ -1,7 +1,7 @@
 import os
 from functools import (cache,
                        lru_cache,
-                       wraps, )
+                       wraps,)
 
 import numpy as np
 
