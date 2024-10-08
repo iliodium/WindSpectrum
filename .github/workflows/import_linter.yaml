@@ -28,7 +28,7 @@ jobs:
       - name: Run import-linter
         run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
 
-      - name: Configure Git 1
+      - name: Configure Git
         run: |
           git config user.name "CI Bot"
           git config user.email "ci-bot@example.com"
@@ -37,4 +37,7 @@ jobs:
         run: |
           git add .  
           git commit -m "import_linter"
-          git push origin HEAD:import_linter  # Пуш в ветку, например, в 'main'
+          git push https://github.com/${{ github.repository }}:${{ secrets.GITHUB_TOKEN }} origin HEAD:import_linter
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Токен доступа для выполнения пуша
