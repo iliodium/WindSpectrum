@@ -1,11 +1,11 @@
 from typing import (Tuple,
-                    Union,)
+                    Union, )
 
 import numpy as np
 from pydantic import validate_call
 from src.common.annotation import (AngleType,
-CoordinatesType,
-ModelNameIsolatedType,)
+                                   CoordinatesType,
+                                   ModelNameIsolatedType, )
 from src.common.DbType import DbType
 
 
@@ -250,7 +250,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients,)
+                                                         load_pressure_coefficients, )
 
     start = time.time()
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
