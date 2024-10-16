@@ -5,7 +5,8 @@ from sqlalchemy import (ARRAY,
                         Integer,
                         PrimaryKeyConstraint,
                         SmallInteger,
-                        Table,)
+                        Table,
+                        VARCHAR)
 from sqlalchemy.orm import (declarative_base,
                             mapped_column,)
 
@@ -19,7 +20,7 @@ class ExperimentsAlpha4(Base):
         PrimaryKeyConstraint('model_id', name='experiments_alpha_4_pkey'),
     )
 
-    model_id = mapped_column(Integer)
+    model_id = mapped_column(VARCHAR(3))
     model_name = mapped_column(SmallInteger, nullable=False)
     breadth = mapped_column(Float, nullable=False)
     depth = mapped_column(Float, nullable=False)
@@ -40,7 +41,7 @@ class ExperimentsAlpha6(Base):
     )
 
     model_id = mapped_column(Integer)
-    model_name = mapped_column(SmallInteger, nullable=False)
+    model_name = mapped_column(VARCHAR(3), nullable=False)
     breadth = mapped_column(Float, nullable=False)
     depth = mapped_column(Float, nullable=False)
     height = mapped_column(Float, nullable=False)
