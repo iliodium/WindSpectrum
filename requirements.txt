@@ -1,23 +1,32 @@
 # DATA MANIPULATION LIBRARY
 
-numpy
-scipy
+numpy==2.0.2
+scipy==1.14.1
 
 # DATA VALIDATION
 
 pydantic==2.9.2
-pydantic-async-validation==0.2.0
 
 # QUERING DATA FROM DB
 
-SQLAlchemy
-psycopg2
+SQLAlchemy==2.0.35
+psycopg2==2.9.9
 
 # PLOTTING DATA
 
-matplotlib
+matplotlib==3.9.2
 
 # UI
 
 # QT6
-pyside6
+
+PySide6==6.7.3
+
+# AOT COMPILATION
+
+numba==0.60.0
+
+
+# BUILDING AN APPLICATION
+
+Nuitka==2.4.10
