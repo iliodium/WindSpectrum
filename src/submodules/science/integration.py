@@ -11,8 +11,6 @@ from src.common.annotation import (AngleType,
 from src.common.DbType import DbType
 
 cc = CC('aot_integration')
-cc.output_dir = os.path.dirname(os.path.realpath(__file__))
-cc.output_file = 'aot_integration.pyd'
 
 
 @validate_call
@@ -83,19 +81,41 @@ def calculate_cmz(
         count_sensors_on_row,
         height
     )
-
-    result = aot_integration.aot_calculate_cmz(
+    squares_faces = aot_integration.calculate_sensors_area_effect(
+        x,
+        y,
+        count_row,
+        count_sensors_on_row,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row
+    )
+    split_pressure_coefficients = aot_integration.split_pressure_coefficients(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
-        angle,
+        pressure_coefficients
+    )
+    mxs = aot_integration.alculate_mxs(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        _x,
         breadth,
         depth,
-        _x,
-        x,
-        y,
+)
+    projection_on_the_axis = aot_integration.calculate_projection_on_the_axis(
+        breadth,
+        depth,
+        angle
+    )
+    result = aot_integration.aot_calculate_cmz(
+        projection_on_the_axis,
+        breadth,
+        depth,
+        squares_faces,
         height,
-        pressure_coefficients
+        pressure_coefficients,
+        ### MXS
     )
 
     return result

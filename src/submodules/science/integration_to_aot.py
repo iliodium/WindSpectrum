@@ -17,7 +17,7 @@ cc.output_file = 'aot_integration.pyd'
                numba.float64,  # breadth
                numba.float64  # depth
            ))
-def _aot_add_borders_to_coordinates_x(
+def aot_add_borders_to_coordinates_x(
         coordinates,
         count_sensors_on_row,
         count_row,
@@ -37,7 +37,7 @@ def _aot_add_borders_to_coordinates_x(
                numba.int64,
                numba.float64
            ))
-def _aot_add_borders_to_coordinates_y(
+def aot_add_borders_to_coordinates_y(
         coordinates,
         count_sensors_on_row,
         height
@@ -49,38 +49,118 @@ def _aot_add_borders_to_coordinates_y(
     return y
 
 
-@cc.export('aot_calculate_cmz',
-           numba.float64[:](
+# Рассчитываем область влияние(площадь) сенсора на модели
+@cc.export('calculate_sensors_area_effect',
+           numba.float64[:, ::1](
+               numba.float64[:, ::1],  # x
+               numba.float64[:, ::1],  # y
+               numba.int64,  # count_row
+               numba.int64,  # count_sensors_on_row
+               numba.int64,  # count_sensors_on_middle_row
+               numba.int64  # count_sensors_on_side_row
+
+           ))
+def calculate_sensors_area_effect(
+        x,
+        y,
+        count_row,
+        count_sensors_on_row,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row
+):
+    squares_faces = np.zeros((count_row, count_sensors_on_row))
+    for y_i in range(count_row):
+        for x_i in range(count_sensors_on_row):
+            y_t = y[y_i][x_i]
+            y_m = y[y_i + 1][x_i]
+            y_b = y[y_i + 2][x_i]
+            if y_i == 0:
+                dy = y_t - y_m + (y_m - y_b) / 2
+            elif y_i == count_row - 1:
+                dy = (y_t - y_m) / 2 + y_m - y_b
+            else:
+                dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
+
+            x_l = x[y_i][x_i]
+            x_m = x[y_i][x_i + 1]
+            x_r = x[y_i][x_i + 2]
+
+            if x_i == 0:
+                dx = x_m - x_l + (x_r - x_m) / 2
+            elif x_i == count_sensors_on_row - 1:
+                dx = (x_m - x_l) / 2 + x_r - x_m
+            else:
+                dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
+
+            squares_faces[y_i, x_i] += dy * dx
+
+    squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
+                                             count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                             2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                             ], axis=1)
+    return squares_faces
+
+
+@cc.export('split_pressure_coefficients',
+           numba.float64[:, ::1](
                numba.int64,  # count_sensors_on_model
                numba.int64,  # count_sensors_on_middle_row
                numba.int64,  # count_sensors_on_side_row
-               numba.int64,  # _angle
-               numba.float64,  # breadth
-               numba.float64,  # depth
-               numba.float64[::1],  # _coordinate_x_for_mxs
-               numba.float64[:, ::1],  # x
-               numba.float64[:, ::1],  # y
-               numba.float64,  # _height
                numba.float64[:, ::1]  # _pressure_coefficients
            ))
-def _aot_calculate_cmz(
+def split_pressure_coefficients(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
-        angle,
-        breadth,
-        depth,
-        coordinate_x_for_mxs,
-        x,
-        y,
-        height,
-        pressure_coefficients
+        _pressure_coefficients
 ):
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
-    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+    pc_copy = np.reshape(_pressure_coefficients, (_pressure_coefficients.shape[0], count_row, -1))
+    pc_copy = np.split(pc_copy, [count_sensors_on_middle_row,
+                                 count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                 ], axis=2)
 
-    x_for_mxs = np.reshape(coordinate_x_for_mxs, (count_row, -1))
+    return pc_copy
+
+
+@cc.export('calculate_projection_on_the_axis',
+           numba.float64(
+               numba.float64,  # breadth
+               numba.float64,  # depth
+               numba.int64  # angle
+           ))
+def calculate_projection_on_the_axis(
+        breadth,
+        depth,
+        angle
+):
+    projection_on_the_axis = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
+    return projection_on_the_axis
+
+
+@cc.export('calculate_mxs',
+           (
+                   numba.int64,  # count_sensors_on_model
+                   numba.int64,  # count_sensors_on_middle_row
+                   numba.int64,  # count_sensors_on_side_row
+                   numba.float64[::1],  # _coordinate_x_for_mxs
+                   numba.float64,  # breadth
+                   numba.float64  # depth
+           ))
+def calculate_mxs(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        coordinate_x,
+        breadth,
+        depth,
+):
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+    x_for_mxs = np.reshape(coordinate_x, (count_row, -1))
     x_for_mxs = np.split(x_for_mxs, [count_sensors_on_middle_row,
                                      count_sensors_on_middle_row + count_sensors_on_side_row,
                                      2 * count_sensors_on_middle_row + count_sensors_on_side_row,
@@ -101,52 +181,41 @@ def _aot_calculate_cmz(
     mxs3 = x_for_mxs[2] - (breadth + depth) - mid13_x
     mxs4 = x_for_mxs[3] - (2 * breadth + depth) - mid24_x
 
-    # Площадь
+    return mxs1, mxs2, mxs3, mxs4
+
+
+# Площадь поверхности грани(лицевой и боковой)
+@cc.export('calculate_square_of_face',
+           (
+                   numba.float64,  # breadth
+                   numba.float64,  # depth
+                   numba.float64  # height
+           ))
+def calculate_square_of_face(
+        breadth,
+        depth,
+        height
+):
     s13 = breadth * height
     s24 = depth * height
+    return s13, s24
 
-    squares_faces = np.zeros((count_row, count_sensors_on_row))
 
-    for y_i in range(count_row):
-        for x_i in range(count_sensors_on_row):
-            y_t = y[y_i][x_i]
-            y_m = y[y_i + 1][x_i]
-            y_b = y[y_i + 2][x_i]
-            if y_i == 0:
-                dy = y_t - y_m + (y_m - y_b) / 2
-            elif y_i == count_row - 1:
-                dy = (y_t - y_m) / 2 + y_m - y_b
-            else:
-                dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
-
-            x_l = x[y_i][x_i]
-            x_m = x[y_i][x_i + 1]
-            x_r = x[y_i][x_i + 2]
-
-            if x_i == 0:
-                dx = x_m - x_l + (x_r - x_m) / 2
-            elif x_i == count_sensors_on_row - 1:
-                dx = (x_m - x_l) / 2 + x_r - x_m
-            else:
-                dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
-
-            squares_faces[y_i, x_i] += dy * dx
-
-    squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
-                                             count_sensors_on_middle_row + count_sensors_on_side_row,
-                                             2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                             2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                             ], axis=1)
-
-    pc_copy = np.reshape(pressure_coefficients, (pressure_coefficients.shape[0], count_row, -1))
-    pc_copy = np.split(pc_copy, [count_sensors_on_middle_row,
-                                 count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                 ], axis=2)
-
-    projection_on_the_axis = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
-
+@cc.export('aot_calculate_cmz',
+           numba.float64[:](
+               numba.float64,  # projection_on_the_axis
+               numba.float64,  # s13
+               numba.float64,  # s24
+               numba.float64[:, ::1],  # squares_faces
+               numba.float64[:, ::1]  # _pressure_coefficients
+           ))
+def aot_calculate_cmz(
+        projection_on_the_axis,
+        s13,
+        s24,
+        squares_faces,
+        pressure_coefficients
+):
     divisors = np.array(
         [
             s13,
@@ -156,45 +225,115 @@ def _aot_calculate_cmz(
         ]
     ) * projection_on_the_axis
 
-    result = np.zeros(pressure_coefficients.shape[0])
+    cmz = np.zeros(pressure_coefficients.shape[0])
 
     for i, mxs in enumerate((mxs1, mxs2, mxs3, mxs4)):
-        result += (np.sum(np.sum(pc_copy[i] * squares_faces[i] * mxs, axis=1), axis=1) / divisors[i])
+        cmz += (np.sum(np.sum(pc_copy[i] * squares_faces[i] * mxs, axis=1), axis=1) / divisors[i])
 
-    return result
+    return cmz
 
 
 @cc.export('aot_calculate_cx_cy',
            (
-                   numba.int64,  # count_sensors_on_model
-                   numba.int64,  # count_sensors_on_middle_row
-                   numba.int64,  # count_sensors_on_side_row
-                   numba.float64,  # breadth
-                   numba.float64,  # depth
-                   numba.float64[:, ::1],  # x
-                   numba.float64[:, ::1],  # y
-                   numba.float64,  # _height
+                   numba.float64,  # s13
+                   numba.float64,  # s24
+                   numba.float64[:, ::1],  # squares_faces
                    numba.float64[:, ::1]  # _pressure_coefficients
            ))
-def _aot_calculate_cx_cy(
+def aot_calculate_cx_cy(
+        s13,
+        s24,
+        squares_faces,
+        _pressure_coefficients
+):
+    cx = np.zeros(_pressure_coefficients.shape[0])
+    cy = np.zeros(_pressure_coefficients.shape[0])
+
+    cx += (np.sum(np.sum(pc_copy[0] * squares_faces[0], axis=1), axis=1) / s13)
+    cx -= (np.sum(np.sum(pc_copy[2] * squares_faces[2], axis=1), axis=1) / s13)
+
+    cy += (np.sum(np.sum(pc_copy[1] * squares_faces[1], axis=1), axis=1) / s24)
+    cy -= (np.sum(np.sum(pc_copy[3] * squares_faces[3], axis=1), axis=1) / s24)
+
+    return cx, cy
+
+
+@cc.export('aot_calculate_cmz',
+           numba.float64[:](
+               numba.int64,  # count_sensors_on_model
+               numba.int64,  # count_sensors_on_middle_row
+               numba.int64,  # count_sensors_on_side_row
+               numba.int64,  # _angle
+               numba.float64,  # breadth
+               numba.float64,  # depth
+               numba.float64[::1],  # _coordinate_x_for_mxs
+               numba.float64[:, ::1],  # x
+               numba.float64[:, ::1],  # y
+               numba.float64,  # _height
+               numba.float64[:, ::1]  # _pressure_coefficients
+           ))
+def aot_height_integration_cx_cy_cmz_floors_to_txt(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
+        angle,
         breadth,
         depth,
+        coordinate_x_for_mxs,
         x,
         y,
         height,
-        _pressure_coefficients
+        pressure_coefficients
 ):
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+    shirina = np.cos(np.deg2rad(_angle)) * breadth + np.sin(np.deg2rad(_angle)) * depth
+
+    # центры граней
+    mid13_x = breadth / 2
+    mid24_x = depth / 2
+
+    x1 = coordinates[0]
+    x1 = np.reshape(x1, (count_row, -1))
+    x1 = np.split(x1, [count_sensors_on_middle_row,
+                       count_sensors_on_middle_row + count_sensors_on_side_row,
+                       2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                       2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                       ], axis=1)
+
+    v2 = breadth
+    v3 = breadth + depth
+    v4 = 2 * breadth + depth
+    x1[1] -= v2
+    x1[2] -= v3
+    x1[3] -= v4
+
+    # mx плечи для каждого сенсора
+    mx13 = np.array([
+        x1[0] - mid13_x,
+        x1[2] - mid13_x,
+    ])
+
+    mx24 = np.array([
+        x1[1] - mid24_x,
+        x1[3] - mid24_x,
+    ])
 
     # Площадь
     s13 = breadth * height
     s24 = depth * height
+    z_levels = sorted(set(y), reverse=True)
 
-    squares_faces = np.zeros((count_row, count_sensors_on_row))
+    x = coordinates[0]
+    x = np.reshape(x, (-1, count_sensors_on_row))
+    x = np.append(x, np.full((len(x), 1), 2 * (breadth + depth)), axis=1)
+    x = np.insert(x, 0, 0, axis=1)
+
+    y = coordinates[1]
+    y = np.append(np.full(count_sensors_on_row, height), y)
+    y = np.reshape(y, (-1, count_sensors_on_row))
+    y = np.append(y, np.zeros((count_sensors_on_row, 1)))
+    y = np.reshape(y, (-1, count_sensors_on_row))
+
+    squares = []
     for y_i in range(count_row):
         for x_i in range(count_sensors_on_row):
             y_t = y[y_i][x_i]
@@ -218,31 +357,115 @@ def _aot_calculate_cx_cy(
             else:
                 dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
 
-            squares_faces[y_i, x_i] += dy * dx
+            squares.append(dy * dx)
 
+    squares_faces = np.reshape(squares, (count_row, -1))
     squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
                                              count_sensors_on_middle_row + count_sensors_on_side_row,
                                              2 * count_sensors_on_middle_row + count_sensors_on_side_row,
                                              2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
                                              ], axis=1)
 
-    cx = np.zeros(_pressure_coefficients.shape[0])
-    cy = np.zeros(_pressure_coefficients.shape[0])
+    cx = [
+        [] for _ in range(count_row)
+    ]
+    cy = [
+        [] for _ in range(count_row)
+    ]
+    cmz = [
+        [] for _ in range(count_row)
+    ]
+    for pr in pressure_coefficients:
+        pr = np.reshape(pr, (count_row, -1))
+        pr = np.split(pr, [count_sensors_on_middle_row,
+                           count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                           ], axis=1)
 
-    pc_copy = np.reshape(_pressure_coefficients, (_pressure_coefficients.shape[0], count_row, -1))
-    pc_copy = np.split(pc_copy, [count_sensors_on_middle_row,
-                                 count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                 ], axis=2)
+        for row_i in range(count_row):
+            faces_x = []
+            faces_y = []
 
-    cx += (np.sum(np.sum(pc_copy[0] * squares_faces[0], axis=1), axis=1) / s13)
-    cx -= (np.sum(np.sum(pc_copy[2] * squares_faces[2], axis=1), axis=1) / s13)
+            for face in range(4):
+                if face in [0, 2]:
+                    faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
+                else:
+                    faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
 
-    cy += (np.sum(np.sum(pc_copy[1] * squares_faces[1], axis=1), axis=1) / s24)
-    cy -= (np.sum(np.sum(pc_copy[3] * squares_faces[3], axis=1), axis=1) / s24)
+            cx[row_i].append(faces_x[0] - faces_x[1])
+            cy[row_i].append(faces_y[0] - faces_y[1])
 
-    return cx, cy
+            t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
+            t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
+
+            t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
+            t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
+
+            cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
+
+    cx = (np.array(list(reversed(cx))) / count_row).round(5)
+    cy = (np.array(list(reversed(cy))) / count_row).round(5)
+    cmz = (np.array(list(reversed(cmz))) / count_row).round(5)
+
+    # fig, ax = plt.subplots(dpi=Plot.dpi, num='snfgkjdsnfkjsdnf', clear=True)
+    # ax.plot(list(range(32768)), np.sum(cx, axis=0))
+
+    angle = _angle
+
+    time = np.linspace(0, 32.768, 32768).round(5)
+
+    if _alpha == 4:
+        speed_2_3 = np.round(interp_025_tpu([height])[0], 3)
+    elif _alpha == 6:
+        speed_2_3 = np.round(interp_016_tpu([height])[0], 3)
+
+    f = io.StringIO()
+    alpha_temp = '0.25' if _alpha == 4 else '0.16'
+    f.write(
+        f'{model_name} Вариант модели\n{breadth}, {depth}, {height} м размеры модели b d h\n'
+        f'{alpha_temp} альфа\n{angle} угол\n{uh_speed} Uh скорость на высоте H\n'
+        f'{speed_2_3} скорость на высоте 2/3 H\n'
+        f'{count_row} количество этажей\n'
+    )
+
+    f.write('time, ')
+
+    # for ind in range(1, count_row + 1):
+    #     temp_name_str += f'cx{count_row - ind}, cy{count_row - ind}, cmz{count_row - ind}, '
+
+    for ind in range(1, count_row + 1):
+        f.write(f'cx{ind}, cy{ind}, cmz{ind}, ')
+
+    f.write('cxsum, cysum, cmzsum\n')
+
+    # enumerate_str = ', '.join(map(str, reversed(range(count_row * 3 + 1 + 3)))) + '\n'
+    f.write(', '.join(map(str, range(count_row * 3 + 1 + 3))) + '\n')
+
+    f.write('-1, ')
+    for z in reversed(z_levels):
+        z /= height
+        f.write(f'{z}, {z}, {z}, ')
+    f.write('1, 1, 1\n')
+
+    data_to_txt = np.array([time])
+
+    for ind in range(count_row):
+        data_to_txt = np.append(data_to_txt, [cx[ind]], axis=0)
+        data_to_txt = np.append(data_to_txt, [cy[ind]], axis=0)
+        data_to_txt = np.append(data_to_txt, [cmz[ind]], axis=0)
+
+    data_to_txt = np.append(data_to_txt, [np.sum(cx, axis=0).round(5)], axis=0)
+    data_to_txt = np.append(data_to_txt, [np.sum(cy, axis=0).round(5)], axis=0)
+    data_to_txt = np.append(data_to_txt, [np.sum(cmz, axis=0).round(5)], axis=0)
+
+    np.savetxt(f, data_to_txt.T, newline="\n", delimiter=',', fmt='%.5f')
+
+    res = str(f.getvalue())
+
+    f.close()
+
+    return res
 
 
 if __name__ == "__main__":
