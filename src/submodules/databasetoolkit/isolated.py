@@ -339,14 +339,14 @@ if __name__ == "__main__":
     engine = create_engine("postgresql://postgres:1234@localhost/postgres")
 
     res = asyncio.run(
-        load_pressure_coefficients(1, 6, engine, angle=0, face_number=FaceType.ON_WIND, position_x=0.05,
+        load_pressure_coefficients(1, 6, engine, angle=130, face_number=FaceType.ON_WIND, position_x=0.05,
                                    position_y=0.07))
 
-    for i in res.keys():
-        print(i, res[i], res[i].shape)
-
-    res = asyncio.run(
-        load_pressure_coefficients(1, 4, engine, angle=0, face_number=FaceType.ON_WIND, position_x=0.05))
-
-    for i in res.keys():
-        print(i, res[i], res[i].shape)
+    # for i in res.keys():
+    #     print(i, res[i], res[i].shape)
+    #
+    # res = asyncio.run(
+    #     load_pressure_coefficients(1, 4, engine, angle=0, face_number=FaceType.ON_WIND, position_x=0.05))
+    #
+    # for i in res.keys():
+    #     print(i, res[i], res[i].shape)
