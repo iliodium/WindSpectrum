@@ -11,6 +11,7 @@ from src.common.annotation import (AngleType,
 from src.common.DbType import DbType
 
 cc = CC('aot_integration')
+cc1 = CC('aot_integration1')
 
 
 @validate_call
@@ -45,17 +46,31 @@ def _get_size_and_count_sensors(
              count_sensors_on_side_row))
 
 
-from aot_integration import (add_borders_to_coordinates_x,
-                             add_borders_to_coordinates_y,
-                             calculate_sensors_area_effect,
-                             split_pressure_coefficients,
-                             calculate_mxs,
-                             calculate_projection_on_the_axis,
-                             calculate_square_of_face,
-                             aot_calculate_cmz,
+from aot_integration import (aot_calculate_cmz_old,
 
-                             aot_calculate_cmz_old
+    # add_borders_to_coordinates_x,
+    #                          add_borders_to_coordinates_y,
+    #                          calculate_sensors_area_effect,
+    #                          split_pressure_coefficients,
+    #                          calculate_mxs,
+    #                          calculate_projection_on_the_axis,
+    #                          calculate_square_of_face,
+    #                          aot_calculate_cmz,
+
                              )
+from aot_integration import calculate_cmz_artem
+# from aot_integration import calculate_cmz_artem
+# from aot_integration1 import calculate_cmz_artem
+from integration_to_aot import (add_borders_to_coordinates_x,
+                                add_borders_to_coordinates_y,
+                                calculate_sensors_area_effect,
+                                split_pressure_coefficients,
+                                calculate_mxs,
+                                calculate_projection_on_the_axis,
+                                calculate_square_of_face,
+                                aot_calculate_cmz,
+
+                                )
 
 
 @validate_call
@@ -78,87 +93,99 @@ def calculate_cmz(
 
     _x = np.array(coordinates[0])
     _y = np.array(coordinates[1])
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-
-    x = add_borders_to_coordinates_x(
-        _x,
-        count_sensors_on_row,
-        count_row,
+    return calculate_cmz_artem(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        angle,
         breadth,
-        depth
-    )
-
-    y = add_borders_to_coordinates_y(
+        depth,
+        _x,
         _y,
-        count_sensors_on_row,
-        height
-    )
-
-    sensors_area_effect = calculate_sensors_area_effect(
-    # sensors_area_effect13, sensors_area_effect24 = calculate_sensors_area_effect(
-        x,
-        y,
-        count_row,
-        count_sensors_on_row,
-        count_sensors_on_middle_row,
-        count_sensors_on_side_row
-    )
-
-    pc = split_pressure_coefficients(
-    # pc13, pc24 = split_pressure_coefficients(
-        count_sensors_on_model,
-        count_sensors_on_middle_row,
-        count_sensors_on_side_row,
+        height,
         pressure_coefficients
+
     )
+    # count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+    # count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
-
-    mxs = calculate_mxs(
-    # mxs13, mxs24 = calculate_mxs(
-        count_sensors_on_model,
-        count_sensors_on_middle_row,
-        count_sensors_on_side_row,
-        _x,
-        breadth,
-        depth,
-    )
-
-    projection_on_the_axis = calculate_projection_on_the_axis(
-        breadth,
-        depth,
-        angle
-    )
-
-    square13, square24 = calculate_square_of_face(
-        breadth,
-        depth,
-        height
-    )
-
-    result = aot_calculate_cmz(
-        projection_on_the_axis,
-        square13,
-        square24,
-        *sensors_area_effect,
-        *mxs,
-        *pc
-    )
-
+    # x = add_borders_to_coordinates_x(
+    #     _x,
+    #     count_sensors_on_row,
+    #     count_row,
+    #     breadth,
+    #     depth
+    # )
+    #
+    # y = add_borders_to_coordinates_y(
+    #     _y,
+    #     count_sensors_on_row,
+    #     height
+    # )
+    #
+    # sensors_area_effect = calculate_sensors_area_effect(
+    # # sensors_area_effect13, sensors_area_effect24 = calculate_sensors_area_effect(
+    #     x,
+    #     y,
+    #     count_row,
+    #     count_sensors_on_row,
+    #     count_sensors_on_middle_row,
+    #     count_sensors_on_side_row
+    # )
+    #
+    # pc = split_pressure_coefficients(
+    # # pc13, pc24 = split_pressure_coefficients(
+    #     count_sensors_on_model,
+    #     count_sensors_on_middle_row,
+    #     count_sensors_on_side_row,
+    #     pressure_coefficients
+    # )
+    #
+    #
+    # mxs = calculate_mxs(
+    # # mxs13, mxs24 = calculate_mxs(
+    #     count_sensors_on_model,
+    #     count_sensors_on_middle_row,
+    #     count_sensors_on_side_row,
+    #     _x,
+    #     breadth,
+    #     depth,
+    # )
+    #
+    # projection_on_the_axis = calculate_projection_on_the_axis(
+    #     breadth,
+    #     depth,
+    #     angle
+    # )
+    #
+    # square13, square24 = calculate_square_of_face(
+    #     breadth,
+    #     depth,
+    #     height
+    # )
+    #
     # result = aot_calculate_cmz(
     #     projection_on_the_axis,
     #     square13,
-    #     sensors_area_effect13,
-    #     mxs13,
-    #     pc13,
     #     square24,
-    #     sensors_area_effect24,
-    #     mxs24,
-    #     pc24
+    #     *sensors_area_effect,
+    #     *mxs,
+    #     *pc
     # )
-
-    return result
-
+    #
+    # # result = aot_calculate_cmz(
+    # #     projection_on_the_axis,
+    # #     square13,
+    # #     sensors_area_effect13,
+    # #     mxs13,
+    # #     pc13,
+    # #     square24,
+    # #     sensors_area_effect24,
+    # #     mxs24,
+    # #     pc24
+    # # )
+    #
+    # return result
 
 
 @validate_call
@@ -343,7 +370,10 @@ def calculate_cmz_old(
 
     return result
 
+
 import aot_integration
+
+
 def pre_calculate_cmz(
         pressure_coefficients,
         angle: AngleType,
@@ -438,7 +468,16 @@ if __name__ == "__main__":
     pressure = asyncio.run(load_pressure_coefficients(experiment_id, alpha, engine, angle=angle))
     coordinates_list = tuple(list(c) for c in coord)
     COUNT = 500
-
+    t0 = time.time()
+    calculate_cmz(
+        pressure[angle],
+        angle,
+        coord,
+        model_name=model.model_name,
+        height=None,
+        db=DbType.ISOLATED
+    )
+    print(time.time() - t0)
     # разбитая функция, скомпилированная
     t1 = time.time()
     for _ in range(COUNT):
@@ -451,32 +490,32 @@ if __name__ == "__main__":
             db=DbType.ISOLATED
         )
     print(time.time() - t1)
-
-    # скомпилированная функция
-    t3 = time.time()
-    for _ in range(COUNT):
-        pre_calculate_cmz(
-            pressure[angle],
-            angle,
-            coord,
-            model_name=model.model_name,
-            height=None,
-            db=DbType.ISOLATED
-        )
-    print(time.time() - t3)
-
-    # стандартная функция
-    t2 = time.time()
-    for _ in range(COUNT):
-        calculate_cmz_old(
-            pressure[angle],
-            angle,
-            coordinates_list,
-            _model_name=model.model_name,
-            _height=None,
-            _db=DbType.ISOLATED
-        )
-    print(time.time() - t2)
+    #
+    # # скомпилированная функция
+    # t3 = time.time()
+    # for _ in range(COUNT):
+    #     pre_calculate_cmz(
+    #         pressure[angle],
+    #         angle,
+    #         coord,
+    #         model_name=model.model_name,
+    #         height=None,
+    #         db=DbType.ISOLATED
+    #     )
+    # print(time.time() - t3)
+    #
+    # # стандартная функция
+    # t2 = time.time()
+    # for _ in range(COUNT):
+    #     calculate_cmz_old(
+    #         pressure[angle],
+    #         angle,
+    #         coordinates_list,
+    #         _model_name=model.model_name,
+    #         _height=None,
+    #         _db=DbType.ISOLATED
+    #     )
+    # print(time.time() - t2)
     # plt.plot(np.arange(cx.shape[0]) / 1000, cx)
     # plt.plot(np.arange(cy.shape[0]) / 1000, cy)
     # plt.plot(np.arange(v.shape[0]) / 1000, v)

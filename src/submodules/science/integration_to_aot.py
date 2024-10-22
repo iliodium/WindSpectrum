@@ -1,6 +1,7 @@
 import os
 
 import numba
+from numba import jit
 import numpy as np
 from numba.pycc import CC
 
@@ -8,7 +9,7 @@ cc = CC('aot_integration')
 cc.output_dir = os.path.dirname(os.path.realpath(__file__))
 cc.output_file = 'aot_integration.pyd'
 
-
+@jit
 @cc.export('add_borders_to_coordinates_x',
            numba.float64[:, ::1](
                numba.float64[::1],  # coordinates
@@ -17,7 +18,7 @@ cc.output_file = 'aot_integration.pyd'
                numba.float64,  # breadth
                numba.float64  # depth
            ))
-def aot_add_borders_to_coordinates_x(
+def add_borders_to_coordinates_x(
         coordinates,
         count_sensors_on_row,
         count_row,
@@ -30,14 +31,14 @@ def aot_add_borders_to_coordinates_x(
 
     return x
 
-
+@jit
 @cc.export('add_borders_to_coordinates_y',
            numba.float64[:, ::1](
                numba.float64[::1],
                numba.int64,
                numba.float64
            ))
-def aot_add_borders_to_coordinates_y(
+def add_borders_to_coordinates_y(
         coordinates,
         count_sensors_on_row,
         height
@@ -50,6 +51,7 @@ def aot_add_borders_to_coordinates_y(
 
 
 # Рассчитываем область влияние(площадь) сенсора на модели
+@jit
 @cc.export('calculate_sensors_area_effect',
            (
                    numba.float64[:, ::1],  # x
@@ -116,7 +118,7 @@ def calculate_sensors_area_effect(
     # return squares_faces13, squares_faces24
     return squares_faces[0], squares_faces[1], squares_faces[2], squares_faces[3]
 
-
+@jit
 @cc.export('split_pressure_coefficients',
            (
                    numba.int64,  # count_sensors_on_model
@@ -155,7 +157,7 @@ def split_pressure_coefficients(
     # return pc13,pc24
     return pc_copy[0], pc_copy[1], pc_copy[2], pc_copy[3]
 
-
+@jit
 @cc.export('calculate_projection_on_the_axis',
            numba.float64(
                numba.float64,  # breadth
@@ -170,7 +172,7 @@ def calculate_projection_on_the_axis(
     projection_on_the_axis = np.cos(np.deg2rad(angle)) * breadth + np.sin(np.deg2rad(angle)) * depth
     return projection_on_the_axis
 
-
+@jit
 @cc.export('calculate_mxs',
            (
                    numba.int64,  # count_sensors_on_model
@@ -228,6 +230,7 @@ def calculate_mxs(
 
 
 # Площадь поверхности грани(лицевой и боковой)
+@jit
 @cc.export('calculate_square_of_face',
            (
                    numba.float64,  # breadth
@@ -270,6 +273,7 @@ def calculate_square_of_face(
 #         mxs24,
 #         pc24
 # ):
+@jit
 @cc.export('aot_calculate_cmz',
            numba.float64[:](
                numba.float64,  # projection_on_the_axis
@@ -344,7 +348,26 @@ def aot_calculate_cmz(
 
     cmz += (np.sum(np.sum(pc4 * sensors_area_effect4 * mxs4, axis=1), axis=1) /
             (square24 * projection_on_the_axis))
+    #
+    # cmz += (np.sum(pc1 * sensors_area_effect1 * mxs1, axis=(1, 2)) /
+    #         (square13 * projection_on_the_axis))
+    #
+    # cmz += (np.sum(pc2 * sensors_area_effect2 * mxs2, axis=(1, 2)) /
+    #         (square24 * projection_on_the_axis))
+    #
+    # cmz += (np.sum(pc3 * sensors_area_effect3 * mxs3, axis=(1, 2)) /
+    #         (square13 * projection_on_the_axis))
+    #
+    # cmz += (np.sum(pc4 * sensors_area_effect4 * mxs4, axis=(1, 2)) /
+    #         (square24 * projection_on_the_axis))
     return cmz
+
+    # result = np.zeros(_pressure_coefficients.shape[0])
+    #
+    #     for i in range(4):
+    #         result += (np.sum(pc_copy[i] * squares_faces[i] * mxs[i], axis=(1, 2)) / divisors[i])
+
+    # return result
 
 
 @cc.export('aot_calculate_cmz_old',
@@ -452,6 +475,99 @@ def aot_calculate_cmz_old(
         result += (np.sum(np.sum(pc_copy[i] * squares_faces[i] * mxs, axis=1), axis=1) / divisors[i])
     return result
 
+
+@cc.export('calculate_cmz_artem',
+           (
+                   numba.int64,  # count_sensors_on_model
+                   numba.int64,  # count_sensors_on_middle_row
+                   numba.int64,  # count_sensors_on_side_row
+                   numba.int64,  # _angle
+                   numba.float64,  # breadth
+                   numba.float64,  # depth
+                   numba.float64[::1],  # x
+                   numba.float64[::1],  # y
+                   numba.float64,  # _height
+                   numba.float64[:, ::1]  # _pressure_coefficients
+           ))
+def calculate_cmz_artem(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        angle,
+        breadth,
+        depth,
+        _x,
+        _y,
+        height,
+        pressure_coefficients
+):
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+
+    x = add_borders_to_coordinates_x(
+        _x,
+        count_sensors_on_row,
+        count_row,
+        breadth,
+        depth
+    )
+
+    y = add_borders_to_coordinates_y(
+        _y,
+        count_sensors_on_row,
+        height
+    )
+
+    sensors_area_effect = calculate_sensors_area_effect(
+        # sensors_area_effect13, sensors_area_effect24 = calculate_sensors_area_effect(
+        x,
+        y,
+        count_row,
+        count_sensors_on_row,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row
+    )
+
+    pc = split_pressure_coefficients(
+        # pc13, pc24 = split_pressure_coefficients(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        pressure_coefficients
+    )
+
+    mxs = calculate_mxs(
+        # mxs13, mxs24 = calculate_mxs(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        _x,
+        breadth,
+        depth,
+    )
+
+    projection_on_the_axis = calculate_projection_on_the_axis(
+        breadth,
+        depth,
+        angle
+    )
+
+    square13, square24 = calculate_square_of_face(
+        breadth,
+        depth,
+        height
+    )
+
+    result = aot_calculate_cmz(
+        projection_on_the_axis,
+        square13,
+        square24,
+        *sensors_area_effect,
+        *mxs,
+        *pc
+    )
+
+    return result
 
 # @cc.export('aot_calculate_cx_cy',
 #            (
