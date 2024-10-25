@@ -32,6 +32,7 @@ async def find_experiment_by_model_name(
         alpha: AlphaType,
         _engine
 ) -> ExperimentsAlpha4 | ExperimentsAlpha6 | None:
+
     check_type_engine(_engine)
 
     models_type = ExperimentsAlpha4 if alpha == 4 else ExperimentsAlpha6

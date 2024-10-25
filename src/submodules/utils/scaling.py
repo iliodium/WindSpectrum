@@ -8,7 +8,7 @@ from src.common.annotation import (AlphaType,
 def get_model_and_scale_factors(x: BuildingSizeType,
                                 y: BuildingSizeType,
                                 z: BuildingSizeType,
-                                alpha: AlphaType) -> tuple[str, tuple]:
+                                alpha: AlphaType) -> tuple[int, tuple]:
     """
     Функция для расчета модели и коэффициентов масштабирования на основе входных параметров.
 
@@ -36,8 +36,6 @@ def get_model_and_scale_factors(x: BuildingSizeType,
     elif alpha == 6:
         x_from_db = np.array([1, 3])
         y_from_db = np.array([1, 3])
-    else:
-        raise ValueError("alpha must be '4' or '6'")
 
     # Расчет коэффициента для X
     difference_x = np.absolute(x_from_db - x_scale)
@@ -69,7 +67,7 @@ def get_model_and_scale_factors(x: BuildingSizeType,
     y_scale_factor = y / y_nearest * 10
     z_scale_factor = z / z_nearest * 10
 
-    model_from_db = ''.join(map(str, (x_nearest, y_nearest, z_nearest)))  # Модель из БД
+    model_from_db = int(''.join(map(str, (x_nearest, y_nearest, z_nearest))))  # Модель из БД
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors
