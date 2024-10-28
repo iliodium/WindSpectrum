@@ -35,12 +35,15 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git checkout main
-          git add .
-          git commit -m "import_linter"
-          git rebase --continue
-  
-          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
+          echo git branch -a
+          
+
+#          git checkout main
+#          git add .
+#          git commit -m "import_linter"
+#          git rebase --continue
+#
+#          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
 
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
