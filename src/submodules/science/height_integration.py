@@ -2,23 +2,24 @@ import asyncio
 import io
 
 import numpy as np
-from pydantic import validate_call
+
+from compiled_aot.integration import aot_integration
 from src.common import DbType
 from src.common.annotation import (AlphaType,
                                    AngleType,
                                    ModelNameIsolatedOrNoneType,
-                                   ModelSizeOrNoneType,)
+                                   ModelSizeOrNoneType, )
 from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
                                                      load_positions,
-                                                     load_pressure_coefficients,)
+                                                     load_pressure_coefficients, )
 from src.submodules.inner.interpreted_data import (interp_016_tpu,
-                                                   interp_025_tpu,)
+                                                   interp_025_tpu, )
+from src.submodules.science import utils
 from src.submodules.utils.scaling import (get_model_and_scale_factors,
-                                          get_model_and_scale_factors_interference,)
+                                          get_model_and_scale_factors_interference, )
 
 
-@validate_call
-def height_integration_cx_cy_cmz_floors_to_txt(
+def height_integration_cx_cy_cmz_floors_to_txt_aot(
         _db: DbType.DbType,
         _angle: AngleType,
         _engine,
@@ -27,13 +28,7 @@ def height_integration_cx_cy_cmz_floors_to_txt(
         _model_name: ModelNameIsolatedOrNoneType = None,
         _alpha: AlphaType = 4
 ):
-    # добавить кол во этажей после 6
-    # в высоту добавить -1 в начало, для времени
-    assert not (_model_size is not None and _model_name is not None), \
-        "Either _model_size or _model_name must be set, not both"
-    assert _model_size is not None or _model_name is not None, "Either _model_size or _model_name must be set"
-
-    x, y, z = _model_size if _model_size is not None else [int(i) / 10 for i in _model_name]
+    x, y, z = _model_size if _model_size is not None else [int(i) / 10 for i in str(_model_name)]
 
     if _db == DbType.DbType.ISOLATED:
         model_name, _ = get_model_and_scale_factors(
@@ -48,7 +43,6 @@ def height_integration_cx_cy_cmz_floors_to_txt(
             y,
             z
         )
-
     experiment = asyncio.run(find_experiment_by_model_name(model_name, _alpha, _engine))
 
     pressure_coefficients = asyncio.run(load_pressure_coefficients(experiment.model_id, _alpha, _engine, angle=_angle))[
@@ -56,152 +50,36 @@ def height_integration_cx_cy_cmz_floors_to_txt(
     coordinates = asyncio.run(load_positions(experiment.model_id, _alpha, _engine))
     uh_speed = np.round(float(experiment.uh_averagewindspeed), 3)
 
-    if _db == DbType.DbType.ISOLATED:
-        breadth, depth, height = int(model_name[0]) / 10, int(model_name[1]) / 10, int(model_name[2]) / 10
-        count_sensors_on_middle_row = int(model_name[0]) * 5
-        count_sensors_on_side_row = int(model_name[1]) * 5
-    elif _db == DbType.DbType.INTERFERENCE:
-        height = model_name / 1000
-        breadth, depth = 0.07, 0.07
+    size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
+                                                           model_name,
+                                                           db=_db
+                                                           )
+    breadth, depth, height = size
+    count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
 
-    count_sensors_on_model = len(pressure_coefficients[0])
+    cx, cy, cmz = aot_integration.aot_height_integration_cx_cy_cmz_floors_to_txt(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        _angle,
+        breadth,
+        depth,
+        np.array(coordinates[0]),
+        np.array(coordinates[1]),
+        height,
+        pressure_coefficients
+    )
+    count_row = cx.shape[0]
 
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-    count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-
-    shirina = np.cos(np.deg2rad(_angle)) * breadth + np.sin(np.deg2rad(_angle)) * depth
-
-    # центры граней
-    mid13_x = breadth / 2
-    mid24_x = depth / 2
-
-    x1 = coordinates[0]
-    x1 = np.reshape(x1, (count_row, -1))
-    x1 = np.split(x1, [count_sensors_on_middle_row,
-                       count_sensors_on_middle_row + count_sensors_on_side_row,
-                       2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                       2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                       ], axis=1)
-
-    v2 = breadth
-    v3 = breadth + depth
-    v4 = 2 * breadth + depth
-    x1[1] -= v2
-    x1[2] -= v3
-    x1[3] -= v4
-
-    # mx плечи для каждого сенсора
-    mx13 = np.array([
-        x1[0] - mid13_x,
-        x1[2] - mid13_x,
-    ])
-
-    mx24 = np.array([
-        x1[1] - mid24_x,
-        x1[3] - mid24_x,
-    ])
-
-    # Площадь
-    s13 = breadth * height
-    s24 = depth * height
-
-    x = coordinates[0]
-    x = np.reshape(x, (-1, count_sensors_on_row))
-    x = np.append(x, np.full((len(x), 1), 2 * (breadth + depth)), axis=1)
-    x = np.insert(x, 0, 0, axis=1)
-
-    y = coordinates[1]
-    z_levels = sorted(set(y), reverse=True)
-    y = np.append(np.full(count_sensors_on_row, height), y)
-    y = np.reshape(y, (-1, count_sensors_on_row))
-    y = np.append(y, np.zeros((count_sensors_on_row, 1)))
-    y = np.reshape(y, (-1, count_sensors_on_row))
-
-    squares = []
-    for y_i in range(count_row):
-        for x_i in range(count_sensors_on_row):
-            y_t = y[y_i][x_i]
-            y_m = y[y_i + 1][x_i]
-            y_b = y[y_i + 2][x_i]
-            if y_i == 0:
-                dy = y_t - y_m + (y_m - y_b) / 2
-            elif y_i == count_row - 1:
-                dy = (y_t - y_m) / 2 + y_m - y_b
-            else:
-                dy = (y_t - y_m) / 2 + (y_m - y_b) / 2
-
-            x_l = x[y_i][x_i]
-            x_m = x[y_i][x_i + 1]
-            x_r = x[y_i][x_i + 2]
-
-            if x_i == 0:
-                dx = x_m - x_l + (x_r - x_m) / 2
-            elif x_i == count_sensors_on_row - 1:
-                dx = (x_m - x_l) / 2 + x_r - x_m
-            else:
-                dx = (x_m - x_l) / 2 + (x_r - x_m) / 2
-
-            squares.append(dy * dx)
-    squares_faces = np.reshape(squares, (count_row, -1))
-    squares_faces = np.split(squares_faces, [count_sensors_on_middle_row,
-                                             count_sensors_on_middle_row + count_sensors_on_side_row,
-                                             2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                             2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                             ], axis=1)
-
-    cx = [
-        [] for _ in range(count_row)
-    ]
-    cy = [
-        [] for _ in range(count_row)
-    ]
-    cmz = [
-        [] for _ in range(count_row)
-    ]
-    for pr in pressure_coefficients:
-        pr = np.reshape(pr, (count_row, -1))
-        pr = np.split(pr, [count_sensors_on_middle_row,
-                           count_sensors_on_middle_row + count_sensors_on_side_row,
-                           2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                           2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                           ], axis=1)
-
-        for row_i in range(count_row):
-            faces_x = []
-            faces_y = []
-
-            for face in range(4):
-                if face in [0, 2]:
-                    faces_x.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s13 / count_row))
-                else:
-                    faces_y.append(np.sum(pr[face][row_i] * squares_faces[face][row_i]) / (s24 / count_row))
-
-            cx[row_i].append(faces_x[0] - faces_x[1])
-            cy[row_i].append(faces_y[0] - faces_y[1])
-
-            t1 = np.sum(mx13[0][row_i] * pr[0][row_i] * squares_faces[0][row_i]) / ((s13 / count_row) * shirina)
-            t3 = np.sum(mx13[1][row_i] * pr[2][row_i] * squares_faces[2][row_i]) / ((s13 / count_row) * shirina)
-
-            t2 = np.sum(mx24[0][row_i] * pr[1][row_i] * squares_faces[1][row_i]) / ((s24 / count_row) * shirina)
-            t4 = np.sum(mx24[1][row_i] * pr[3][row_i] * squares_faces[3][row_i]) / ((s24 / count_row) * shirina)
-
-            cmz[row_i] = np.append(cmz[row_i], sum([t1, t2, t3, t4]))
-
-    cx = (np.array(list(reversed(cx))) / count_row).round(5)
-    cy = (np.array(list(reversed(cy))) / count_row).round(5)
-    cmz = (np.array(list(reversed(cmz))) / count_row).round(5)
-
-    # fig, ax = plt.subplots(dpi=Plot.dpi, num='snfgkjdsnfkjsdnf', clear=True)
-    # ax.plot(list(range(32768)), np.sum(cx, axis=0))
-
-    angle = _angle
+    z_levels = sorted(set(coordinates[1]), reverse=True)
 
     time = np.linspace(0, 32.768, 32768).round(5)
 
-    if _alpha == 4:
-        speed_2_3 = np.round(interp_025_tpu([height])[0], 3)
-    elif _alpha == 6:
-        speed_2_3 = np.round(interp_016_tpu([height])[0], 3)
+    match _alpha:
+        case 4:
+            speed_2_3 = np.round(interp_025_tpu([height])[0], 3)
+        case 6:
+            speed_2_3 = np.round(interp_016_tpu([height])[0], 3)
 
     f = io.StringIO()
     alpha_temp = '0.25' if _alpha == 4 else '0.16'
@@ -214,15 +92,11 @@ def height_integration_cx_cy_cmz_floors_to_txt(
 
     f.write('time, ')
 
-    # for ind in range(1, count_row + 1):
-    #     temp_name_str += f'cx{count_row - ind}, cy{count_row - ind}, cmz{count_row - ind}, '
-
     for ind in range(1, count_row + 1):
         f.write(f'cx{ind}, cy{ind}, cmz{ind}, ')
 
     f.write('cxsum, cysum, cmzsum\n')
 
-    # enumerate_str = ', '.join(map(str, reversed(range(count_row * 3 + 1 + 3)))) + '\n'
     f.write(', '.join(map(str, range(count_row * 3 + 1 + 3))) + '\n')
 
     f.write('-1, ')
@@ -253,10 +127,10 @@ def height_integration_cx_cy_cmz_floors_to_txt(
 
 if __name__ == "__main__":
     from sqlalchemy import (create_engine,
-                            select,)
+                            select, )
     from sqlalchemy.orm import Session
     from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
-                                                           ExperimentsAlpha6,)
+                                                           ExperimentsAlpha6, )
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
@@ -281,15 +155,14 @@ if __name__ == "__main__":
             continue
         for angle in range(50 if int(model_name) != 314 else 75, 95, 5):
             with open(f"model_name_{model_name}_angle_{angle}_alpha_{alpha}.txt", mode='w', encoding="utf8") as res:
-                res.write(
-                    height_integration_cx_cy_cmz_floors_to_txt(
-                        DbType.DbType.ISOLATED,
-                        angle,
-                        engine,
-                        _model_name=str(model_name),
-                        _alpha=alpha
-                    )
+                result = height_integration_cx_cy_cmz_floors_to_txt_aot(
+                    DbType.DbType.ISOLATED,
+                    angle,
+                    engine,
+                    _model_name=model_name,
+                    _alpha=alpha
                 )
+                res.write(result)
 
     alpha = 6
 
@@ -300,13 +173,13 @@ if __name__ == "__main__":
         if not ttest_model_name(model_name):
             continue
         for angle in range(50, 95, 5):
+            print(model_name, angle)
             with open(f"model_name_{model_name}_angle_{angle}_alpha_{alpha}.txt", mode='w', encoding="utf8") as res:
-                res.write(
-                    height_integration_cx_cy_cmz_floors_to_txt(
-                        DbType.DbType.ISOLATED,
-                        angle,
-                        engine,
-                        _model_name=str(model_name),
-                        _alpha=alpha
-                    )
+                result = height_integration_cx_cy_cmz_floors_to_txt_aot(
+                    DbType.DbType.ISOLATED,
+                    angle,
+                    engine,
+                    _model_name=model_name,
+                    _alpha=alpha
                 )
+                res.write(result)

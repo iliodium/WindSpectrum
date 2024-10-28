@@ -29,21 +29,21 @@ type ModelSizeOrNoneType = Union[ModelSizeType | None]
 
 type ModelNameType = str
 type ModelNameIsolatedType = Literal[
-    '111',
-    '112',
-    '113',
-    '114',
-    '115',
+    111,
+    112,
+    113,
+    114,
+    115,
 
-    '212',
-    '213',
-    '214',
-    '215',
+    212,
+    213,
+    214,
+    215,
 
-    '312',
-    '313',
-    '314',
-    '315',
+    312,
+    313,
+    314,
+    315,
 ]
 
 type ModelNameIsolatedOrNoneType = Union[ModelNameIsolatedType | None]

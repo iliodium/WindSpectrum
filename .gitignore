@@ -1,6 +1,7 @@
 .idea/
 venv*/
-
+*.pyd
 **/__pycache__
 
 db_init/*.sql
+/tests/
