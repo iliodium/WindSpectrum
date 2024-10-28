@@ -32,13 +32,15 @@ jobs:
         run: |
           git config user.name "import_linter Bot"
           git config user.email "import_linter@import_linter.com"
+
       - name: Fetch all branches
         run: git fetch --all
+
       - name: Switch to main branch
         run: git checkout remotes/origin/main
+
       - name: Commit and push changes
         run: |
-#          git checkout main
           git add .
           git commit -m "import_linter"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
