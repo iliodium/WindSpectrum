@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,7 +35,6 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git rebase HEAD:main
           git add .  
           git commit -m "import_linter"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
