@@ -35,8 +35,7 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git fetch origin/main
-          git merge origin/main
+          git pull --rebase origin main
           git add .  
           git commit -m "import_linter"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
