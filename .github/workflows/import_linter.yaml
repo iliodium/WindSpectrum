@@ -32,15 +32,17 @@ jobs:
         run: |
           git config user.name "import_linter Bot"
           git config user.email "import_linter@import_linter.com"
-
-      - name: Fetch all branches
-        run: git fetch --all
-      - name: Commit
-        run: |
-          git add .
-          git commit -m "import_linter"
-      - name: Switch to main branch
-        run: git checkout remotes/origin/main
+#
+#      - name: Fetch all branches
+#        run: git fetch --all
+#
+#      - name: Commit
+#        run: |
+#          git add .
+#          git commit -m "import_linter"
+#
+#      - name: Switch to main branch
+#        run: git checkout remotes/origin/main
 
       - name: Commit and push changes
         run: |
