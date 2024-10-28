@@ -34,7 +34,7 @@ jobs:
           git config user.email "import_linter@import_linter.com"
 
       - name: Fetch all branches
-        run: git branch -a
+        run: git fetch --all
 #
 #      - name: Commit
 #        run: |
