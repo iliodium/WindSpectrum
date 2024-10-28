@@ -41,8 +41,6 @@ jobs:
 #          git checkout main
           git add .
           git commit -m "import_linter"
-          git rebase --continue
-
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
 
         env:
