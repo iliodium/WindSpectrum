@@ -39,7 +39,6 @@ jobs:
           git rebase origin/main
           git add .
           git commit -m "import_linter"
-#          git pull --rebase origin main
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
