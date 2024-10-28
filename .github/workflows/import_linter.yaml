@@ -34,8 +34,7 @@ jobs:
           git config user.email "import_linter@import_linter.com"
 
       - name: Commit and push changes
-        run: |
-          echo git branch -a
+        run: git branch -a
           
 
 #          git checkout main
