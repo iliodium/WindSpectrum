@@ -35,7 +35,7 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git pull origin main
+          git pull origin $(git rev-parse --abbrev-ref HEAD)
           git add .  
           git commit -m "import_linter"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
