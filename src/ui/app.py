@@ -2,12 +2,12 @@ import os
 import sys
 
 from PySide6.QtCore import QSize
-from PySide6.QtCore import Qt, QTranslator, QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout
 from qfluentwidgets import FluentIcon
-from qfluentwidgets import FluentTranslator, isDarkTheme
-from qfluentwidgets import (NavigationItemPosition, SubtitleLabel, setFont)
+from qfluentwidgets import isDarkTheme
+from qfluentwidgets import NavigationItemPosition, SubtitleLabel, setFont
 from qfluentwidgets import SystemThemeListener, SplashScreen, FluentWindow
 
 from src.ui.config.config import cfg
@@ -77,15 +77,10 @@ class MainWindow(FluentWindow):
         self.IsolatedLowRiseBuildingsInterface = Widget('Isolated Of Low Rise Buildings', self)
 
         # Add pages to sub interface
-        self.addSubInterface(self.WindLoadsInterface,
-                             FluentIcon.EDUCATION,
-                             self.tr('Ветровые нагрузки'),
-                             NavigationItemPosition.SCROLL)
-
         self.addSubInterface(self.IsolatedInterface,
-                             '',
+                             FluentIcon.EDUCATION,
                              self.tr('Изолированные здания'),
-                             parent=self.WindLoadsInterface)
+                             NavigationItemPosition.SCROLL)
         self.addSubInterface(self.IsolatedHighRiseInterface,
                              '',
                              self.tr('Высотные здания'),
@@ -100,9 +95,9 @@ class MainWindow(FluentWindow):
                              parent=self.IsolatedInterface)
 
         self.addSubInterface(self.AerodynamicInterferenceInterface,
-                             '',
+                             FluentIcon.EDUCATION,
                              self.tr('Аэродинамическая интерференция'),
-                             parent=self.WindLoadsInterface)
+                             NavigationItemPosition.SCROLL)
         self.addSubInterface(self.AerodynamicInterferenceOfHighRiseInterface,
                              '',
                              self.tr('Высотные здания'),
@@ -175,15 +170,6 @@ def main():
     # create application
     app = QApplication(sys.argv)
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
-
-    # internationalization
-    locale = cfg.get(cfg.language).value
-    translator = FluentTranslator(locale)
-    galleryTranslator = QTranslator()
-    galleryTranslator.load(locale, "gallery", ".", ":/gallery/i18n")
-
-    app.installTranslator(translator)
-    app.installTranslator(galleryTranslator)
 
     # create main window
     w = MainWindow()
