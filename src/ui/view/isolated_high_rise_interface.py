@@ -45,6 +45,12 @@ class MatplotlibWidget(QWidget):
         # Рисуем график
         self.plot()
 
+    def add_custom_button(self):
+        path = r"D:\WindSpectrum\WindSpectrum\tests\gui\PyQt-Fluent-Widgets-PySide6 (1)\PyQt-Fluent-Widgets-PySide6\examples\gallery\app\resource\images\logo.png"
+        act = self.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.show)
+        # if you set the value to -1, the button will be in the rightmost position
+        self.toolbar.insertAction(self.toolbar.actions()[-2], act)
+
     def _icon(self, path):
         '''
         link to the original ->
@@ -61,18 +67,6 @@ class MatplotlibWidget(QWidget):
             pm.fill(icon_color)
             pm.setMask(mask)
         return QtGui.QIcon(pm)
-
-    def add_custom_button(self):
-        path = r"D:\WindSpectrum\WindSpectrum\tests\gui\PyQt-Fluent-Widgets-PySide6 (1)\PyQt-Fluent-Widgets-PySide6\examples\gallery\app\resource\images\logo.png"
-        self.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.openPlotInNewWindow)
-
-    def openPlotInNewWindow(self):
-        # Логика действия для кнопки
-        print("Custom action triggered!")
-        ax = self.figure.gca()
-        ax.set_title("Custom Button Clicked")
-        self.canvas.draw()
-        self.show()
 
     def show(self):
         self.window = QWidget()
@@ -91,7 +85,6 @@ class MatplotlibWidget(QWidget):
         ax.set_title("Matplotlib with PySide6")
         ax.legend()
         self.canvas.draw()
-
 
 
 class IsolatedHighRiseInterface(ScrollArea):
