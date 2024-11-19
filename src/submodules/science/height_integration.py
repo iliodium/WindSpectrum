@@ -14,7 +14,7 @@ from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_na
                                                      load_pressure_coefficients, )
 from src.submodules.inner.interpreted_data import (interp_016_tpu,
                                                    interp_025_tpu, )
-from src.submodules.science import utils
+from src.submodules.utils import utils
 from src.submodules.utils.scaling import (get_model_and_scale_factors,
                                           get_model_and_scale_factors_interference, )
 
