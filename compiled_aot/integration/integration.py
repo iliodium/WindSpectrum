@@ -120,34 +120,60 @@ def _calculate_sensors_area_effect(
                    numba.int64,  # count_sensors_on_model
                    numba.int64,  # count_sensors_on_middle_row
                    numba.int64,  # count_sensors_on_side_row
-                   numba.float64[:, ::1]  # _pressure_coefficients
+                   numba.float64[:, ::1]  # press_coefficients
            ))
 def _split_pressure_coefficients(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
-        pressure_coefficients
+        press_coefficients
 ):
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
-    pc_copy = np.reshape(pressure_coefficients, (pressure_coefficients.shape[0], count_row, -1))
-    pc_copy = np.split(pc_copy, [count_sensors_on_middle_row,
-                                 count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                 ], axis=2)
+    press_coefficients = np.reshape(press_coefficients, (press_coefficients.shape[0], count_row, -1))
+    press_coefficients = np.split(press_coefficients, [count_sensors_on_middle_row,
+                                                       count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                       2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                                                       2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                                                       ], axis=2)
 
-    return pc_copy[0], pc_copy[1], pc_copy[2], pc_copy[3]
+    return press_coefficients[0], press_coefficients[1], press_coefficients[2], press_coefficients[3]
 
 
 @jit
-@cc.export('_calculate_projection_on_the_axis',
+@cc.export('split_1d_array',
+           (
+                   numba.int64,  # count_sensors_on_model
+                   numba.int64,  # count_sensors_on_middle_row
+                   numba.int64,  # count_sensors_on_side_row
+                   numba.float64[::1]  # array
+           ))
+def split_1d_array(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        array
+):
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
+    array = np.reshape(array, (count_row, -1))
+    array = np.split(array,
+                     [count_sensors_on_middle_row,
+                      count_sensors_on_middle_row + count_sensors_on_side_row,
+                      2 * count_sensors_on_middle_row + count_sensors_on_side_row,
+                      2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
+                      ], axis=1)
+
+    return array[0], array[1], array[2], array[3]
+
+
+@jit
+@cc.export('calculate_projection_on_the_axis',
            numba.float64(
                numba.float64,  # breadth
                numba.float64,  # depth
                numba.int64  # angle
            ))
-def _calculate_projection_on_the_axis(
+def calculate_projection_on_the_axis(
         breadth,
         depth,
         angle
@@ -191,15 +217,12 @@ def _calculate_mxs(
         breadth,
         depth,
 ):
-    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-    x_for_mxs = np.reshape(coordinate_x, (count_row, -1))
-    x_for_mxs = np.split(x_for_mxs, [count_sensors_on_middle_row,
-                                     count_sensors_on_middle_row + count_sensors_on_side_row,
-                                     2 * count_sensors_on_middle_row + count_sensors_on_side_row,
-                                     2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
-                                     ], axis=1)
-
-    del x_for_mxs[4]
+    x_for_mxs = split_1d_array(
+        count_sensors_on_model,
+        count_sensors_on_middle_row,
+        count_sensors_on_side_row,
+        coordinate_x,
+    )
 
     # центры граней
     mid13_x, mid24_x = _get_mid_of_face(breadth, depth)
@@ -316,7 +339,7 @@ def _calculate_cx_cy(
 
 
 @jit
-@cc.export('calculate_cmz_aot',
+@cc.export('calculate_cmz',
            numba.float64[:](
                numba.int64,  # count_sensors_on_model
                numba.int64,  # count_sensors_on_middle_row
@@ -324,21 +347,21 @@ def _calculate_cx_cy(
                numba.int64,  # angle
                numba.float64,  # breadth
                numba.float64,  # depth
+               numba.float64,  # height
                numba.float64[::1],  # _x
                numba.float64[::1],  # _y
-               numba.float64,  # height
                numba.float64[:, ::1]  # _pressure_coefficients
            ))
-def calculate_cmz_aot(
+def calculate_cmz(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
         angle,
         breadth,
         depth,
+        height,
         _x,
         _y,
-        height,
         pressure_coefficients
 ):
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
@@ -383,7 +406,7 @@ def calculate_cmz_aot(
         depth,
     )
 
-    projection_on_the_axis = _calculate_projection_on_the_axis(
+    projection_on_the_axis = calculate_projection_on_the_axis(
         breadth,
         depth,
         angle
@@ -406,27 +429,27 @@ def calculate_cmz_aot(
 
 
 @jit
-@cc.export('calculate_cx_cy_aot',
+@cc.export('calculate_cx_cy',
            (
                    numba.int64,  # count_sensors_on_model
                    numba.int64,  # count_sensors_on_middle_row
                    numba.int64,  # count_sensors_on_side_row
                    numba.float64,  # breadth
                    numba.float64,  # depth
+                   numba.float64,  # height
                    numba.float64[::1],  # _x
                    numba.float64[::1],  # _y
-                   numba.float64,  # height
                    numba.float64[:, ::1]  # _pressure_coefficients
            ))
-def calculate_cx_cy_aot(
+def calculate_cx_cy(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
         breadth,
         depth,
+        height,
         _x,
         _y,
-        height,
         pressure_coefficients
 ):
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
@@ -590,7 +613,7 @@ def aot_height_integration_cx_cy_cmz_floors_to_txt(
     count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
     count_sensors_on_row = 2 * (count_sensors_on_middle_row + count_sensors_on_side_row)
 
-    projection_on_the_axis = _calculate_projection_on_the_axis(
+    projection_on_the_axis = calculate_projection_on_the_axis(
         breadth,
         depth,
         angle
