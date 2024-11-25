@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 
 def get_labels(point):
@@ -56,6 +57,12 @@ def scaling_data(x, y=None, angle_border=50):
                 x_scale = np.append(b, np.flip(b)[1:])
                 return x_scale
 
+
+def interpolator(coords, val):
+    """Функция интерполяции"""
+    return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
+
+
 def round_list_model_pic(arr):
     new_arr = []
     for val in arr:
@@ -69,6 +76,7 @@ def round_list_model_pic(arr):
         new_arr.append(f'{round(val, 2):.1f}')
 
     return new_arr
+
 
 if __name__ == "__main__":
     print(get_labels(0.5))

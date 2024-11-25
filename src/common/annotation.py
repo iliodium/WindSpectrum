@@ -1,14 +1,14 @@
 from typing import (Annotated,
                     Literal,
-                    Tuple,
                     Union, )
 
-from pydantic import Field, validate_call
+from pydantic import Field
 from sqlalchemy.engine.base import Engine
+
+from src.common.FaceType import FaceType
 from src.common.constants import (alpha_standards,
                                   ks10,
                                   wind_regions, )
-from src.common.FaceType import FaceType
 from src.ui.common.ChartMode import ChartMode
 
 type AlphaType = Literal[4, 6]
@@ -59,6 +59,9 @@ type WindRegionsType = Literal[*wind_regions]
 
 type CoordinatesType = Union[tuple[tuple, tuple] | tuple]
 type ChartModeType = tuple[ChartMode, ...]
+
+type ModelSizeType = tuple[float, float, float]
+type ModelSizeOrNoneType = Union[ModelSizeType | None]
 
 
 def check_type_engine(engine):
