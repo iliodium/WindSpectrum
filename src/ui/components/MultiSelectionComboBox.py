@@ -18,7 +18,6 @@ class MultiSelectionComboBox(QComboBox):
         self.setPlaceholderText(placeholder_text)
         self.setEditable(False)
         path = StyleSheet.path(StyleSheet.MULTI_SELECTION_COMBO_BOX)
-        path = r'D:\WindSpectrum\WindSpectrum\src\ui\resource\qss\light\multi_selection_combo_box.qss'
 
         with open(path, 'r') as file:
             stylesheet = file.read()
@@ -96,30 +95,3 @@ class MultiSelectionComboBox(QComboBox):
             item = self.list_widget.item(row)
             item.setCheckState(Qt.CheckState.Checked)
 
-
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        self.setWindowTitle("MultiSelectionComboBox Example")
-        self.resize(300, 200)
-
-        # MultiSelectionComboBox
-        self.multi_combo = MultiSelectionComboBox(placeholder_text='Параметры')
-
-        for i in range(3):
-            self.multi_combo.addItem(f"Option {i}")
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.multi_combo)
-
-        self.setLayout(layout)
-
-
-if __name__ == "__main__":
-    app = QApplication([])
-
-    window = MainWindow()
-    window.show()
-
-    app.exec()

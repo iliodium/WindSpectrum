@@ -20,10 +20,6 @@ from matplotlib.backend_tools import ToolBase
 from matplotlib.backend_managers import ToolManager
 
 
-class NewTool(ToolBase):
-    image = r"D:\WindSpectrum\WindSpectrum\tests\gui\PyQt-Fluent-Widgets-PySide6 (1)\PyQt-Fluent-Widgets-PySide6\examples\gallery\app\resource\images\logo.png"
-
-
 class MatplotlibWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -46,7 +42,7 @@ class MatplotlibWidget(QWidget):
         self.plot()
 
     def add_custom_button(self):
-        path = r"D:\WindSpectrum\WindSpectrum\tests\gui\PyQt-Fluent-Widgets-PySide6 (1)\PyQt-Fluent-Widgets-PySide6\examples\gallery\app\resource\images\logo.png"
+        path = r"src\ui\resource\images\fl_icon.png"
         act = self.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.show)
         # if you set the value to -1, the button will be in the rightmost position
         self.toolbar.insertAction(self.toolbar.actions()[-2], act)
