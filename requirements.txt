@@ -19,6 +19,8 @@ matplotlib==3.9.2
 
 # UI
 
+PySide6-Fluent-Widgets==1.7.3
+
 # QT6
 
 PySide6==6.8.0.2
