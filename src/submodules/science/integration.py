@@ -8,7 +8,7 @@ from compiled_aot.integration import aot_integration
 from src.common.DbType import DbType
 from src.common.annotation import (CoordinatesType,
                                    ModelNameIsolatedOrNoneType, AngleType, )
-from src.submodules.science import utils
+from src.submodules.utils import utils
 
 
 @validate_call
@@ -32,16 +32,16 @@ def calculate_cmz(
     _x = np.array(coordinates[0])
     _y = np.array(coordinates[1])
 
-    return aot_integration.calculate_cmz_aot(
+    return aot_integration.calculate_cmz(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
         angle,
         breadth,
         depth,
+        height,
         _x,
         _y,
-        height,
         pressure_coefficients
 
     )
@@ -68,15 +68,15 @@ def calculate_cx_cy(
     x = np.array(coordinates[0])
     y = np.array(coordinates[1])
 
-    return aot_integration.calculate_cx_cy_aot(
+    return aot_integration.calculate_cx_cy(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,
         breadth,
         depth,
+        height,
         x,
         y,
-        height,
         pressure_coefficients
     )
 
@@ -88,7 +88,9 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients, )
+                                                         load_pressure_coefficients,
+                                                         load_experiment_by_id
+                                                         )
 
     start = time.time()
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
@@ -114,7 +116,7 @@ if __name__ == "__main__":
         coordinates,
         model_name=model_name
     )
-
+    print(v)
     plt.plot(np.arange(cx.shape[0]) / 1000, cx)
     plt.plot(np.arange(cy.shape[0]) / 1000, cy)
     plt.plot(np.arange(v.shape[0]) / 1000, v)
