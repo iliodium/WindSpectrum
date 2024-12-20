@@ -29,7 +29,7 @@ class PlotBuilding(Plot):
             step_minor_x: int = 5,
             step_major_y: float = 0.4,
             step_sensors_for_plot: int = 100
-    ) -> plt.Figure:
+    ) -> list[plt.Figure]:
         """
         Отрисовка огибающих.
 
@@ -513,6 +513,12 @@ class PlotBuilding(Plot):
 
         count_ticks = 5
 
+        triangs = []
+        # Создание сетки
+        for i in range(2):
+            triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
+            triangs.append(triang)
+
         for i in range(4):
             x_z = np.column_stack((x[i].reshape(-1), z[i].reshape(-1)))
             x_z_extended = np.column_stack((x_extended[i].reshape(-1), z_extended[i].reshape(-1)))
@@ -522,8 +528,7 @@ class PlotBuilding(Plot):
             # Получаем данные для несуществующих датчиков
             pressure_coefficients_extended = interpolator(x_z_extended)
 
-            triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
-            refiner = mtri.UniformTriRefiner(triang)
+            refiner = mtri.UniformTriRefiner(triangs[i % 2])
             grid, value = refiner.refine_field(pressure_coefficients_extended, subdiv=4)
 
             data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
@@ -660,7 +665,7 @@ if __name__ == "__main__":
     # size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
     #                                                        model_name,
     #                                                        )
-
+    #
     # cx, cy = aot_integration.calculate_cx_cy(
     #     *count_sensors,
     #     *size,

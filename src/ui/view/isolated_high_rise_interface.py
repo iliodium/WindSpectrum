@@ -1,4 +1,6 @@
 # coding:utf-8
+import asyncio
+
 import numpy as np
 from PySide6 import QtGui, QtCore
 from PySide6.QtGui import QAction
@@ -9,12 +11,19 @@ from matplotlib.figure import Figure
 from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
     StrongBodyLabel, LineEdit
 
+from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
+    load_positions
+from src.submodules.plot.plot import Plot
+from src.submodules.plot.plotBuilding import PlotBuilding
+from src.submodules.utils import utils
+from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectionComboBox import MultiSelectionComboBox
+from compiled_aot.integration import aot_integration
 
 from matplotlib.backend_tools import ToolBase
 from matplotlib.backend_managers import ToolManager
@@ -39,7 +48,7 @@ class MatplotlibWidget(QWidget):
         layout.addWidget(self.canvas)
 
         # Рисуем график
-        self.plot()
+        # self.plot()
 
     def add_custom_button(self):
         path = r"src\ui\resource\images\fl_icon.png"
@@ -88,9 +97,11 @@ class IsolatedHighRiseInterface(ScrollArea):
 
     def __init__(
             self,
-            parent=None
+            parent=None,
+            engine=None
     ):
         super().__init__(parent=parent)
+        self.engine = engine
         self.setObjectName('IsolatedHighRiseInterface')
         self.view = QWidget(self)
         # Set style
@@ -104,12 +115,12 @@ class IsolatedHighRiseInterface(ScrollArea):
         # Initialization chart menu
         self._init_chart_menu()
         # Create plot widget
-        self.plot_widget = MatplotlibWidget()
+        self.plotWidget = MatplotlibWidget()
         # Add toolbar to grid layout
-        self.grigLayout.addWidget(self.plot_widget.toolbar, 1, 1)
+        self.grigLayout.addWidget(self.plotWidget.toolbar, 1, 1)
         # Add plot to grid layout
         # widget, row, column, rowSpan, columnSpan
-        self.grigLayout.addWidget(self.plot_widget, 2, 1, 5, 5)
+        self.grigLayout.addWidget(self.plotWidget, 2, 1, 5, 5)
 
     def _init_general_information(
             self
@@ -161,7 +172,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.hBoxLayoutBuildingSize = QHBoxLayout(self.view)
         self.hBoxLayoutBuildingSize.addWidget(StrongBodyLabel('Размеры здания'))
         self.lineEditBuildingSize = LineEdit()
-        self.lineEditBuildingSize.setText(self.tr('0.1 0.1 0.3'))
+        self.lineEditBuildingSize.setText(self.tr('0.1 0.1 0.1'))
         self.lineEditBuildingSize.setClearButtonEnabled(True)
         self.lineEditBuildingSize.setFixedWidth(125)
         self.hBoxLayoutBuildingSize.addWidget(self.lineEditBuildingSize)
@@ -194,15 +205,25 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
         self.PushButtonCreatePlot = PushButton('Построить')
-        self.PushButtonCreatePlot.clicked.connect(self.open_plot)
+        self.PushButtonCreatePlot.clicked.connect(self.create_plot)
         self.PushButtonCreatePlot.setFixedWidth(100)
 
         self.hBoxLayoutChartMenu.addWidget(self.PushButtonCreatePlot)
         self.grigLayout.addLayout(self.hBoxLayoutChartMenu, 0, 1)
 
-    def open_plot(self):
-        print('opem')
-        self.plot_widget.show()
+    def create_plot(self):
+        match self.StackedLayoutTypeChart.currentIndex():
+            case 0:
+                print(0)
+            case 1:
+                print(1)
+                self.plot_envelopes()
+            case 2:
+                print(2)
+            case 3:
+                print(3)
+
+        # self.plot_widget.show()  # Открыть график в новом окне
 
     def _init_chart_isofields(
             self
@@ -242,7 +263,7 @@ class IsolatedHighRiseInterface(ScrollArea):
                                            ChartMode.RMS,
                                            ChartMode.STD,
                                            ))
-        self.envelopesParameters.checkAllItems()
+        # self.envelopesParameters.checkAllItems()
         self.hBoxLayoutEnvelopes.addWidget(self.envelopesParameters)
         self.StackedLayoutTypeChart.addWidget(self.WidgetEnvelopes)
 
@@ -331,3 +352,117 @@ class IsolatedHighRiseInterface(ScrollArea):
                 self.StackedLayoutSummaryCoefficients.setCurrentIndex(0)
             case CoordinateSystem.POLAR:
                 self.StackedLayoutSummaryCoefficients.setCurrentIndex(1)
+
+    def _get_model_size(
+            self
+    ):
+        return map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' '))
+
+    def _get_alpha(
+            self
+    ):
+        type_alpha = {
+            'A': 4,
+            'C': 6,
+        }
+        return type_alpha[self.ComboBoxTypeOfArea.text()]
+
+    def plot_envelopes(
+            self
+    ):
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        mods = self.envelopesParameters.getSelected()
+
+        print(mods)
+        print(alpha)
+        print(model_name)
+        print(angle)
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        figs = PlotBuilding.envelopes(pressure_coefficients, mods)
+        print(123)
+        self.plotWidget.canvas = FigureCanvasQTAgg(figs[0])
+        self.plotWidget.canvas.draw()
+
+    def plot_isofields(
+            self
+    ):
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        mods = self.isofieldsParameters.getSelected()
+
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        PlotBuilding.isofields_coefficients((10, 10, 10),
+                                            model_name,
+                                            *mods,
+                                            pressure_coefficients,
+                                            coordinates)
+
+    def plot_pseudocolor_coefficients(
+            self
+    ):
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        mods = self.isofieldsParameters.getSelected()
+
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        PlotBuilding.pseudocolor_coefficients(pressure_coefficients,
+                                              coordinates,
+                                              model_name,
+                                              *mods)
+
+    def plot_summary_coefficients(
+            self
+    ):
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        mods = self.sum.getSelected()
+
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
+                                                               model_name,
+                                                               )
+
+        cx, cy = aot_integration.calculate_cx_cy(
+            *count_sensors,
+            *size,
+            np.array(coordinates[0]),
+            np.array(coordinates[1]),
+            pressure_coefficients
+        )
+        cmz = aot_integration.calculate_cmz(
+            *count_sensors,
+            angle,
+            *size,
+            np.array(coordinates[0]),
+            np.array(coordinates[1]),
+            pressure_coefficients
+        )
+
+        PlotBuilding.summary_coefficients({
+            'Cx': cx,
+            'Cy': cy,
+            'CMz': cmz,
+        }, DbType.ISOLATED)

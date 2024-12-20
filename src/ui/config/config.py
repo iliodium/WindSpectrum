@@ -54,5 +54,5 @@ class Config(QConfig):
 REPO_URL = "https://github.com/iliodium/WindSpectrum"
 
 cfg = Config()
-cfg.themeMode.value = Theme.AUTO
+cfg.themeMode.value = Theme.LIGHT
 qconfig.load('src/ui/qt/config/config.json', cfg)

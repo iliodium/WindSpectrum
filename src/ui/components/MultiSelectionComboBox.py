@@ -3,6 +3,7 @@ from PySide6.QtGui import QCursor, QPainter
 from PySide6.QtWidgets import QComboBox, QListWidgetItem, QVBoxLayout, QWidget, QApplication
 from qfluentwidgets import ListWidget, FluentIcon
 
+from src.ui.common.ChartMode import ChartMode
 from src.ui.common.StyleSheet import StyleSheet
 
 
@@ -36,6 +37,9 @@ class MultiSelectionComboBox(QComboBox):
         painter = QPainter(self)
         painter.setRenderHints(QPainter.Antialiasing)
         FluentIcon.CHEVRON_RIGHT.render(painter, QRectF(self.width() - 10, self.height() / 2 - 9 / 2, 9, 9))
+
+        # костыль
+        self.my_state = dict()
 
     def paintEvent(self, e):
         super().paintEvent(e)
@@ -78,17 +82,31 @@ class MultiSelectionComboBox(QComboBox):
     def getSelected(
             self
     ):
-        return [item.text() for item in self.list_widget.selectedItems()]
+        # print(list(self.list_widget.selectedItems()))
+        # print(self.list_widget.item)
+        # return [item.text() for item in self.list_widget.selectedItems()]
+        mods = []
+        for i in [k for k, v in self.my_state.items() if v]:
+            for j in ChartMode:
+                if i == j:
+                    mods.append(j)
+        return mods
 
     def onItemPressed(
             self,
             item
     ):
+        # print(item.checkState(),1)
 
-        if item.checkState() == Qt.CheckState.Checked:
-            item.setCheckState(Qt.CheckState.Unchecked)
-        else:
-            item.setCheckState(Qt.CheckState.Checked)
+        match item.checkState():
+            case Qt.CheckState.Checked:
+                item.setCheckState(Qt.CheckState.Unchecked)
+                self.my_state[item.text()] = False
+
+            case Qt.CheckState.Unchecked:
+                item.setCheckState(Qt.CheckState.Checked)
+                self.my_state[item.text()] = True
+        # print(item.checkState(),2)
 
     def checkAllItems(self):
         for row in range(self.list_widget.count()):
