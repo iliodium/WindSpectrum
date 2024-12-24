@@ -22,7 +22,7 @@ from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.common.StyleSheet import StyleSheet
-from src.ui.components.MultiSelectionComboBox import MultiSelectionComboBox
+from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from compiled_aot.integration import aot_integration
 
 from matplotlib.backend_tools import ToolBase
@@ -215,6 +215,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         match self.StackedLayoutTypeChart.currentIndex():
             case 0:
                 print(0)
+                self.plot_isofields()
             case 1:
                 print(1)
                 self.plot_envelopes()
@@ -240,13 +241,13 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.ComboBoxTypesIsofields.setFixedWidth(140)
         self.hBoxLayoutIsofields.addWidget(self.ComboBoxTypesIsofields)
 
-        self.isofieldsParameters = MultiSelectionComboBox(placeholder_text='Параметры')
-        self.isofieldsParameters.addItems((ChartMode.MAX,
+        self.isofieldsParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.isofieldsParameters.addItems([ChartMode.MAX,
                                            ChartMode.MEAN,
                                            ChartMode.MIN,
                                            ChartMode.RMS,
                                            ChartMode.STD,
-                                           ))
+                                           ])
         self.hBoxLayoutIsofields.addWidget(self.isofieldsParameters)
 
         self.StackedLayoutTypeChart.addWidget(self.WidgetIsofields)
@@ -256,13 +257,13 @@ class IsolatedHighRiseInterface(ScrollArea):
     ):
         self.WidgetEnvelopes = QWidget()
         self.hBoxLayoutEnvelopes = QHBoxLayout(self.WidgetEnvelopes)
-        self.envelopesParameters = MultiSelectionComboBox(placeholder_text='Параметры')
-        self.envelopesParameters.addItems((ChartMode.MAX,
+        self.envelopesParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.envelopesParameters.addItems([ChartMode.MAX,
                                            ChartMode.MEAN,
                                            ChartMode.MIN,
                                            ChartMode.RMS,
                                            ChartMode.STD,
-                                           ))
+                                           ])
         # self.envelopesParameters.checkAllItems()
         self.hBoxLayoutEnvelopes.addWidget(self.envelopesParameters)
         self.StackedLayoutTypeChart.addWidget(self.WidgetEnvelopes)
@@ -290,26 +291,26 @@ class IsolatedHighRiseInterface(ScrollArea):
         # Cartesian system
         self.WidgetCartesianSummaryCoefficients = QWidget()
         self.hBoxLayoutCartesianCoordinateSystem = QHBoxLayout(self.WidgetCartesianSummaryCoefficients)
-        self.cartesianParameters = MultiSelectionComboBox(placeholder_text='Параметры')
-        self.cartesianParameters.addItems((ChartMode.CX,
+        self.cartesianParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.cartesianParameters.addItems([ChartMode.CX,
                                            ChartMode.CY,
                                            ChartMode.CMZ,
-                                           ))
+                                           ])
         self.hBoxLayoutCartesianCoordinateSystem.addWidget(self.cartesianParameters)
         self.StackedLayoutSummaryCoefficients.addWidget(self.WidgetCartesianSummaryCoefficients)
         # Polar system
         self.WidgetPolarSummaryCoefficients = QWidget()
         self.hBoxLayoutPolarCoordinateSystem = QHBoxLayout(self.WidgetPolarSummaryCoefficients)
-        self.polarParameters = MultiSelectionComboBox(placeholder_text='Параметры')
-        self.polarParameters.addItems((ChartMode.MAX,
+        self.polarParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.polarParameters.addItems([ChartMode.MAX,
                                        ChartMode.MEAN,
                                        ChartMode.MIN,
                                        ChartMode.RMS,
                                        ChartMode.STD,
-                                       ChartMode.SETTLEMENT,
+                                       ChartMode.CALCULATED,
                                        ChartMode.WARRANTY_PLUS,
                                        ChartMode.WARRANTY_MINUS,
-                                       ))
+                                       ])
         self.hBoxLayoutPolarCoordinateSystem.addWidget(self.polarParameters)
         self.StackedLayoutSummaryCoefficients.addWidget(self.WidgetPolarSummaryCoefficients)
         # Add widget to main layout
@@ -320,12 +321,12 @@ class IsolatedHighRiseInterface(ScrollArea):
     ):
         self.WidgetSpectrum = QWidget()
         self.hBoxLayoutSpectrum = QHBoxLayout(self.WidgetSpectrum)
-        self.spectrumParameters = MultiSelectionComboBox(placeholder_text='Параметры')
-        self.spectrumParameters.addItems((ChartMode.CX,
+        self.spectrumParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.spectrumParameters.addItems([ChartMode.CX,
                                           ChartMode.CY,
                                           ChartMode.CMZ,
-                                          ))
-        self.spectrumParameters.checkAllItems()
+                                          ])
+        # self.spectrumParameters.checkAllItems()
         self.hBoxLayoutSpectrum.addWidget(self.spectrumParameters)
         self.StackedLayoutTypeChart.addWidget(self.WidgetSpectrum)
 
@@ -374,19 +375,19 @@ class IsolatedHighRiseInterface(ScrollArea):
         model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
         angle = int(self.lineEditWindAngle.text())
 
-        mods = self.envelopesParameters.getSelected()
+        mods = self.envelopesParameters.getCurrentOptions()
 
         print(mods)
-        print(alpha)
-        print(model_name)
-        print(angle)
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-            angle]
-        figs = PlotBuilding.envelopes(pressure_coefficients, mods)
-        print(123)
-        self.plotWidget.canvas = FigureCanvasQTAgg(figs[0])
-        self.plotWidget.canvas.draw()
+        # print(alpha)
+        # print(model_name)
+        # print(angle)
+        # model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        # pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+        #     angle]
+        # figs = PlotBuilding.envelopes(pressure_coefficients, mods)
+        # print(123)
+        # self.plotWidget.canvas = FigureCanvasQTAgg(figs[0])
+        # self.plotWidget.canvas.draw()
 
     def plot_isofields(
             self
@@ -396,17 +397,17 @@ class IsolatedHighRiseInterface(ScrollArea):
         angle = int(self.lineEditWindAngle.text())
 
         mods = self.isofieldsParameters.getSelected()
-
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-            angle]
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-
-        PlotBuilding.isofields_coefficients((10, 10, 10),
-                                            model_name,
-                                            *mods,
-                                            pressure_coefficients,
-                                            coordinates)
+        print(mods)
+        # model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        # pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+        #     angle]
+        # coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+        #
+        # PlotBuilding.isofields_coefficients((10, 10, 10),
+        #                                     model_name,
+        #                                     *mods,
+        #                                     pressure_coefficients,
+        #                                     coordinates)
 
     def plot_pseudocolor_coefficients(
             self
