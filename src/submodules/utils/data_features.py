@@ -11,7 +11,7 @@ def rms(data) -> float:
 
 
 @validate_call
-def settlement(data) -> float:
+def calculated(data) -> float:
     """Расчетное"""
     return np.max([np.abs(np.min(data)), np.abs(np.max(data))]).round(2)
 

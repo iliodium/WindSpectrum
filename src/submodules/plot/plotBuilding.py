@@ -708,7 +708,7 @@ if __name__ == "__main__":
     #     ChartMode.STD: np.std,
     #     ChartMode.MAX: np.max,
     #     ChartMode.MIN: np.min,
-    #     ChartMode.SETTLEMENT: settlement,
+    #     ChartMode.CALCULATED: calculated,
     #     ChartMode.WARRANTY_PLUS: warranty_plus,
     #     ChartMode.WARRANTY_MINUS: warranty_minus,
     # }
