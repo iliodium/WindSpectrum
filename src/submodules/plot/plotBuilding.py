@@ -12,7 +12,7 @@ from scipy.signal import welch
 from src.common.DbType import DbType
 from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import get_labels
+from src.submodules.plot.utils import get_labels, calculate_levels, set_colorbar
 from src.submodules.plot.utils import interpolator as intp
 from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
@@ -415,7 +415,7 @@ class PlotBuilding(Plot):
         return fig
 
     @staticmethod
-    # @validate_call
+    @validate_call
     def isofields_coefficients(
             model_size: ModelSizeType,
             model_name: ModelNameIsolatedType,
@@ -517,24 +517,7 @@ class PlotBuilding(Plot):
         cmap = matplotlib.colormaps.get_cmap("jet")
         data_colorbar = None
 
-        min_value = np.round(np.min([np.min(pressure_coefficients[i]) for i in range(4)]), 1)
-        max_value = np.round(np.max([np.max(pressure_coefficients[i]) for i in range(4)]), 1)
-
-        match parameter:
-            case ChartMode.MAX | ChartMode.MIN:
-                step = 0.2
-            case ChartMode.RMS | ChartMode.STD:
-                step = 0.05
-            case _:
-                step = 0.1
-
-        match parameter:
-            case ChartMode.RMS | ChartMode.STD:
-                decimals = 2
-            case _:
-                decimals = 1
-
-        levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
+        levels = calculate_levels(parameter, pressure_coefficients)
 
         count_ticks = 5
 
@@ -570,17 +553,7 @@ class PlotBuilding(Plot):
             ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2),
                                   fontsize=Plot.YTICKS_FONTSIZE)
 
-        lbot = levels[0:: 2]
-        ltop = levels[1:: 2]
-        cbar = fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=lbot)
-        cbar.ax.tick_params(labelsize=Plot.COLORBAR_FONTSIZE)
-        vmin = cbar.norm.vmin
-        vmax = cbar.norm.vmax
-
-        # --------------Print top tick labels--------------
-        for ii in ltop:
-            cbar.ax.text((ii - vmin) / (vmax - vmin), 1.5, ii, transform=cbar.ax.transAxes, va='bottom',
-                         ha='center', fontsize=Plot.COLORBAR_FONTSIZE)
+        set_colorbar(fig, levels, data_colorbar, ax, cmap)
 
         return fig
 
@@ -628,8 +601,7 @@ class PlotBuilding(Plot):
 
         cmap = matplotlib.colormaps.get_cmap("jet")
 
-        step = 0.1
-        levels = np.arange(-1.2, 1.2 + step, step)
+        levels = calculate_levels(parameter, pressure_coefficients)
 
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 
@@ -655,18 +627,18 @@ class PlotBuilding(Plot):
             match i % 2:
                 case 0:
                     ax[i].set_xticks(xticks_13)
-                    ax[i].set_xticklabels(xticklabels_13)
+                    ax[i].set_xticklabels(xticklabels_13, fontsize=Plot.XTICKS_FONTSIZE)
                     ax[i].plot(*meshgrid_13, '.k')
 
                 case 1:
                     ax[i].set_xticks(xticks_24)
-                    ax[i].set_xticklabels(xticklabels_24)
+                    ax[i].set_xticklabels(xticklabels_24, fontsize=Plot.XTICKS_FONTSIZE)
                     ax[i].plot(*meshgrid_24, '.k')
 
             ax[i].set_yticks(yticks)
-            ax[i].set_yticklabels(yticklabels)
+            ax[i].set_yticklabels(yticklabels, fontsize=Plot.YTICKS_FONTSIZE)
 
-        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels)
+        set_colorbar(fig, levels, data_colorbar, ax, cmap)
 
         return fig
 

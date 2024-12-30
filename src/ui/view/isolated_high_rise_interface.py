@@ -167,11 +167,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.hBoxLayoutChartMenu = QHBoxLayout(self.view)
         self.ComboBoxChartMenu = ComboBox()
         self.ComboBoxChartMenu.addItems([
-            self.tr(i) for i in (ChartType.ISOFIELDS,
-                                 ChartType.ENVELOPES,
-                                 ChartType.SUMMARY_COEFFICIENTS,
-                                 ChartType.SPECTRUM
-                                 )
+            self.tr(i) for i in ChartType
         ])
         self.ComboBoxChartMenu.currentTextChanged.connect(self._switch_stacked_layout_type_chart)
         self.ComboBoxChartMenu.setFixedWidth(225)
@@ -183,6 +179,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         self._init_chart_envelopes()
         self._init_chart_summary_coefficients()
         self._init_chart_spectrum()
+        self._init_chart_pseudocolor_coefficients()
 
         self.hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
@@ -198,19 +195,15 @@ class IsolatedHighRiseInterface(ScrollArea):
     ):
         match self.StackedLayoutTypeChart.currentIndex():
             case 0:
-                print(0)
                 self.plot_isofields()
-                # self.plot_envelopes()
             case 1:
-                print(1)
                 self.plot_envelopes()
             case 2:
-                print(2)
                 self.plot_summary_coefficients()
             case 3:
                 print(3)
-
-        # self.plot_widget.show()  # Открыть график в новом окне
+            case 4:
+                self.plot_pseudocolor_coefficients()
 
     def _init_chart_isofields(
             self
@@ -319,9 +312,24 @@ class IsolatedHighRiseInterface(ScrollArea):
                                           ChartMode.CY,
                                           ChartMode.CMZ,
                                           ])
-        # self.spectrumParameters.checkAllItems()
         self.hBoxLayoutSpectrum.addWidget(self.spectrumParameters)
         self.StackedLayoutTypeChart.addWidget(self.WidgetSpectrum)
+
+    def _init_chart_pseudocolor_coefficients(
+            self
+    ):
+        self.WidgetDiscreteIsofields = QWidget()
+        self.hBoxLayoutDiscreteIsofields = QHBoxLayout(self.WidgetDiscreteIsofields)
+        self.discreteIsofieldsParameters = ComboBox()
+        self.discreteIsofieldsParameters.addItems([
+            self.tr(i) for i in (ChartMode.MAX,
+                                 ChartMode.MEAN,
+                                 ChartMode.MIN,
+                                 ChartMode.RMS,
+                                 ChartMode.STD)
+        ])
+        self.hBoxLayoutDiscreteIsofields.addWidget(self.discreteIsofieldsParameters)
+        self.StackedLayoutTypeChart.addWidget(self.WidgetDiscreteIsofields)
 
     def _switch_stacked_layout_type_chart(
             self,
@@ -336,6 +344,8 @@ class IsolatedHighRiseInterface(ScrollArea):
                 self.StackedLayoutTypeChart.setCurrentIndex(2)
             case ChartType.SPECTRUM:
                 self.StackedLayoutTypeChart.setCurrentIndex(3)
+            case ChartType.DISCRETE_ISOFIELDS:
+                self.StackedLayoutTypeChart.setCurrentIndex(4)
 
     def _switch_stacked_layout_summary_coefficients(
             self,
@@ -563,14 +573,14 @@ class IsolatedHighRiseInterface(ScrollArea):
         model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
         angle = int(self.lineEditWindAngle.text())
 
-        mods = self.isofieldsParameters.getSelected()
-
         model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
         pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
             angle]
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.isofieldsParameters.currentText())
 
-        PlotBuilding.pseudocolor_coefficients(pressure_coefficients,
-                                              coordinates,
-                                              model_name,
-                                              *mods)
+        fig = PlotBuilding.pseudocolor_coefficients(model_size,
+                                                    model_name,
+                                                    parameter,
+                                                    pressure_coefficients)
+        self.add_plot_on_screen(fig)
