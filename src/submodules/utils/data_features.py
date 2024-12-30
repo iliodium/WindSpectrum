@@ -35,3 +35,14 @@ lambdas = {
     ChartMode.STD: lambda coefficients: np.std(coefficients, axis=0),
     ChartMode.RMS: lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
 }
+
+polar_lambdas = {
+    ChartMode.MEAN: np.mean,
+    ChartMode.RMS: rms,
+    ChartMode.STD: np.std,
+    ChartMode.MAX: np.max,
+    ChartMode.MIN: np.min,
+    ChartMode.CALCULATED: calculated,
+    ChartMode.WARRANTY_PLUS: warranty_plus,
+    ChartMode.WARRANTY_MINUS: warranty_minus,
+}

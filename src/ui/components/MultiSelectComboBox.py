@@ -351,7 +351,7 @@ class MultiSelectComboBox(QComboBox):
         res = []
         for i in range(self.model().rowCount()):
             if self.model().item(i).checkState() == Qt.CheckState.Checked:
-                res.append(ChartMode(self.model().item(i).text()))
+                res.append(self.model().item(i).text())
         return res
 
     def getPlaceholderText(

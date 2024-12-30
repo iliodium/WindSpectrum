@@ -1,22 +1,22 @@
 from typing import Any
 
 import matplotlib
+import matplotlib.tri as mtri
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import BoundaryNorm, Normalize
+from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MultipleLocator, ScalarFormatter, MaxNLocator
 from pydantic import validate_call
 from scipy.signal import welch
-import matplotlib.tri as mtri
+
 from src.common.DbType import DbType
 from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import get_labels, round_list_model_pic
+from src.submodules.plot.utils import get_labels
+from src.submodules.plot.utils import interpolator as intp
 from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
-from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
-from src.submodules.plot.utils import interpolator as intp
 
 from compiled_aot.integration import aot_integration
 
@@ -29,7 +29,7 @@ class PlotBuilding(Plot):
             parameters: ChartModeType,
             step_major_x: int = 20,
             step_minor_x: int = 5,
-            step_major_y: float = 0.4,
+            step_major_y: float = 0.2,
             step_sensors_for_plot: int = 100
     ) -> list[plt.Figure]:
         """
@@ -85,6 +85,7 @@ class PlotBuilding(Plot):
             stop_yticks = np.max(data_for_plot) * 1.1
             yticks = np.arange(start_yticks, stop_yticks, step_major_y).round(2)
             ax.set_yticks(yticks)
+            ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
 
             start_xticks = sensor_index_start + step_major_x
             stop_xticks = sensor_index_start + count_sensors_ox + 1
@@ -94,13 +95,13 @@ class PlotBuilding(Plot):
 
             ax.xaxis.set_minor_locator(MultipleLocator(step_minor_x))
             ax.xaxis.set_minor_formatter(ScalarFormatter())
-            ax.xaxis.set_tick_params(which='major', labelsize=10)
-            ax.xaxis.set_tick_params(which='minor', labelsize=7)
+            ax.xaxis.set_tick_params(which='major', labelsize=Plot.XTICKS_FONTSIZE)
+            ax.xaxis.set_tick_params(which='minor', labelsize=Plot.XTICKS_FONTSIZE - 5)
 
-            ax.legend(loc='upper right', fontsize=9)
-            ax.set_title('Огибающие')
-            ax.set_xlabel('Номер датчика')
-            ax.set_ylabel('Аэродинамический коэффициент')
+            ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
+            ax.set_title('Огибающие', fontsize=Plot.TITLE_FONTSIZE)
+            ax.set_xlabel('Номер датчика', fontsize=Plot.XLABEL_FONTSIZE)
+            ax.set_ylabel('Аэродинамический коэффициент', fontsize=Plot.YLABEL_FONTSIZE)
 
             figs.append(fig)
 
@@ -252,28 +253,30 @@ class PlotBuilding(Plot):
                 ox = np.linspace(0, 7.5, 5858)
 
         ax.grid()
-        ax.set_ylabel('Суммарные аэродинамические коэффициенты')
-        ax.set_xlabel('Время, с', labelpad=.3)
+        ax.set_ylabel('Суммарные аэродинамические коэффициенты', fontsize=Plot.YLABEL_FONTSIZE)
+        ax.set_xlabel('Время, с', labelpad=.3, fontsize=Plot.XLABEL_FONTSIZE)
 
         for name in pressure_coefficients.keys():
             if pressure_coefficients[name] is not None:
                 ax.plot(ox, pressure_coefficients[name], label=name)
-        ax.legend(loc='upper right', fontsize=9)
+        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
+        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
+        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
 
         return fig
 
     @staticmethod
     @validate_call
     def polar_plot(
-            data: dict[str, Any],
-            title: ChartMode,
+            data: dict[str, dict[str, Any]],
+            title: str = '',
     ) -> plt.Figure:
         """
         Построение графиков суммарных аэродинамических коэффициентов в полярной системе координат.
 
         Args:
-            data (Dict[str, np.array]): Словарь с коэффициентами, где ключ — тип графика,
-                                        а значение — данные для графика.
+            data (dict[str, dict[str, np.array]]): Словарь с коэффициентами, где первый ключ — параметр графика
+                                        а второй ключ тип графика и значение — данные для графика.
             title (str): Заголовок графика.
 
         Returns:
@@ -284,16 +287,22 @@ class PlotBuilding(Plot):
 
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI, subplot_kw={'projection': 'polar'})
 
-        for name in data.keys():
-            ax.plot(angles, data[name], label=name)
+        for name, val in data.items():
+            for k, d in val.items():
+                ax.plot(angles, d, label=f'{name} {k}')
+
         # Обратное направление
         ax.set_theta_direction(-1)
         # "Север" — нулевая позиция
         ax.set_theta_zero_location('N')
         # Шаг 15° для сетки
         ax.set_thetagrids(np.arange(0, 360, 15))
-        ax.legend(loc='upper right', fontsize=9)
-        ax.set_title(title)
+        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
+        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
+
+        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
+        if title:
+            ax.set_title(title, fontsize=Plot.TITLE_FONTSIZE)
 
         ylim = ax.get_ylim()
         ax.set_ylim(ylim)
@@ -508,10 +517,24 @@ class PlotBuilding(Plot):
         cmap = matplotlib.colormaps.get_cmap("jet")
         data_colorbar = None
 
-        step = 0.1
-        levels = np.arange(-1.2, 1.2 + step, step)
+        min_value = np.round(np.min([np.min(pressure_coefficients[i]) for i in range(4)]), 1)
+        max_value = np.round(np.max([np.max(pressure_coefficients[i]) for i in range(4)]), 1)
 
-        np.linspace(1, 10, 9)
+        match parameter:
+            case ChartMode.MAX | ChartMode.MIN:
+                step = 0.2
+            case ChartMode.RMS | ChartMode.STD:
+                step = 0.05
+            case _:
+                step = 0.1
+
+        match parameter:
+            case ChartMode.RMS | ChartMode.STD:
+                decimals = 2
+            case _:
+                decimals = 1
+
+        levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
 
         count_ticks = 5
 
@@ -531,21 +554,33 @@ class PlotBuilding(Plot):
             # Рисуем линии
             labels = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
             # Подписываем линии
-            ax[i].clabel(labels)
+            ax[i].clabel(labels, fontsize=Plot.PLOT_TEXT_FONTSIZE)
 
             x_start = x_extended[i][0][0]
             x_stop = x_extended[i][0][-1]
 
             ax[i].set_xticks(np.linspace(x_start, x_stop, count_ticks))
-            ax[i].set_xticklabels(np.linspace(0, model_size[i % 2], count_ticks).round(2))
+            ax[i].set_xticklabels(np.linspace(0, model_size[i % 2], count_ticks).round(2),
+                                  fontsize=Plot.XTICKS_FONTSIZE)
 
             z_start = 0
             z_stop = z_extended[i][0][0]
 
             ax[i].set_yticks(np.linspace(z_start, z_stop, count_ticks))
-            ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2))
+            ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2),
+                                  fontsize=Plot.YTICKS_FONTSIZE)
 
-        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels)
+        lbot = levels[0:: 2]
+        ltop = levels[1:: 2]
+        cbar = fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=lbot)
+        cbar.ax.tick_params(labelsize=Plot.COLORBAR_FONTSIZE)
+        vmin = cbar.norm.vmin
+        vmax = cbar.norm.vmax
+
+        # --------------Print top tick labels--------------
+        for ii in ltop:
+            cbar.ax.text((ii - vmin) / (vmax - vmin), 1.5, ii, transform=cbar.ax.transAxes, va='bottom',
+                         ha='center', fontsize=Plot.COLORBAR_FONTSIZE)
 
         return fig
 

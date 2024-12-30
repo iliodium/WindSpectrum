@@ -1,21 +1,23 @@
 # coding:utf-8
 import asyncio
+import time
 
 import numpy as np
 from PySide6 import QtGui, QtCore
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget, QGridLayout, QHBoxLayout, QStackedLayout, QVBoxLayout
-from matplotlib.backend_tools import ToolBase
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
     StrongBodyLabel, LineEdit
 
+from compiled_aot.integration import aot_integration
+from src.common.DbType import DbType
 from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
     load_positions
-from src.submodules.plot.plot import Plot
 from src.submodules.plot.plotBuilding import PlotBuilding
+from src.submodules.plot.utils import scaling_data
 from src.submodules.utils import utils
+from src.submodules.utils.data_features import polar_lambdas
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
@@ -23,40 +25,41 @@ from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
-from compiled_aot.integration import aot_integration
-
-from matplotlib.backend_tools import ToolBase
-from matplotlib.backend_managers import ToolManager
 
 
 class MatplotlibWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(
+            self,
+            fig,
+            parent=None
+    ):
         super().__init__(parent)
-        self.setWindowTitle("Secondary Window")
         self.setGeometry(100, 100, 300, 200)
-
-        # Создаем объект Figure и добавляем его в FigureCanvas
-        self.figure = Figure()
-        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas = FigureCanvasQTAgg(fig)
         # Создаем Toolbar
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
-
+        # self.canvas = None
+        # self.toolbar = None
         # Добавляем пользовательскую кнопку
-        self.add_custom_button()
+        # self.add_custom_button()
         # Добавляем компоновку для отображения FigureCanvas
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.canvas)
+        self.plotLayout = QVBoxLayout(self)
+        self.plotLayout.addWidget(self.canvas)
 
         # Рисуем график
         # self.plot()
 
-    def add_custom_button(self):
+    def add_custom_button(self
+                          ):
         path = r"src\ui\resource\images\fl_icon.png"
         act = self.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.show)
         # if you set the value to -1, the button will be in the rightmost position
         self.toolbar.insertAction(self.toolbar.actions()[-2], act)
 
-    def _icon(self, path):
+    def _icon(
+            self,
+            path
+    ):
         '''
         link to the original ->
         matplotlib.backends.backend_qt.NavigationToolbar2QT._icon
@@ -72,24 +75,6 @@ class MatplotlibWidget(QWidget):
             pm.fill(icon_color)
             pm.setMask(mask)
         return QtGui.QIcon(pm)
-
-    def show(self):
-        self.window = QWidget()
-        layout = QVBoxLayout(self.window)
-
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self)
-        self.window.show()
-
-    def plot(self):
-        # Создаем оси и строим график
-        ax = self.figure.add_subplot(111)
-        x = np.linspace(0, 2 * np.pi, 100)
-        y = np.sin(x)
-        ax.plot(x, y, label="Sine Wave")
-        ax.set_title("Matplotlib with PySide6")
-        ax.legend()
-        self.canvas.draw()
 
 
 class IsolatedHighRiseInterface(ScrollArea):
@@ -114,13 +99,10 @@ class IsolatedHighRiseInterface(ScrollArea):
         self._init_general_information()
         # Initialization chart menu
         self._init_chart_menu()
-        # Create plot widget
-        self.plotWidget = MatplotlibWidget()
-        # Add toolbar to grid layout
-        self.grigLayout.addWidget(self.plotWidget.toolbar, 1, 1)
-        # Add plot to grid layout
-        # widget, row, column, rowSpan, columnSpan
-        self.grigLayout.addWidget(self.plotWidget, 2, 1, 5, 5)
+        self.add_plot_on_screen(Figure())
+        # An array to store references to objects (like envelopes)
+        # If you do not store the objects, they will be deleted by garbage collector
+        self.plots = []
 
     def _init_general_information(
             self
@@ -211,16 +193,20 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.hBoxLayoutChartMenu.addWidget(self.PushButtonCreatePlot)
         self.grigLayout.addLayout(self.hBoxLayoutChartMenu, 0, 1)
 
-    def create_plot(self):
+    def create_plot(
+            self
+    ):
         match self.StackedLayoutTypeChart.currentIndex():
             case 0:
                 print(0)
                 self.plot_isofields()
+                # self.plot_envelopes()
             case 1:
                 print(1)
                 self.plot_envelopes()
             case 2:
                 print(2)
+                self.plot_summary_coefficients()
             case 3:
                 print(3)
 
@@ -241,13 +227,14 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.ComboBoxTypesIsofields.setFixedWidth(140)
         self.hBoxLayoutIsofields.addWidget(self.ComboBoxTypesIsofields)
 
-        self.isofieldsParameters = MultiSelectComboBox(placeholderText='Параметры')
-        self.isofieldsParameters.addItems([ChartMode.MAX,
-                                           ChartMode.MEAN,
-                                           ChartMode.MIN,
-                                           ChartMode.RMS,
-                                           ChartMode.STD,
-                                           ])
+        self.isofieldsParameters = ComboBox()
+        self.isofieldsParameters.addItems([
+            self.tr(i) for i in (ChartMode.MAX,
+                                 ChartMode.MEAN,
+                                 ChartMode.MIN,
+                                 ChartMode.RMS,
+                                 ChartMode.STD,
+                                 )])
         self.hBoxLayoutIsofields.addWidget(self.isofieldsParameters)
 
         self.StackedLayoutTypeChart.addWidget(self.WidgetIsofields)
@@ -301,6 +288,11 @@ class IsolatedHighRiseInterface(ScrollArea):
         # Polar system
         self.WidgetPolarSummaryCoefficients = QWidget()
         self.hBoxLayoutPolarCoordinateSystem = QHBoxLayout(self.WidgetPolarSummaryCoefficients)
+        self.polarView = MultiSelectComboBox(placeholderText='Вид')
+        self.polarView.addItems([ChartMode.CX,
+                                 ChartMode.CY,
+                                 ChartMode.CMZ,
+                                 ])
         self.polarParameters = MultiSelectComboBox(placeholderText='Параметры')
         self.polarParameters.addItems([ChartMode.MAX,
                                        ChartMode.MEAN,
@@ -311,6 +303,7 @@ class IsolatedHighRiseInterface(ScrollArea):
                                        ChartMode.WARRANTY_PLUS,
                                        ChartMode.WARRANTY_MINUS,
                                        ])
+        self.hBoxLayoutPolarCoordinateSystem.addWidget(self.polarView)
         self.hBoxLayoutPolarCoordinateSystem.addWidget(self.polarParameters)
         self.StackedLayoutSummaryCoefficients.addWidget(self.WidgetPolarSummaryCoefficients)
         # Add widget to main layout
@@ -357,7 +350,7 @@ class IsolatedHighRiseInterface(ScrollArea):
     def _get_model_size(
             self
     ):
-        return map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' '))
+        return tuple(map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' ')))
 
     def _get_alpha(
             self
@@ -368,46 +361,200 @@ class IsolatedHighRiseInterface(ScrollArea):
         }
         return type_alpha[self.ComboBoxTypeOfArea.text()]
 
+    def add_plot_on_screen(
+            self,
+            fig
+    ):
+        # Create plot widget
+        plotWidget = MatplotlibWidget(fig)
+        # Add toolbar to grid layout
+        self.grigLayout.removeWidget(plotWidget.toolbar)
+        self.grigLayout.addWidget(plotWidget.toolbar, 1, 1)
+        # Add plot to grid layout
+        # widget, row, column, rowSpan, columnSpan
+        self.grigLayout.removeWidget(plotWidget)
+        self.grigLayout.addWidget(plotWidget, 2, 1, 5, 5)
+
+    def open_plot_in_new_window(
+            self,
+            fig
+    ):
+        window = QWidget()
+        self.plots.append(window)
+        layout = QVBoxLayout(window)
+        plotWidget = MatplotlibWidget(fig)
+
+        layout.addWidget(plotWidget.toolbar)
+        layout.addWidget(plotWidget)
+        window.show()
+
     def plot_envelopes(
             self
     ):
+        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+
+        if not mods:
+            return
+
         alpha = self._get_alpha()
         model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
         angle = int(self.lineEditWindAngle.text())
 
-        mods = self.envelopesParameters.getCurrentOptions()
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        figs = PlotBuilding.envelopes(pressure_coefficients, mods)
 
-        print(mods)
-        # print(alpha)
-        # print(model_name)
-        # print(angle)
-        # model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-        # pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-        #     angle]
-        # figs = PlotBuilding.envelopes(pressure_coefficients, mods)
-        # print(123)
-        # self.plotWidget.canvas = FigureCanvasQTAgg(figs[0])
-        # self.plotWidget.canvas.draw()
+        for fig in figs:
+            self.open_plot_in_new_window(fig)
 
     def plot_isofields(
             self
     ):
         alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
         angle = int(self.lineEditWindAngle.text())
 
-        mods = self.isofieldsParameters.getSelected()
-        print(mods)
-        # model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-        # pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-        #     angle]
-        # coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-        #
-        # PlotBuilding.isofields_coefficients((10, 10, 10),
-        #                                     model_name,
-        #                                     *mods,
-        #                                     pressure_coefficients,
-        #                                     coordinates)
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        parameter = ChartMode(self.isofieldsParameters.currentText())
+
+        fig = PlotBuilding.isofields_coefficients(model_size,
+                                                  model_name,
+                                                  parameter,
+                                                  pressure_coefficients,
+                                                  coordinates)
+
+        self.add_plot_on_screen(fig)
+
+    def plot_summary_coefficients(
+            self
+    ):
+        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
+                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
+                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
+            return
+
+        type_plot = CoordinateSystem(self.ComboBoxСoordinateSystemSummaryCoefficients.currentText())
+        alpha = self._get_alpha()
+
+        model_size = self._get_model_size()
+        model_name, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
+                                                               model_name,
+                                                               )
+        data_to_plot = {}
+        match type_plot:
+            case CoordinateSystem.CARTESIAN:
+                parameters = [ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()]
+                pressure_coefficients = \
+                    asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+                        angle]
+
+                if ChartMode.CX in parameters or ChartMode.CY in parameters:
+                    cx, cy = aot_integration.calculate_cx_cy(
+                        *count_sensors,
+                        *size,
+                        np.array(coordinates[0]),
+                        np.array(coordinates[1]),
+                        pressure_coefficients
+                    )
+                    if ChartMode.CX in parameters:
+                        data_to_plot[ChartMode.CX] = cx
+                    if ChartMode.CY in parameters:
+                        data_to_plot[ChartMode.CY] = cy
+                if ChartMode.CMZ in parameters:
+                    cmz = aot_integration.calculate_cmz(
+                        *count_sensors,
+                        angle,
+                        *size,
+                        np.array(coordinates[0]),
+                        np.array(coordinates[1]),
+                        pressure_coefficients
+                    )
+
+                    data_to_plot[ChartMode.CMZ] = cmz
+                fig = PlotBuilding.summary_coefficients(data_to_plot, DbType.ISOLATED)
+
+            case CoordinateSystem.POLAR:
+                views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
+                parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
+                model_scale_str = str(model_name)
+
+                if model_scale_str[0] == model_scale_str[1]:
+                    angle_border = 50
+                else:
+                    angle_border = 95
+
+                x = np.array(coordinates[0])
+                y = np.array(coordinates[1])
+
+                cx_flag = ChartMode.CX in views
+                cy_flag = ChartMode.CY in views
+                cmz_flag = ChartMode.CMZ in views
+
+                if cx_flag or cy_flag:
+                    for v in [ChartMode.CX, ChartMode.CY]:
+                        data_to_plot[v] = {}
+                        for p in parameters:
+                            data_to_plot[v][p] = []
+
+                if cmz_flag:
+                    data_to_plot[ChartMode.CMZ] = {}
+                    for p in parameters:
+                        data_to_plot[ChartMode.CMZ][p] = []
+
+                for angle in range(0, angle_border, 5):
+                    pressure_coefficients = \
+                        asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[angle]
+
+                    if cx_flag or cy_flag:
+                        cx, cy = aot_integration.calculate_cx_cy(
+                            *count_sensors,
+                            *size,
+                            x,
+                            y,
+                            pressure_coefficients
+                        )
+                        for p in parameters:
+                            data_to_plot[ChartMode.CX][p].append(polar_lambdas[p](cx))
+                            data_to_plot[ChartMode.CY][p].append(polar_lambdas[p](cy))
+
+                    if cmz_flag:
+                        cmz = aot_integration.calculate_cmz(
+                            *count_sensors,
+                            angle,
+                            *size,
+                            x,
+                            y,
+                            pressure_coefficients
+                        )
+                        for p in parameters:
+                            data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
+
+                if cx_flag or cy_flag:
+                    for p in parameters:
+                        cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
+                                                          angle_border=angle_border)
+                        data_to_plot[ChartMode.CX][p] = cx_scale
+                        data_to_plot[ChartMode.CY][p] = cy_scale
+
+                if cmz_flag:
+                    for p in parameters:
+                        cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
+                        data_to_plot[ChartMode.CMZ][p] = cmz_scale
+
+                fig = PlotBuilding.polar_plot(data_to_plot)
+
+        self.add_plot_on_screen(fig)
 
     def plot_pseudocolor_coefficients(
             self
@@ -427,43 +574,3 @@ class IsolatedHighRiseInterface(ScrollArea):
                                               coordinates,
                                               model_name,
                                               *mods)
-
-    def plot_summary_coefficients(
-            self
-    ):
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        mods = self.sum.getSelected()
-
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-            angle]
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-
-        size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                               model_name,
-                                                               )
-
-        cx, cy = aot_integration.calculate_cx_cy(
-            *count_sensors,
-            *size,
-            np.array(coordinates[0]),
-            np.array(coordinates[1]),
-            pressure_coefficients
-        )
-        cmz = aot_integration.calculate_cmz(
-            *count_sensors,
-            angle,
-            *size,
-            np.array(coordinates[0]),
-            np.array(coordinates[1]),
-            pressure_coefficients
-        )
-
-        PlotBuilding.summary_coefficients({
-            'Cx': cx,
-            'Cy': cy,
-            'CMz': cmz,
-        }, DbType.ISOLATED)
