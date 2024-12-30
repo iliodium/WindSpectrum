@@ -18,6 +18,8 @@ from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
 from src.submodules.plot.utils import interpolator as intp
 
+from compiled_aot.integration import aot_integration
+
 
 class PlotBuilding(Plot):
     @staticmethod
@@ -513,12 +515,6 @@ class PlotBuilding(Plot):
 
         count_ticks = 5
 
-        triangs = []
-        # Создание сетки
-        for i in range(2):
-            triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
-            triangs.append(triang)
-
         for i in range(4):
             x_z = np.column_stack((x[i].reshape(-1), z[i].reshape(-1)))
             x_z_extended = np.column_stack((x_extended[i].reshape(-1), z_extended[i].reshape(-1)))
@@ -527,8 +523,8 @@ class PlotBuilding(Plot):
 
             # Получаем данные для несуществующих датчиков
             pressure_coefficients_extended = interpolator(x_z_extended)
-
-            refiner = mtri.UniformTriRefiner(triangs[i % 2])
+            triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
+            refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(pressure_coefficients_extended, subdiv=4)
 
             data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
