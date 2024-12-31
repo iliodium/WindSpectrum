@@ -42,7 +42,7 @@ jobs:
         run: |
           git add .
           git commit -m "import linter" || echo "Nothing to commit"
-          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
+          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:connect_gui_plots
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
 
