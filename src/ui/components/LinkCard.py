@@ -1,9 +1,16 @@
 # coding:utf-8
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import (Qt,
+                            QUrl,)
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget, QHBoxLayout
-from qfluentwidgets import IconWidget, FluentIcon, TextWrap, SingleDirectionScrollArea
-
+from PySide6.QtWidgets import (QFrame,
+                               QHBoxLayout,
+                               QLabel,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (FluentIcon,
+                            IconWidget,
+                            SingleDirectionScrollArea,
+                            TextWrap,)
 from src.ui.common.StyleSheet import StyleSheet
 
 

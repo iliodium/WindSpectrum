@@ -6,37 +6,35 @@ on:
       - '*'
 
 jobs:
-  make_imports_beautiful_again:
+  make_imports_buatifull_again:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r .github/workflows/import_linter/requirements.txt
 
-      - name: Stash changes (if any)
-        run: |
-          git add .
-          git stash || echo "No changes to stash"
+      - name: Give permission
+        run: chmod +x .github/workflows/import_linter/import_linter.sh
 
-      - name: Pull latest changes with auto-merge
+      - name: Run import-linter
+        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
+
+      - name: Configure Git
         run: |
           git config user.name "import_linter bot"
           git config user.email "import_linter@import_linter.com"
-          git fetch origin
-          git merge origin/main --allow-unrelated-histories -X theirs
 
-      - name: Run Import Linter
-        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
+      - name: Fetch all branches
+        run: git fetch --all
 
       - name: Commit and Push Changes
         run: |
@@ -45,4 +43,3 @@ jobs:
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:connect_gui_plots
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
-

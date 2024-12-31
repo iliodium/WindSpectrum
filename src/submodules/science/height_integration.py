@@ -2,21 +2,20 @@ import asyncio
 import io
 
 import numpy as np
-
 from compiled_aot.integration import aot_integration
 from src.common import DbType
 from src.common.annotation import (AlphaType,
                                    AngleType,
                                    ModelNameIsolatedOrNoneType,
-                                   ModelSizeOrNoneType, )
+                                   ModelSizeOrNoneType,)
 from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
                                                      load_positions,
-                                                     load_pressure_coefficients, )
+                                                     load_pressure_coefficients,)
 from src.submodules.inner.interpreted_data import (interp_016_tpu,
-                                                   interp_025_tpu, )
+                                                   interp_025_tpu,)
 from src.submodules.utils import utils
 from src.submodules.utils.scaling import (get_model_and_scale_factors,
-                                          get_model_and_scale_factors_interference, )
+                                          get_model_and_scale_factors_interference,)
 
 
 def height_integration_cx_cy_cmz_floors_to_txt_aot(
@@ -127,10 +126,10 @@ def height_integration_cx_cy_cmz_floors_to_txt_aot(
 
 if __name__ == "__main__":
     from sqlalchemy import (create_engine,
-                            select, )
+                            select,)
     from sqlalchemy.orm import Session
     from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
-                                                           ExperimentsAlpha6, )
+                                                           ExperimentsAlpha6,)
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

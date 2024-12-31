@@ -3,9 +3,18 @@ import sys
 from enum import Enum
 
 from PySide6.QtCore import QLocale
-from qfluentwidgets import (qconfig, QConfig, ConfigItem, OptionsConfigItem, BoolValidator,
-                            OptionsValidator, RangeConfigItem, RangeValidator,
-                            FolderListValidator, Theme, FolderValidator, ConfigSerializer)
+from qfluentwidgets import (BoolValidator,
+                            ConfigItem,
+                            ConfigSerializer,
+                            FolderListValidator,
+                            FolderValidator,
+                            OptionsConfigItem,
+                            OptionsValidator,
+                            QConfig,
+                            RangeConfigItem,
+                            RangeValidator,
+                            Theme,
+                            qconfig,)
 
 
 class Language(Enum):
@@ -54,5 +63,5 @@ class Config(QConfig):
 REPO_URL = "https://github.com/iliodium/WindSpectrum"
 
 cfg = Config()
-cfg.themeMode.value = Theme.LIGHT
+cfg.themeMode.value = Theme.AUTO
 qconfig.load('src/ui/qt/config/config.json', cfg)
