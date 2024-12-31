@@ -1,6 +1,9 @@
 import numpy as np
 import scipy
 
+from src.submodules.plot.plot import Plot
+from src.ui.common.ChartMode import ChartMode
+
 
 def get_labels(point):
     """
@@ -76,6 +79,47 @@ def round_list_model_pic(arr):
         new_arr.append(f'{round(val, 2):.1f}')
 
     return new_arr
+
+
+def calculate_function_from_pressure_coefficients(data, func, decimals):
+    return np.round(func([func(data[i]) for i in range(4)]), decimals)
+
+
+def calculate_levels(parameter, pressure_coefficients):
+    min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 1)
+    max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 1)
+
+    match parameter:
+        case ChartMode.MAX | ChartMode.MIN:
+            step = 0.2
+        case ChartMode.RMS | ChartMode.STD:
+            step = 0.05
+        case _:
+            step = 0.1
+
+    match parameter:
+        case ChartMode.RMS | ChartMode.STD:
+            decimals = 2
+        case _:
+            decimals = 1
+
+    levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
+
+    return levels
+
+
+def set_colorbar(fig, levels, data_colorbar, ax, cmap):
+    lbot = levels[0:: 2]
+    ltop = levels[1:: 2]
+    cbar = fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=lbot)
+    cbar.ax.tick_params(labelsize=Plot.COLORBAR_FONTSIZE)
+    vmin = cbar.norm.vmin
+    vmax = cbar.norm.vmax
+
+    # --------------Print top tick labels--------------
+    for ii in ltop:
+        cbar.ax.text((ii - vmin) / (vmax - vmin), 1.1, ii, transform=cbar.ax.transAxes, va='bottom',
+                     ha='center', fontsize=Plot.COLORBAR_FONTSIZE)
 
 
 if __name__ == "__main__":
