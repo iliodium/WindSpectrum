@@ -1,22 +1,29 @@
 from typing import Any
 
 import matplotlib
+import matplotlib.tri as mtri
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import BoundaryNorm, Normalize
-from matplotlib.ticker import MultipleLocator, ScalarFormatter, MaxNLocator
+from matplotlib.colors import (BoundaryNorm,
+                               Normalize,)
+from matplotlib.ticker import (MaxNLocator,
+                               MultipleLocator,
+                               ScalarFormatter,)
 from pydantic import validate_call
 from scipy.signal import welch
-import matplotlib.tri as mtri
+from src.common.annotation import (ChartModeType,
+                                   CoordinatesType,
+                                   ModelNameIsolatedType,
+                                   ModelSizeType,)
 from src.common.DbType import DbType
-from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import get_labels, round_list_model_pic
+from src.submodules.plot.utils import get_labels
+from src.submodules.plot.utils import interpolator as intp
+from src.submodules.plot.utils import round_list_model_pic
 from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
-from src.submodules.plot.utils import interpolator as intp
 
 
 class PlotBuilding(Plot):
@@ -639,10 +646,11 @@ if __name__ == "__main__":
     import asyncio
 
     import matplotlib.pyplot as plt
-    from sqlalchemy import create_engine
-    from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients, find_experiment_by_model_name, )
     from compiled_aot.integration import aot_integration
+    from sqlalchemy import create_engine
+    from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
+                                                         load_positions,
+                                                         load_pressure_coefficients,)
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

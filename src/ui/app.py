@@ -1,17 +1,24 @@
 import os
 import sys
 
-from PySide6.QtCore import QSize
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import (QSize,
+                            Qt,
+                            QTimer,)
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout
-from qfluentwidgets import FluentIcon
-from qfluentwidgets import isDarkTheme
-from qfluentwidgets import NavigationItemPosition, SubtitleLabel, setFont
-from qfluentwidgets import SystemThemeListener, SplashScreen, FluentWindow
-
+from PySide6.QtWidgets import (QApplication,
+                               QFrame,
+                               QHBoxLayout,)
+from qfluentwidgets import (FluentIcon,
+                            FluentWindow,
+                            NavigationItemPosition,
+                            SplashScreen,
+                            SubtitleLabel,
+                            SystemThemeListener,
+                            isDarkTheme,
+                            setFont,)
 from src.ui.config.config import cfg
-from src.ui.view.isolated_high_rise_interface import IsolatedHighRiseInterface as _IsolatedHighRiseInterface
+from src.ui.view.isolated_high_rise_interface import (
+    IsolatedHighRiseInterface as _IsolatedHighRiseInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 

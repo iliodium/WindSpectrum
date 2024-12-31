@@ -1,8 +1,13 @@
 # coding:utf-8
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout
-from qfluentwidgets import IconWidget, TextWrap, FlowLayout, CardWidget
-
+from PySide6.QtWidgets import (QHBoxLayout,
+                               QLabel,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (CardWidget,
+                            FlowLayout,
+                            IconWidget,
+                            TextWrap,)
 from src.ui.common.SignalBus import signalBus
 from src.ui.common.StyleSheet import StyleSheet
 

@@ -1,23 +1,30 @@
 # coding:utf-8
 import numpy as np
-from PySide6 import QtGui, QtCore
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QWidget, QGridLayout, QHBoxLayout, QStackedLayout, QVBoxLayout
+from matplotlib.backend_managers import ToolManager
 from matplotlib.backend_tools import ToolBase
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import (FigureCanvasQTAgg,
+                                               NavigationToolbar2QT,)
 from matplotlib.figure import Figure
-from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
-    StrongBodyLabel, LineEdit
-
+from PySide6 import (QtCore,
+                     QtGui,)
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (QGridLayout,
+                               QHBoxLayout,
+                               QStackedLayout,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (ComboBox,
+                            LineEdit,
+                            PushButton,
+                            ScrollArea,
+                            StrongBodyLabel,
+                            TitleLabel,)
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectionComboBox import MultiSelectionComboBox
-
-from matplotlib.backend_tools import ToolBase
-from matplotlib.backend_managers import ToolManager
 
 
 class MatplotlibWidget(QWidget):

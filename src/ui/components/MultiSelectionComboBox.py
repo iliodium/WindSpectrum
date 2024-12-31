@@ -1,8 +1,15 @@
-from PySide6.QtCore import Qt, QRect, QRectF
-from PySide6.QtGui import QCursor, QPainter
-from PySide6.QtWidgets import QComboBox, QListWidgetItem, QVBoxLayout, QWidget, QApplication
-from qfluentwidgets import ListWidget, FluentIcon
-
+from PySide6.QtCore import (QRect,
+                            QRectF,
+                            Qt,)
+from PySide6.QtGui import (QCursor,
+                           QPainter,)
+from PySide6.QtWidgets import (QApplication,
+                               QComboBox,
+                               QListWidgetItem,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (FluentIcon,
+                            ListWidget,)
 from src.ui.common.StyleSheet import StyleSheet
 
 
