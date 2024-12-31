@@ -32,21 +32,28 @@ jobs:
         run: |
           git config user.name "import_linter Bot"
           git config user.email "import_linter@import_linter.com"
+          
+          
 
-      - name: Pull changes
+      - name: Check Git status
+        run: git status
 
+      - name: Stash changes
         run: |
           git add .
-          git commit -m "Temporary commit before rebase"
-          git pull origin main --rebase
+          git stash
+
       - name: Pull latest changes
-        run: |
-          git pull origin main --rebase || echo "No changes to rebase"
+        run: git pull origin main --rebase
+
+      - name: Apply stashed changes
+        run: git stash pop || echo "No stashed changes to apply"
 
       - name: Commit and push changes
         run: |
           git add .
-          git commit -m "import_linter" || echo "Nothing to commit"
+          git commit -m "import_linter updates" || echo "Nothing to commit"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
+
