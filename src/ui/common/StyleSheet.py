@@ -1,7 +1,9 @@
 # coding: utf-8
 from enum import Enum
 
-from qfluentwidgets import StyleSheetBase, Theme, qconfig
+from qfluentwidgets import (StyleSheetBase,
+                            Theme,
+                            qconfig,)
 
 
 class StyleSheet(StyleSheetBase, Enum):
