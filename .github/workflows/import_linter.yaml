@@ -6,53 +6,42 @@ on:
       - '*'
 
 jobs:
-  make_imports_buatifull_again:
+  make_imports_beautiful_again:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r .github/workflows/import_linter/requirements.txt
 
-      - name: Give permission
-        run: chmod +x .github/workflows/import_linter/import_linter.sh
+      - name: Stash changes (if any)
+        run: |
+          git add .
+          git stash || echo "No changes to stash"
 
-      - name: Run import-linter
-        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
-
-      - name: Configure Git
+      - name: Pull latest changes with auto-merge
         run: |
           git config user.name "import_linter Bot"
           git config user.email "import_linter@import_linter.com"
-          
-          
+          git pull origin main --no-rebase || true
+          git merge -X theirs origin/main
 
-      - name: Check Git status
-        run: git status
+      - name: Run Import Linter
+        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
 
-      - name: Stash changes
+      - name: Commit and Push Changes
         run: |
           git add .
-          git stash
-
-      - name: Pull latest changes
-        run: git pull origin main --rebase
-
-      - name: Apply stashed changes
-        run: git stash pop || echo "No stashed changes to apply"
-
-      - name: Commit and push changes
-        run: |
-          git add .
-          git commit -m "import_linter updates" || echo "Nothing to commit"
+          git commit -m "Automated conflict resolution and import linter" || echo "Nothing to commit"
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
