@@ -30,6 +30,8 @@ jobs:
 
       - name: Pull latest changes with auto-merge
         run: |
+          git config user.name "import_linter Bot"
+          git config user.email "import_linter@import_linter.com"
           git fetch origin
           git merge origin/main --allow-unrelated-historie
 
