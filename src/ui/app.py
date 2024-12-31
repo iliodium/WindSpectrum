@@ -118,8 +118,9 @@ class MainWindow(FluentWindow):
         # The logo in the upper left corner of the program window
         mini_logo = QIcon('src/ui/resource/images/mini_logo.png')
 
-        self.resize(1080, 1080)
-        self.setMinimumWidth(760)
+        self.resize(1180, 800)
+        self.setMinimumWidth(1100)
+        self.setMinimumHeight(700)
         self.setWindowIcon(mini_logo)
         self.setWindowTitle('WindSpectrum')
 

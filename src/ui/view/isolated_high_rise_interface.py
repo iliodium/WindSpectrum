@@ -1,6 +1,5 @@
 # coding:utf-8
 import asyncio
-import time
 
 import numpy as np
 from PySide6 import QtGui, QtCore
@@ -31,50 +30,19 @@ class MatplotlibWidget(QWidget):
     def __init__(
             self,
             fig,
+            title='График',
             parent=None
     ):
         super().__init__(parent)
-        self.setGeometry(100, 100, 300, 200)
+        self.fig = fig
         self.canvas = FigureCanvasQTAgg(fig)
         # Создаем Toolbar
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        # self.canvas = None
-        # self.toolbar = None
-        # Добавляем пользовательскую кнопку
-        # self.add_custom_button()
         # Добавляем компоновку для отображения FigureCanvas
         self.plotLayout = QVBoxLayout(self)
         self.plotLayout.addWidget(self.canvas)
+        self.plotTitle = title
 
-        # Рисуем график
-        # self.plot()
-
-    def add_custom_button(self
-                          ):
-        path = r"src\ui\resource\images\fl_icon.png"
-        act = self.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.show)
-        # if you set the value to -1, the button will be in the rightmost position
-        self.toolbar.insertAction(self.toolbar.actions()[-2], act)
-
-    def _icon(
-            self,
-            path
-    ):
-        '''
-        link to the original ->
-        matplotlib.backends.backend_qt.NavigationToolbar2QT._icon
-        '''
-        pm = QtGui.QPixmap(path)
-        pm.setDevicePixelRatio(
-            self.devicePixelRatioF() or 1)  # rarely, devicePixelRatioF=0
-        if self.palette().color(self.backgroundRole()).value() < 128:
-            icon_color = self.palette().color(self.foregroundRole())
-            mask = pm.createMaskFromColor(
-                QtGui.QColor('black'),
-                QtCore.Qt.MaskMode.MaskOutColor)
-            pm.fill(icon_color)
-            pm.setMask(mask)
-        return QtGui.QIcon(pm)
 
 
 class IsolatedHighRiseInterface(ScrollArea):
@@ -99,10 +67,11 @@ class IsolatedHighRiseInterface(ScrollArea):
         self._init_general_information()
         # Initialization chart menu
         self._init_chart_menu()
-        self.add_plot_on_screen(Figure())
+        self.add_plot_on_screen(Figure(), open_in_new_window_button=True)
         # An array to store references to objects (like envelopes)
         # If you do not store the objects, they will be deleted by garbage collector
         self.plots = []
+
 
     def _init_general_information(
             self
@@ -371,25 +340,75 @@ class IsolatedHighRiseInterface(ScrollArea):
         }
         return type_alpha[self.ComboBoxTypeOfArea.text()]
 
+    def _icon(
+            self,
+            path
+    ):
+        '''
+        link to the original ->
+        matplotlib.backends.backend_qt.NavigationToolbar2QT._icon
+        '''
+        pm = QtGui.QPixmap(path)
+        pm.setDevicePixelRatio(
+            self.devicePixelRatioF() or 1)  # rarely, devicePixelRatioF=0
+        if self.palette().color(self.backgroundRole()).value() < 128:
+            icon_color = self.palette().color(self.foregroundRole())
+            mask = pm.createMaskFromColor(
+                QtGui.QColor('black'),
+                QtCore.Qt.MaskMode.MaskOutColor)
+            pm.fill(icon_color)
+            pm.setMask(mask)
+        return QtGui.QIcon(pm)
+
+    def open_in_new_window(
+            self
+    ):
+        window = QWidget()
+        window.setWindowTitle(self.plotWidget.plotTitle)
+        self.plots.append(window)
+        layout = QVBoxLayout(window)
+
+        # self.grigLayout.removeWidget(self.plotWidget.toolbar)
+        # self.grigLayout.removeWidget(self.plotWidget)
+
+        # toolbar = NavigationToolbar2QT(self.plotWidget.canvas, window)
+
+        layout.addWidget(self.plotWidget.toolbar)
+        layout.addWidget(self.plotWidget)
+
+        window.show()
+
     def add_plot_on_screen(
             self,
-            fig
+            fig,
+            title='График',
+            open_in_new_window_button=True
     ):
         # Create plot widget
-        plotWidget = MatplotlibWidget(fig)
+        self.plotWidget = MatplotlibWidget(fig, title)
+
+        if open_in_new_window_button:
+            path = r"src\ui\resource\images\fl_icon.png"
+            act = self.plotWidget.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.open_in_new_window)
+            # if you set the value to -1, the button will be in the rightmost position
+            self.plotWidget.toolbar.insertAction(self.plotWidget.toolbar.actions()[-2], act)
+
         # Add toolbar to grid layout
-        self.grigLayout.removeWidget(plotWidget.toolbar)
-        self.grigLayout.addWidget(plotWidget.toolbar, 1, 1)
+        self.grigLayout.removeWidget(self.plotWidget.toolbar)
+        self.grigLayout.addWidget(self.plotWidget.toolbar, 1, 1)
+        self.grigLayout.removeWidget(self.plotWidget)
         # Add plot to grid layout
         # widget, row, column, rowSpan, columnSpan
-        self.grigLayout.removeWidget(plotWidget)
-        self.grigLayout.addWidget(plotWidget, 2, 1, 5, 5)
+        self.grigLayout.addWidget(self.plotWidget, 2, 1, 5, 5)
 
     def open_plot_in_new_window(
             self,
-            fig
+            fig,
+            title='График'
     ):
         window = QWidget()
+        window.setWindowTitle(title)
+
         self.plots.append(window)
         layout = QVBoxLayout(window)
         plotWidget = MatplotlibWidget(fig)
@@ -416,7 +435,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         figs = PlotBuilding.envelopes(pressure_coefficients, mods)
 
         for fig in figs:
-            self.open_plot_in_new_window(fig)
+            self.open_plot_in_new_window(fig, ChartType.ENVELOPES)
 
     def plot_isofields(
             self
@@ -439,7 +458,7 @@ class IsolatedHighRiseInterface(ScrollArea):
                                                   pressure_coefficients,
                                                   coordinates)
 
-        self.add_plot_on_screen(fig)
+        self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def plot_summary_coefficients(
             self
@@ -564,7 +583,7 @@ class IsolatedHighRiseInterface(ScrollArea):
 
                 fig = PlotBuilding.polar_plot(data_to_plot)
 
-        self.add_plot_on_screen(fig)
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
 
     def plot_pseudocolor_coefficients(
             self
@@ -577,10 +596,10 @@ class IsolatedHighRiseInterface(ScrollArea):
         pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
             angle]
         model_size = self._get_model_size()
-        parameter = ChartMode(self.isofieldsParameters.currentText())
+        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
 
         fig = PlotBuilding.pseudocolor_coefficients(model_size,
                                                     model_name,
                                                     parameter,
                                                     pressure_coefficients)
-        self.add_plot_on_screen(fig)
+        self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)

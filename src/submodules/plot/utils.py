@@ -118,7 +118,7 @@ def set_colorbar(fig, levels, data_colorbar, ax, cmap):
 
     # --------------Print top tick labels--------------
     for ii in ltop:
-        cbar.ax.text((ii - vmin) / (vmax - vmin), 1.5, ii, transform=cbar.ax.transAxes, va='bottom',
+        cbar.ax.text((ii - vmin) / (vmax - vmin), 1.1, ii, transform=cbar.ax.transAxes, va='bottom',
                      ha='center', fontsize=Plot.COLORBAR_FONTSIZE)
 
 
