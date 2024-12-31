@@ -30,10 +30,9 @@ jobs:
 
       - name: Pull latest changes with auto-merge
         run: |
-          git config user.name "import_linter Bot"
-          git config user.email "import_linter@import_linter.com"
-          git pull origin main --no-rebase || true
-          git merge -X theirs origin/main
+          git fetch origin
+          git merge origin/main --allow-unrelated-histories -X theirs
+
 
       - name: Run Import Linter
         run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
