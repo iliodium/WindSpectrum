@@ -48,6 +48,43 @@ class MatplotlibWidget(ScrollArea):
         self.plotLayout.addWidget(self.canvas)
         self.plotTitle = title
 
+    def _icon(
+            self,
+            path
+    ):
+        '''
+        link to the original ->
+        matplotlib.backends.backend_qt.NavigationToolbar2QT._icon
+        '''
+        pm = QtGui.QPixmap(path)
+        pm.setDevicePixelRatio(
+            self.devicePixelRatioF() or 1)  # rarely, devicePixelRatioF=0
+        if self.palette().color(self.backgroundRole()).value() < 128:
+            icon_color = self.palette().color(self.foregroundRole())
+            mask = pm.createMaskFromColor(
+                QtGui.QColor('black'),
+                QtCore.Qt.MaskMode.MaskOutColor)
+            pm.fill(icon_color)
+            pm.setMask(mask)
+        return QtGui.QIcon(pm)
+
+    def add_toolbar_button(
+            self,
+            button_text,
+            function
+    ):
+        path = r"src\ui\resource\images\fl_icon.png"
+        act = self.toolbar.addAction(self._icon(path), button_text, function)
+        # if you set the value to -1, the button will be in the rightmost position
+        self.toolbar.insertAction(self.toolbar.actions()[-2], act)
+
+    def remove_toolbar_button(self, button_text):
+        """Удаляет кнопку из NavigationToolbar2QT по её тексту."""
+        for action in self.toolbar.actions():
+            if action.text() == button_text:
+                self.toolbar.removeAction(action)
+                break
+
 
 class IsolatedHighRiseInterface(QWidget):
     """Isolated High Rise Interface"""
@@ -178,7 +215,6 @@ class IsolatedHighRiseInterface(QWidget):
         self._init_chart_summary_coefficients()
         self._init_chart_spectrum()
         self._init_chart_pseudocolor_coefficients()
-
         hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
         self.PushButtonCreatePlot = PushButton('Построить')
@@ -369,26 +405,6 @@ class IsolatedHighRiseInterface(QWidget):
         }
         return type_alpha[self.ComboBoxTypeOfArea.text()]
 
-    def _icon(
-            self,
-            path
-    ):
-        '''
-        link to the original ->
-        matplotlib.backends.backend_qt.NavigationToolbar2QT._icon
-        '''
-        pm = QtGui.QPixmap(path)
-        pm.setDevicePixelRatio(
-            self.devicePixelRatioF() or 1)  # rarely, devicePixelRatioF=0
-        if self.palette().color(self.backgroundRole()).value() < 128:
-            icon_color = self.palette().color(self.foregroundRole())
-            mask = pm.createMaskFromColor(
-                QtGui.QColor('black'),
-                QtCore.Qt.MaskMode.MaskOutColor)
-            pm.fill(icon_color)
-            pm.setMask(mask)
-        return QtGui.QIcon(pm)
-
     def open_in_new_window(
             self
     ):
@@ -396,6 +412,8 @@ class IsolatedHighRiseInterface(QWidget):
         window.setWindowTitle(self.plotWidget.plotTitle)
         self.plots.append(window)
         layout = QVBoxLayout(window)
+
+        self.plotWidget.remove_toolbar_button('Открыть в новом окне')
 
         layout.addWidget(self.plotWidget.toolbar)
         layout.addWidget(self.plotWidget)
@@ -427,10 +445,7 @@ class IsolatedHighRiseInterface(QWidget):
         self.plotWidget = MatplotlibWidget(fig, title)
 
         if open_in_new_window_button:
-            path = r"src\ui\resource\images\fl_icon.png"
-            act = self.plotWidget.toolbar.addAction(self._icon(path), 'Открыть в новом окне', self.open_in_new_window)
-            # if you set the value to -1, the button will be in the rightmost position
-            self.plotWidget.toolbar.insertAction(self.plotWidget.toolbar.actions()[-2], act)
+            self.plotWidget.add_toolbar_button('Открыть в новом окне', self.open_in_new_window)
 
         self.vBoxLayoutPlot1.addWidget(self.plotWidget.toolbar)
         self.vBoxLayoutPlot1.addWidget(self.plotWidget)
