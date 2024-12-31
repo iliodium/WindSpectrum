@@ -31,8 +31,7 @@ jobs:
       - name: Pull latest changes with auto-merge
         run: |
           git fetch origin
-          git merge origin/main --allow-unrelated-histories -X theirs
-
+          git merge origin/main --allow-unrelated-historie
 
       - name: Run Import Linter
         run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
