@@ -34,7 +34,11 @@ jobs:
           git config user.email "import_linter@import_linter.com"
 
       - name: Pull changes
-        run: git pull origin main --rebase
+
+        run: |
+          git add .
+          git commit -m "Temporary commit before rebase"
+          git pull origin main --rebase
       - name: Pull latest changes
         run: |
           git pull origin main --rebase || echo "No changes to rebase"
@@ -46,13 +50,3 @@ jobs:
           git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
-#
-#
-#      - name: Commit and push changes
-#        run: |
-#          git add .
-#          git commit -m "import_linter"
-#          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
-#
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
