@@ -1,12 +1,21 @@
 # coding:utf-8
-from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QPixmap, QPainter, QColor, QBrush, QPainterPath, QLinearGradient
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-
-from qfluentwidgets import ScrollArea, isDarkTheme, FluentIcon
-from src.ui.config.config import REPO_URL
-from src.ui.components.LinkCard import LinkCardView
+from PySide6.QtCore import (QRectF,
+                            Qt,)
+from PySide6.QtGui import (QBrush,
+                           QColor,
+                           QLinearGradient,
+                           QPainter,
+                           QPainterPath,
+                           QPixmap,)
+from PySide6.QtWidgets import (QLabel,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (FluentIcon,
+                            ScrollArea,
+                            isDarkTheme,)
 from src.ui.common.StyleSheet import StyleSheet
+from src.ui.components.LinkCard import LinkCardView
+from src.ui.config.config import REPO_URL
 
 
 class BannerWidget(QWidget):

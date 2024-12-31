@@ -1,12 +1,12 @@
 from sqlalchemy import (ARRAY,
+                        VARCHAR,
                         Column,
                         Float,
                         ForeignKeyConstraint,
                         Integer,
                         PrimaryKeyConstraint,
                         SmallInteger,
-                        Table,
-                        VARCHAR)
+                        Table,)
 from sqlalchemy.orm import (declarative_base,
                             mapped_column,)
 

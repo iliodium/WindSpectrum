@@ -4,21 +4,26 @@ import matplotlib
 import matplotlib.tri as mtri
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MultipleLocator, ScalarFormatter, MaxNLocator
+from matplotlib.colors import (BoundaryNorm,
+                               Normalize,)
+from matplotlib.ticker import (MaxNLocator,
+                               MultipleLocator,
+                               ScalarFormatter,)
 from pydantic import validate_call
 from scipy.signal import welch
-
+from src.common.annotation import (ChartModeType,
+                                   CoordinatesType,
+                                   ModelNameIsolatedType,
+                                   ModelSizeType,)
 from src.common.DbType import DbType
-from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import get_labels, calculate_levels, set_colorbar
+from src.submodules.plot.utils import get_labels
 from src.submodules.plot.utils import interpolator as intp
+from src.submodules.plot.utils import round_list_model_pic
 from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
+from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
-
-from compiled_aot.integration import aot_integration
 
 
 class PlotBuilding(Plot):
@@ -29,9 +34,9 @@ class PlotBuilding(Plot):
             parameters: ChartModeType,
             step_major_x: int = 20,
             step_minor_x: int = 5,
-            step_major_y: float = 0.2,
+            step_major_y: float = 0.4,
             step_sensors_for_plot: int = 100
-    ) -> list[plt.Figure]:
+    ) -> plt.Figure:
         """
         Отрисовка огибающих.
 
@@ -85,7 +90,6 @@ class PlotBuilding(Plot):
             stop_yticks = np.max(data_for_plot) * 1.1
             yticks = np.arange(start_yticks, stop_yticks, step_major_y).round(2)
             ax.set_yticks(yticks)
-            ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
 
             start_xticks = sensor_index_start + step_major_x
             stop_xticks = sensor_index_start + count_sensors_ox + 1
@@ -95,13 +99,13 @@ class PlotBuilding(Plot):
 
             ax.xaxis.set_minor_locator(MultipleLocator(step_minor_x))
             ax.xaxis.set_minor_formatter(ScalarFormatter())
-            ax.xaxis.set_tick_params(which='major', labelsize=Plot.XTICKS_FONTSIZE)
-            ax.xaxis.set_tick_params(which='minor', labelsize=Plot.XTICKS_FONTSIZE - 5)
+            ax.xaxis.set_tick_params(which='major', labelsize=10)
+            ax.xaxis.set_tick_params(which='minor', labelsize=7)
 
-            ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
-            ax.set_title('Огибающие', fontsize=Plot.TITLE_FONTSIZE)
-            ax.set_xlabel('Номер датчика', fontsize=Plot.XLABEL_FONTSIZE)
-            ax.set_ylabel('Аэродинамический коэффициент', fontsize=Plot.YLABEL_FONTSIZE)
+            ax.legend(loc='upper right', fontsize=9)
+            ax.set_title('Огибающие')
+            ax.set_xlabel('Номер датчика')
+            ax.set_ylabel('Аэродинамический коэффициент')
 
             figs.append(fig)
 
@@ -253,30 +257,28 @@ class PlotBuilding(Plot):
                 ox = np.linspace(0, 7.5, 5858)
 
         ax.grid()
-        ax.set_ylabel('Суммарные аэродинамические коэффициенты', fontsize=Plot.YLABEL_FONTSIZE)
-        ax.set_xlabel('Время, с', labelpad=.3, fontsize=Plot.XLABEL_FONTSIZE)
+        ax.set_ylabel('Суммарные аэродинамические коэффициенты')
+        ax.set_xlabel('Время, с', labelpad=.3)
 
         for name in pressure_coefficients.keys():
             if pressure_coefficients[name] is not None:
                 ax.plot(ox, pressure_coefficients[name], label=name)
-        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
-        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
-        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
+        ax.legend(loc='upper right', fontsize=9)
 
         return fig
 
     @staticmethod
     @validate_call
     def polar_plot(
-            data: dict[str, dict[str, Any]],
-            title: str = '',
+            data: dict[str, Any],
+            title: ChartMode,
     ) -> plt.Figure:
         """
         Построение графиков суммарных аэродинамических коэффициентов в полярной системе координат.
 
         Args:
-            data (dict[str, dict[str, np.array]]): Словарь с коэффициентами, где первый ключ — параметр графика
-                                        а второй ключ тип графика и значение — данные для графика.
+            data (Dict[str, np.array]): Словарь с коэффициентами, где ключ — тип графика,
+                                        а значение — данные для графика.
             title (str): Заголовок графика.
 
         Returns:
@@ -287,22 +289,16 @@ class PlotBuilding(Plot):
 
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI, subplot_kw={'projection': 'polar'})
 
-        for name, val in data.items():
-            for k, d in val.items():
-                ax.plot(angles, d, label=f'{name} {k}')
-
+        for name in data.keys():
+            ax.plot(angles, data[name], label=name)
         # Обратное направление
         ax.set_theta_direction(-1)
         # "Север" — нулевая позиция
         ax.set_theta_zero_location('N')
         # Шаг 15° для сетки
         ax.set_thetagrids(np.arange(0, 360, 15))
-        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
-        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
-
-        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
-        if title:
-            ax.set_title(title, fontsize=Plot.TITLE_FONTSIZE)
+        ax.legend(loc='upper right', fontsize=9)
+        ax.set_title(title)
 
         ylim = ax.get_ylim()
         ax.set_ylim(ylim)
@@ -415,7 +411,7 @@ class PlotBuilding(Plot):
         return fig
 
     @staticmethod
-    @validate_call
+    # @validate_call
     def isofields_coefficients(
             model_size: ModelSizeType,
             model_name: ModelNameIsolatedType,
@@ -517,7 +513,10 @@ class PlotBuilding(Plot):
         cmap = matplotlib.colormaps.get_cmap("jet")
         data_colorbar = None
 
-        levels = calculate_levels(parameter, pressure_coefficients)
+        step = 0.1
+        levels = np.arange(-1.2, 1.2 + step, step)
+
+        np.linspace(1, 10, 9)
 
         count_ticks = 5
 
@@ -529,6 +528,7 @@ class PlotBuilding(Plot):
 
             # Получаем данные для несуществующих датчиков
             pressure_coefficients_extended = interpolator(x_z_extended)
+
             triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(pressure_coefficients_extended, subdiv=4)
@@ -537,23 +537,21 @@ class PlotBuilding(Plot):
             # Рисуем линии
             labels = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)
             # Подписываем линии
-            ax[i].clabel(labels, fontsize=Plot.PLOT_TEXT_FONTSIZE)
+            ax[i].clabel(labels)
 
             x_start = x_extended[i][0][0]
             x_stop = x_extended[i][0][-1]
 
             ax[i].set_xticks(np.linspace(x_start, x_stop, count_ticks))
-            ax[i].set_xticklabels(np.linspace(0, model_size[i % 2], count_ticks).round(2),
-                                  fontsize=Plot.XTICKS_FONTSIZE)
+            ax[i].set_xticklabels(np.linspace(0, model_size[i % 2], count_ticks).round(2))
 
             z_start = 0
             z_stop = z_extended[i][0][0]
 
             ax[i].set_yticks(np.linspace(z_start, z_stop, count_ticks))
-            ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2),
-                                  fontsize=Plot.YTICKS_FONTSIZE)
+            ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2))
 
-        set_colorbar(fig, levels, data_colorbar, ax, cmap)
+        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels)
 
         return fig
 
@@ -601,7 +599,8 @@ class PlotBuilding(Plot):
 
         cmap = matplotlib.colormaps.get_cmap("jet")
 
-        levels = calculate_levels(parameter, pressure_coefficients)
+        step = 0.1
+        levels = np.arange(-1.2, 1.2 + step, step)
 
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 
@@ -627,18 +626,18 @@ class PlotBuilding(Plot):
             match i % 2:
                 case 0:
                     ax[i].set_xticks(xticks_13)
-                    ax[i].set_xticklabels(xticklabels_13, fontsize=Plot.XTICKS_FONTSIZE)
+                    ax[i].set_xticklabels(xticklabels_13)
                     ax[i].plot(*meshgrid_13, '.k')
 
                 case 1:
                     ax[i].set_xticks(xticks_24)
-                    ax[i].set_xticklabels(xticklabels_24, fontsize=Plot.XTICKS_FONTSIZE)
+                    ax[i].set_xticklabels(xticklabels_24)
                     ax[i].plot(*meshgrid_24, '.k')
 
             ax[i].set_yticks(yticks)
-            ax[i].set_yticklabels(yticklabels, fontsize=Plot.YTICKS_FONTSIZE)
+            ax[i].set_yticklabels(yticklabels)
 
-        set_colorbar(fig, levels, data_colorbar, ax, cmap)
+        fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=levels)
 
         return fig
 
@@ -647,10 +646,11 @@ if __name__ == "__main__":
     import asyncio
 
     import matplotlib.pyplot as plt
-    from sqlalchemy import create_engine
-    from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients, find_experiment_by_model_name, )
     from compiled_aot.integration import aot_integration
+    from sqlalchemy import create_engine
+    from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
+                                                         load_positions,
+                                                         load_pressure_coefficients,)
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
@@ -668,7 +668,7 @@ if __name__ == "__main__":
     # size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
     #                                                        model_name,
     #                                                        )
-    #
+
     # cx, cy = aot_integration.calculate_cx_cy(
     #     *count_sensors,
     #     *size,
@@ -711,7 +711,7 @@ if __name__ == "__main__":
     #     ChartMode.STD: np.std,
     #     ChartMode.MAX: np.max,
     #     ChartMode.MIN: np.min,
-    #     ChartMode.CALCULATED: calculated,
+    #     ChartMode.SETTLEMENT: settlement,
     #     ChartMode.WARRANTY_PLUS: warranty_plus,
     #     ChartMode.WARRANTY_MINUS: warranty_minus,
     # }

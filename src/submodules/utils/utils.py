@@ -1,9 +1,8 @@
-from typing import (Union, )
+from typing import Union
 
 from pydantic import validate_call
-
+from src.common.annotation import ModelNameIsolatedType
 from src.common.DbType import DbType
-from src.common.annotation import (ModelNameIsolatedType, )
 
 
 @validate_call

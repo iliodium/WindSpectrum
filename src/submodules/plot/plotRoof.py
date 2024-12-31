@@ -1,5 +1,4 @@
 from pydantic import validate_call
-
 from src.submodules.plot.plot import Plot
 
 
