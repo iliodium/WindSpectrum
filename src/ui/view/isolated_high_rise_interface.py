@@ -3,7 +3,8 @@ import asyncio
 
 import numpy as np
 from PySide6 import QtGui, QtCore
-from PySide6.QtWidgets import QWidget, QGridLayout, QHBoxLayout, QStackedLayout, QVBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QGridLayout, QHBoxLayout, QStackedLayout, QVBoxLayout, QSpacerItem, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
@@ -26,7 +27,7 @@ from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 
 
-class MatplotlibWidget(QWidget):
+class MatplotlibWidget(ScrollArea):
     def __init__(
             self,
             fig,
@@ -34,19 +35,22 @@ class MatplotlibWidget(QWidget):
             parent=None
     ):
         super().__init__(parent)
+        container = QWidget()
+        self.setWidget(container)
+        self.setWidgetResizable(True)  # Обеспечивает изменение размеров содержимого
+
         self.fig = fig
         self.canvas = FigureCanvasQTAgg(fig)
         # Создаем Toolbar
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         # Добавляем компоновку для отображения FigureCanvas
-        self.plotLayout = QVBoxLayout(self)
+        self.plotLayout = QVBoxLayout(container)
         self.plotLayout.addWidget(self.canvas)
         self.plotTitle = title
 
 
-
-class IsolatedHighRiseInterface(ScrollArea):
-    """ Isolated High Rise Interface"""
+class IsolatedHighRiseInterface(QWidget):
+    """Isolated High Rise Interface"""
 
     def __init__(
             self,
@@ -56,29 +60,46 @@ class IsolatedHighRiseInterface(ScrollArea):
         super().__init__(parent=parent)
         self.engine = engine
         self.setObjectName('IsolatedHighRiseInterface')
-        self.view = QWidget(self)
+        self.view = self
+        self.plotFlag = False
+
         # Set style
         StyleSheet.MAIN_INTERFACE.apply(self)
         # Create grid layout
-        self.grigLayout = QGridLayout(self.view)
-        # Add label to grid layout
-        self.grigLayout.addWidget(TitleLabel('Общие сведения'), 0, 0)
+        # self.hBoxLayoutMain = QGridLayout(self.view)
+        self.hBoxLayoutMain = QHBoxLayout(self)
+        self.hBoxLayoutMain.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         # Initialization left menu
         self._init_general_information()
+        # self.hBoxLayoutMain.addWidget(PushButton())
+
         # Initialization chart menu
+        self.vBoxLayoutPlot = QVBoxLayout(self)
+        # self.vBoxLayoutPlot.addStretch()
+        self.vBoxLayoutPlot.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.hBoxLayoutMain.addLayout(self.vBoxLayoutPlot)
+
+        # self.vBoxLayoutPlot.addWidget(PushButton())
         self._init_chart_menu()
-        self.add_plot_on_screen(Figure(), open_in_new_window_button=True)
+
         # An array to store references to objects (like envelopes)
         # If you do not store the objects, they will be deleted by garbage collector
         self.plots = []
 
-
     def _init_general_information(
             self
     ):
+        container = QWidget()
+        container.setFixedWidth(275)
+        container.setFixedHeight(225)
+
+        vBoxLayoutGenInf = QVBoxLayout(container)
+        # Add label to grid layout
+        vBoxLayoutGenInf.addWidget(TitleLabel('Общие сведения'))
+
         # Wind regions
         # Create horizontal box layout
-        self.hBoxLayoutWindRegions = QHBoxLayout(self.view)
+        self.hBoxLayoutWindRegions = QHBoxLayout()
         # Add label to horizontal box layout
         self.hBoxLayoutWindRegions.addWidget(StrongBodyLabel('Ветровой район'))
         # Create combo box
@@ -91,8 +112,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.ComboBoxWindRegions.setFixedWidth(75)
         # Add combo box to horizontal box layout
         self.hBoxLayoutWindRegions.addWidget(self.ComboBoxWindRegions)
-        # Add horizontal box layout to grid layout
-        self.grigLayout.addLayout(self.hBoxLayoutWindRegions, 1, 0)
+        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindRegions)
 
         # Type of area
         self.hBoxLayoutTypeOfArea = QHBoxLayout(self.view)
@@ -103,7 +123,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         ])
         self.ComboBoxTypeOfArea.setFixedWidth(75)
         self.hBoxLayoutTypeOfArea.addWidget(self.ComboBoxTypeOfArea)
-        self.grigLayout.addLayout(self.hBoxLayoutTypeOfArea, 2, 0)
+        vBoxLayoutGenInf.addLayout(self.hBoxLayoutTypeOfArea)
 
         # Wind angle
         self.hBoxLayoutWindAngle = QHBoxLayout(self.view)
@@ -117,7 +137,7 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.lineEditWindAngle.setFixedWidth(75)
         # Add text input widget to horizontal box layout
         self.hBoxLayoutWindAngle.addWidget(self.lineEditWindAngle)
-        self.grigLayout.addLayout(self.hBoxLayoutWindAngle, 3, 0)
+        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindAngle)
 
         # Building size
         self.hBoxLayoutBuildingSize = QHBoxLayout(self.view)
@@ -127,20 +147,29 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.lineEditBuildingSize.setClearButtonEnabled(True)
         self.lineEditBuildingSize.setFixedWidth(125)
         self.hBoxLayoutBuildingSize.addWidget(self.lineEditBuildingSize)
-        self.grigLayout.addLayout(self.hBoxLayoutBuildingSize, 4, 0)
+        vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSize)
+        # self.spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        # vBoxLayoutGenInf.addItem(self.spacer)
+
+        self.hBoxLayoutMain.addWidget(container)
 
     def _init_chart_menu(
             self
     ):
+        container = QWidget()
+        container.setFixedWidth(775)
+        container.setFixedHeight(100)
+
         # Chart menu
-        self.hBoxLayoutChartMenu = QHBoxLayout(self.view)
+        hBoxLayoutChartMenu = QHBoxLayout(container)
+
         self.ComboBoxChartMenu = ComboBox()
         self.ComboBoxChartMenu.addItems([
             self.tr(i) for i in ChartType
         ])
         self.ComboBoxChartMenu.currentTextChanged.connect(self._switch_stacked_layout_type_chart)
         self.ComboBoxChartMenu.setFixedWidth(225)
-        self.hBoxLayoutChartMenu.addWidget(self.ComboBoxChartMenu)
+        hBoxLayoutChartMenu.addWidget(self.ComboBoxChartMenu)
 
         self.StackedLayoutTypeChart = QStackedLayout()
 
@@ -150,14 +179,14 @@ class IsolatedHighRiseInterface(ScrollArea):
         self._init_chart_spectrum()
         self._init_chart_pseudocolor_coefficients()
 
-        self.hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
+        hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
         self.PushButtonCreatePlot = PushButton('Построить')
         self.PushButtonCreatePlot.clicked.connect(self.create_plot)
         self.PushButtonCreatePlot.setFixedWidth(100)
 
-        self.hBoxLayoutChartMenu.addWidget(self.PushButtonCreatePlot)
-        self.grigLayout.addLayout(self.hBoxLayoutChartMenu, 0, 1)
+        hBoxLayoutChartMenu.addWidget(self.PushButtonCreatePlot)
+        self.vBoxLayoutPlot.addWidget(container)
 
     def create_plot(
             self
@@ -368,15 +397,19 @@ class IsolatedHighRiseInterface(ScrollArea):
         self.plots.append(window)
         layout = QVBoxLayout(window)
 
-        # self.grigLayout.removeWidget(self.plotWidget.toolbar)
-        # self.grigLayout.removeWidget(self.plotWidget)
-
-        # toolbar = NavigationToolbar2QT(self.plotWidget.canvas, window)
-
         layout.addWidget(self.plotWidget.toolbar)
         layout.addWidget(self.plotWidget)
 
+        self.plotFlag = False
+
         window.show()
+
+    def del_plot(self):
+        self.vBoxLayoutPlot.removeWidget(self.containerPlot)
+        self.plotWidget.setParent(None)  # Убираем из иерархии
+        self.plotWidget.toolbar.deleteLater()  # Уничтожаем объект
+        self.plotWidget.deleteLater()  # Уничтожаем объект
+        self.containerPlot = None
 
     def add_plot_on_screen(
             self,
@@ -384,6 +417,12 @@ class IsolatedHighRiseInterface(ScrollArea):
             title='График',
             open_in_new_window_button=True
     ):
+        if self.plotFlag:
+            self.del_plot()
+
+        self.containerPlot = QWidget()
+        self.vBoxLayoutPlot1 = QVBoxLayout(self.containerPlot)
+
         # Create plot widget
         self.plotWidget = MatplotlibWidget(fig, title)
 
@@ -393,13 +432,13 @@ class IsolatedHighRiseInterface(ScrollArea):
             # if you set the value to -1, the button will be in the rightmost position
             self.plotWidget.toolbar.insertAction(self.plotWidget.toolbar.actions()[-2], act)
 
-        # Add toolbar to grid layout
-        self.grigLayout.removeWidget(self.plotWidget.toolbar)
-        self.grigLayout.addWidget(self.plotWidget.toolbar, 1, 1)
-        self.grigLayout.removeWidget(self.plotWidget)
-        # Add plot to grid layout
-        # widget, row, column, rowSpan, columnSpan
-        self.grigLayout.addWidget(self.plotWidget, 2, 1, 5, 5)
+        self.vBoxLayoutPlot1.addWidget(self.plotWidget.toolbar)
+        self.vBoxLayoutPlot1.addWidget(self.plotWidget)
+        self.vBoxLayoutPlot1.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+        self.vBoxLayoutPlot.addWidget(self.containerPlot)
+
+        self.plotFlag = True
 
     def open_plot_in_new_window(
             self,
