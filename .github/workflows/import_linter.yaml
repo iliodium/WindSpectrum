@@ -25,30 +25,34 @@ jobs:
       - name: Give permission
         run: chmod +x .github/workflows/import_linter/import_linter.sh
 
-      - name: Run import-linter
-        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
-
-      - name: Configure Git
-        run: |
-          git config user.name "import_linter Bot"
-          git config user.email "import_linter@import_linter.com"
-
-      - name: Fetch all branches
-        run: git fetch --all
+#      - name: Run import-linter
+#        run: .github/workflows/import_linter/import_linter.sh ./src .github/workflows/import_linter/.isort.cfg
 #
-#      - name: Commit
+#      - name: Configure Git
+#        run: |
+#          git config user.name "import_linter Bot"
+#          git config user.email "import_linter@import_linter.com"
+#
+#      - name: Pull changes
+#        run: git pull origin main --rebase
+#      - name: Pull latest changes
+#        run: |
+#          git pull origin main --rebase || echo "No changes to rebase"
+#
+#      - name: Commit and push changes
+#        run: |
+#          git add .
+#          git commit -m "import_linter" || echo "Nothing to commit"
+#          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
+#
+#
+#      - name: Commit and push changes
 #        run: |
 #          git add .
 #          git commit -m "import_linter"
+#          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
 #
-#      - name: Switch to main branch
-#        run: git checkout remotes/origin/main
-
-      - name: Commit and push changes
-        run: |
-          git add .
-          git commit -m "import_linter"
-          git push https://${{ secrets.TOKEN_CI_CD }}@github.com/${{ github.repository }}.git HEAD:main
-
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.TOKEN_CI_CD }}

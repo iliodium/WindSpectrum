@@ -1,20 +1,23 @@
+from src.common.TypeOfArea import TypeOfArea
+from src.common.WindRegion import WindRegion
+
 alpha_standards = {
-    'A': 0.15,
+    TypeOfArea.A: 0.15,
     'B': 0.2,
-    'C': 0.25
+    TypeOfArea.C: 0.25
 }
 ks10 = {
-    'A': 1,
+    TypeOfArea.A: 1,
     'B': 0.65,
-    'C': 0.4
+    TypeOfArea.C: 0.4
 }
 wind_regions = {
-    'Iа': 0.17,
-    'I': 0.23,
-    'II': 0.30,
-    'III': 0.38,
-    'IV': 0.48,
-    'V': 0.60,
-    'VI': 0.73,
-    'VII': 0.85
+    WindRegion.FIRST: 0.17,
+    WindRegion.FIRST_A: 0.23,
+    WindRegion.SECOND: 0.30,
+    WindRegion.THIRD: 0.38,
+    WindRegion.FOURTH: 0.48,
+    WindRegion.FIFTH: 0.60,
+    WindRegion.SIXTH: 0.73,
+    WindRegion.SEVENTH: 0.85
 }
