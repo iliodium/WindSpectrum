@@ -1,6 +1,7 @@
 import numpy as np
 from pydantic import validate_call
-from src.ui.common.ChartMode import ChartMode
+
+from src.submodules.plot.common.ChartMode import ChartMode
 
 
 @validate_call
@@ -10,7 +11,7 @@ def rms(data) -> float:
 
 
 @validate_call
-def settlement(data) -> float:
+def calculated(data) -> float:
     """Расчетное"""
     return np.max([np.abs(np.min(data)), np.abs(np.max(data))]).round(2)
 
@@ -33,4 +34,15 @@ lambdas = {
     ChartMode.MIN: lambda coefficients: np.min(coefficients, axis=0),
     ChartMode.STD: lambda coefficients: np.std(coefficients, axis=0),
     ChartMode.RMS: lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
+}
+
+polar_lambdas = {
+    ChartMode.MEAN: np.mean,
+    ChartMode.RMS: rms,
+    ChartMode.STD: np.std,
+    ChartMode.MAX: np.max,
+    ChartMode.MIN: np.min,
+    ChartMode.CALCULATED: calculated,
+    ChartMode.WARRANTY_PLUS: warranty_plus,
+    ChartMode.WARRANTY_MINUS: warranty_minus,
 }
