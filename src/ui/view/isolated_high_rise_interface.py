@@ -1,5 +1,6 @@
 # coding:utf-8
 import asyncio
+import os
 
 import numpy as np
 from PySide6 import QtGui, QtCore
@@ -148,8 +149,10 @@ class IsolatedHighRiseInterface(QWidget):
         self.lineEditBuildingSize.setFixedWidth(125)
         self.hBoxLayoutBuildingSize.addWidget(self.lineEditBuildingSize)
         vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSize)
-        # self.spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        # vBoxLayoutGenInf.addItem(self.spacer)
+
+        PushButtonReport = PushButton('Отчет')
+        PushButtonReport.clicked.connect(self.create_report)
+        vBoxLayoutGenInf.addWidget(PushButtonReport)
 
         self.hBoxLayoutMain.addWidget(container)
 
@@ -181,11 +184,11 @@ class IsolatedHighRiseInterface(QWidget):
 
         hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
-        self.PushButtonCreatePlot = PushButton('Построить')
-        self.PushButtonCreatePlot.clicked.connect(self.create_plot)
-        self.PushButtonCreatePlot.setFixedWidth(100)
+        PushButtonCreatePlot = PushButton('Построить')
+        PushButtonCreatePlot.clicked.connect(self.create_plot)
+        PushButtonCreatePlot.setFixedWidth(100)
 
-        hBoxLayoutChartMenu.addWidget(self.PushButtonCreatePlot)
+        hBoxLayoutChartMenu.addWidget(PushButtonCreatePlot)
         self.vBoxLayoutPlot.addWidget(container)
 
     def create_plot(
@@ -642,3 +645,17 @@ class IsolatedHighRiseInterface(QWidget):
                                                     parameter,
                                                     pressure_coefficients)
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)
+
+
+    def create_report(self):
+        folder = os.getcwd()
+        os.makedirs(path, exist_ok=True)
+
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+
+        model_size = self._get_model_size()
+        for angle in range(0, 95, 5):
+            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+                angle]
