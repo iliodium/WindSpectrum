@@ -26,7 +26,7 @@ def get_base_angle(angle: AngleType,
 
 
 @validate_call
-def changer_sequence_coefficients(coefficients: np.ndarray,
+def changer_sequence_coefficients(coefficients,
                                   permutation_view: PermutationView,
                                   model_name: str,
                                   sequence_permutation: Tuple[int, int, int, int]):
@@ -91,6 +91,12 @@ def changer_sequence_numbers(numbers: List[int],
                               arr[f4]), axis=1).reshape(count_sensors_on_model)
 
     return numbers
+
+def get_angle_border(model_name:str)->int:
+    if model_name[0] == model_name[1]:
+        return 45
+    else:
+        return 90
 
 
 if __name__ == "__main__":

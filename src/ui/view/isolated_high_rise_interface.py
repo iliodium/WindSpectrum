@@ -1,11 +1,14 @@
 # coding:utf-8
 import asyncio
+import gc
 import os
 
+import matplotlib
 import numpy as np
 from PySide6 import QtGui, QtCore
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QGridLayout, QHBoxLayout, QStackedLayout, QVBoxLayout, QSpacerItem, QSizePolicy
+from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
@@ -15,9 +18,12 @@ from compiled_aot.integration import aot_integration
 from src.common.DbType import DbType
 from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
     load_positions
+from src.submodules.external.ReportFolder import ReportFolder
+from src.submodules.external.utils import create_directory_to_report
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
 from src.submodules.utils import utils
+from src.submodules.utils.angle import get_angle_border
 from src.submodules.utils.data_features import polar_lambdas
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.ui.common.ChartMode import ChartMode
@@ -558,12 +564,8 @@ class IsolatedHighRiseInterface(QWidget):
             case CoordinateSystem.POLAR:
                 views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
                 parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
-                model_scale_str = str(model_name)
 
-                if model_scale_str[0] == model_scale_str[1]:
-                    angle_border = 50
-                else:
-                    angle_border = 95
+                angle_border = get_angle_border(str(model_name))
 
                 x = np.array(coordinates[0])
                 y = np.array(coordinates[1])
@@ -583,7 +585,7 @@ class IsolatedHighRiseInterface(QWidget):
                     for p in parameters:
                         data_to_plot[ChartMode.CMZ][p] = []
 
-                for angle in range(0, angle_border, 5):
+                for angle in range(0, angle_border + 5, 5):
                     pressure_coefficients = \
                         asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[angle]
 
@@ -623,6 +625,15 @@ class IsolatedHighRiseInterface(QWidget):
                         cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
                         data_to_plot[ChartMode.CMZ][p] = cmz_scale
 
+                if not cx_flag and ChartMode.CX in data_to_plot:
+                    del data_to_plot[ChartMode.CX]
+
+                if not cy_flag and ChartMode.CY in data_to_plot:
+                    del data_to_plot[ChartMode.CY]
+
+                if not cmz_flag and ChartMode.CMZ in data_to_plot:
+                    del data_to_plot[ChartMode.CMZ]
+
                 fig = PlotBuilding.polar_plot(data_to_plot)
 
         self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
@@ -646,16 +657,166 @@ class IsolatedHighRiseInterface(QWidget):
                                                     pressure_coefficients)
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)
 
-
     def create_report(self):
-        folder = os.getcwd()
-        os.makedirs(path, exist_ok=True)
-
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        # need to switch backend to Agg to avoid memory leak
+        matplotlib.use('Agg')
 
         model_size = self._get_model_size()
-        for angle in range(0, 95, 5):
+        alpha = self._get_alpha()
+
+        model_size_str = " ".join(list(map(str, model_size)))
+        report_name = f'{model_size_str} {alpha}'
+
+        create_directory_to_report(report_name)
+
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        angle_border = get_angle_border(str(model_name))
+
+        coefs = {}
+        for angle in range(0, angle_border + 5, 5):
             pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
                 angle]
+            coefs[angle] = pressure_coefficients
+
+        for angle in range(0, angle_border + 5, 5):
+            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                fig = PlotBuilding.isofields_coefficients(model_size,
+                                                          model_name,
+                                                          parameter,
+                                                          coefs[angle],
+                                                          coordinates)
+                fig_name = f'{model_size_str} {alpha} {parameter} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.ISOFIELDS, IsofieldsType.COEFFICIENT,
+                                 parameter, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        for angle in range(0, angle_border + 5, 5):
+            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                fig = PlotBuilding.pseudocolor_coefficients(model_size,
+                                                            model_name,
+                                                            parameter,
+                                                            coefs[angle])
+                fig_name = f'{model_size_str} {alpha} {parameter} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.DISCRETE_ISOFIELDS,
+                                 parameter, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+        for angle in range(0, angle_border + 5, 5):
+            figs = PlotBuilding.envelopes(coefs[angle],
+                                          (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD))
+            for i, fig in enumerate(figs):
+                fig_name = f'{model_size_str} {alpha} {angle} {i}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.ENVELOPES, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        data_to_plot = {}
+        data_to_plot_polar = {}
+
+        parameters = [
+            ChartMode.MAX,
+            ChartMode.MEAN,
+            ChartMode.MIN,
+            ChartMode.RMS,
+            ChartMode.STD,
+            ChartMode.CALCULATED,
+            ChartMode.WARRANTY_PLUS,
+            ChartMode.WARRANTY_MINUS,
+        ]
+        for v in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+            data_to_plot_polar[v] = {}
+            for p in parameters:
+                data_to_plot_polar[v][p] = []
+
+        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
+                                                               model_name,
+                                                               )
+        x = np.array(coordinates[0])
+        y = np.array(coordinates[1])
+        for angle in range(0, angle_border + 5, 5):
+            cx, cy = aot_integration.calculate_cx_cy(
+                *count_sensors,
+                *size,
+                x,
+                y,
+                coefs[angle]
+            )
+
+            cmz = aot_integration.calculate_cmz(
+                *count_sensors,
+                angle,
+                *size,
+                x,
+                y,
+                coefs[angle]
+            )
+
+            for p in parameters:
+                data_to_plot_polar[ChartMode.CX][p].append(polar_lambdas[p](cx))
+                data_to_plot_polar[ChartMode.CY][p].append(polar_lambdas[p](cy))
+                data_to_plot_polar[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
+
+            data_to_plot[ChartMode.CX] = cx
+            data_to_plot[ChartMode.CY] = cy
+            data_to_plot[ChartMode.CMZ] = cmz
+
+            fig = PlotBuilding.summary_coefficients({ChartMode.CMZ: data_to_plot[ChartMode.CMZ]},
+                                                    DbType.ISOLATED)
+            fig_name = f'{model_size_str} {alpha} {angle} {ChartMode.CMZ}.png'
+            fig.set_size_inches(18.5, 10.5)
+            fig.savefig(
+                os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.SUMMARY_COEFFICIENTS,
+                             CoordinateSystem.CARTESIAN, fig_name),
+                dpi=200,
+                bbox_inches='tight')
+            plt.close(fig)
+
+            fig = PlotBuilding.summary_coefficients({ChartMode.CX: data_to_plot[ChartMode.CX],
+                                                     ChartMode.CY: data_to_plot[ChartMode.CY]}
+                                                    , DbType.ISOLATED)
+            fig_name = f'{model_size_str} {alpha} {angle} {ChartMode.CX} {ChartMode.CY}.png'
+            fig.set_size_inches(18.5, 10.5)
+            fig.savefig(
+                os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.SUMMARY_COEFFICIENTS,
+                             CoordinateSystem.CARTESIAN, fig_name),
+                dpi=200,
+                bbox_inches='tight')
+            plt.close(fig)
+        del data_to_plot
+
+        for p in parameters:
+            cx_scale, cy_scale = scaling_data(data_to_plot_polar[ChartMode.CX][p], data_to_plot_polar[ChartMode.CY][p],
+                                              angle_border=angle_border)
+            data_to_plot_polar[ChartMode.CX][p] = cx_scale
+            data_to_plot_polar[ChartMode.CY][p] = cy_scale
+
+            cmz_scale = scaling_data(data_to_plot_polar[ChartMode.CMZ][p], angle_border=angle_border)
+            data_to_plot_polar[ChartMode.CMZ][p] = cmz_scale
+
+        for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+            for p in parameters:
+                fig = PlotBuilding.polar_plot({i: {p: data_to_plot_polar[i][p]}})
+                fig_name = f'{model_size_str} {alpha} {p}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(ReportFolder.WORD_REPORT, report_name, ChartType.SUMMARY_COEFFICIENTS,
+                                 CoordinateSystem.POLAR, i, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+        del data_to_plot_polar
+        # return default backend
+        matplotlib.use('qtagg')

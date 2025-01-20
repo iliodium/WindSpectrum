@@ -18,10 +18,10 @@ def get_labels(point):
     return [f"{i / 10:.1f}" for i in arange]
 
 
-def scaling_data(x, y=None, angle_border=50):
+def scaling_data(x, y=None, angle_border=45):
     """Масштабирование данных до 360 градусов для графиков в полярной системе координат для изолированных зданий"""
     match angle_border:
-        case 50:
+        case 45:
             if y is not None:
                 a = np.array(y)
                 b = np.append(a, np.flip(x)[1:])
@@ -42,7 +42,7 @@ def scaling_data(x, y=None, angle_border=50):
                 x_scale = np.append(c, np.flip(c)[1:])
                 return x_scale
 
-        case 95:
+        case 90:
             if y is not None:
                 a = np.array(y)
                 b = np.append(a, np.flip(x)[1:])
