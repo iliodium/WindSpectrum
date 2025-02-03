@@ -208,7 +208,7 @@ class IsolatedHighRiseInterface(QWidget):
             case 2:
                 self.plot_summary_coefficients()
             case 3:
-                print(3)
+                self.plot_welch_graph()
             case 4:
                 self.plot_pseudocolor_coefficients()
 
@@ -448,6 +448,53 @@ class IsolatedHighRiseInterface(QWidget):
         self.vBoxLayoutPlot.addWidget(self.containerPlot)
 
         self.plotFlag = True
+
+    def plot_welch_graph(self):
+        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
+        if not parameters:
+            return
+
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
+            angle]
+        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
+                                                               model_name,
+                                                               )
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+        data_to_plot = {}
+
+        if ChartMode.CX in parameters or ChartMode.CY in parameters:
+            cx, cy = aot_integration.calculate_cx_cy(
+                *count_sensors,
+                *size,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
+            if ChartMode.CX in parameters:
+                data_to_plot[ChartMode.CX] = cx
+            if ChartMode.CY in parameters:
+                data_to_plot[ChartMode.CY] = cy
+
+        if ChartMode.CMZ in parameters:
+            cmz = aot_integration.calculate_cmz(
+                *count_sensors,
+                angle,
+                *size,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
+            data_to_plot[ChartMode.CMZ] = cmz
+
+        PlotBuilding.welch_graph()
+
 
     def open_plot_in_new_window(
             self,
@@ -711,6 +758,7 @@ class IsolatedHighRiseInterface(QWidget):
                     dpi=200,
                     bbox_inches='tight')
                 plt.close(fig)
+
         for angle in range(0, angle_border + 5, 5):
             figs = PlotBuilding.envelopes(coefs[angle],
                                           (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD))
@@ -795,6 +843,7 @@ class IsolatedHighRiseInterface(QWidget):
                 dpi=200,
                 bbox_inches='tight')
             plt.close(fig)
+
         del data_to_plot
 
         for p in parameters:
@@ -817,6 +866,8 @@ class IsolatedHighRiseInterface(QWidget):
                     dpi=200,
                     bbox_inches='tight')
                 plt.close(fig)
+
         del data_to_plot_polar
+
         # return default backend
         matplotlib.use('qtagg')

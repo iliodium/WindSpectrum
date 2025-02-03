@@ -109,101 +109,6 @@ class PlotBuilding(Plot):
 
     @staticmethod
     @validate_call
-    def pseudocolor_coefficients(
-            pressure_coefficients,
-            coordinates: CoordinatesType,
-            model_name: ModelNameIsolatedType,
-            parameter: ChartMode,
-    ) -> plt.Figure:
-        """
-        Отрисовка дискретных изополей.
-
-        Parameters:
-        - pressure_coefficients: np.ndarray
-            Матрица коэффициентов давления.
-        - coordinates: CoordinatesType
-            Координаты точек модели.
-        - model_name: ModelNameIsolatedType
-            Название модели.
-        - parameter: ChartMode
-            Параметр для визуализации.
-
-        Returns:
-        - plt.Figure: Сгенерированный график.
-        """
-        size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                               model_name,
-                                                               )
-
-        pressure_coefficients = lambdas[parameter](pressure_coefficients)
-
-        breadth, depth, height = size
-        count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
-
-        count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
-
-        # can return array different size
-        pressure_coefficients = aot_integration.split_1d_array(
-            count_row,
-            count_sensors_on_middle_row,
-            count_sensors_on_side_row,
-            pressure_coefficients
-        )
-
-        _, z = coordinates
-
-        z = np.array(z[::2 * (count_sensors_on_middle_row + count_sensors_on_side_row)])[::-1]
-
-        fig, ax = plt.subplots(1, 4, dpi=PlotBuilding.DPI)
-
-        cmap = matplotlib.colormaps.get_cmap("jet")
-
-        # use a generator, there can be arrays of different sizes
-        # the 111 model has all arrays of the same size
-        # but for example 215 212 315 and so on is not
-        min_v = np.min([np.min(pressure_coefficients[i]) for i in range(4)])
-        max_v = np.max([np.max(pressure_coefficients[i]) for i in range(4)])
-
-        ticks = np.arange(np.round(min_v, 1), np.round(max_v, 1) + 0.2, 0.1)
-        levels = MaxNLocator(len(ticks)).tick_values(min_v, max_v)
-        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-
-        xticks_middle = np.arange(0, count_sensors_on_middle_row + 1, 5)
-        xticklabels_middle = get_labels(breadth)
-
-        xticks_side = np.arange(0, count_sensors_on_side_row + 1, 5)
-        xticklabels_side = get_labels(depth)
-
-        ytickslabels = np.arange(0, height + 0.01, 0.05).round(2)
-        yticks = np.linspace(0, count_row, ytickslabels.size)
-
-        xm, ym = np.meshgrid(np.arange(0.5, count_sensors_on_middle_row + 0.5, 1), z * count_row / height)
-        xs, ys = np.meshgrid(np.arange(0.5, count_sensors_on_side_row + 0.5, 1), z * count_row / height)
-
-        for i in range(4):
-            pr_coefficients = np.flip(pressure_coefficients[i], axis=0)
-
-            im = ax[i].pcolormesh(pr_coefficients, cmap=cmap, norm=norm)
-            ax[i].set_yticks(yticks, labels=ytickslabels)
-
-            if i in [0, 2]:
-                ax[i].set_xticks(xticks_middle, labels=xticklabels_middle)
-                ax[i].plot(xm, ym, '.k')
-
-            else:
-                ax[i].set_xticks(xticks_side, labels=xticklabels_side)
-                ax[i].plot(xs, ys, '.k')
-
-        if breadth == depth == height:
-            for i in range(4):
-                ax[i].set_aspect('equal')
-
-        fig.colorbar(im, ax=ax, location='bottom', ticks=ticks)
-
-        return fig
-
-    @staticmethod
-    @validate_call
     def summary_coefficients(
             pressure_coefficients: dict[str, Any],
             db: DbType,
@@ -328,7 +233,11 @@ class PlotBuilding(Plot):
     # TODO не помню как должно быть правильно, подправить
     @staticmethod
     @validate_call
-    def welch_graphs(db='isolated', **kwargs):
+    def welch_graph(
+            fs,
+            counts,
+
+    ):
         """Отрисовка графиков спектральной плотности мощности"""
         data = kwargs['data']
 
@@ -336,8 +245,8 @@ class PlotBuilding(Plot):
         breadth, depth, height = map(float, model_size)
         angle = int(kwargs['angle'])
         model_scale = kwargs['model_scale']
-        print(model_scale)
-        print(model_size)
+        print(model_scale)  # 115
+        print(model_size)  # ('0.1', '0.1', '0.5')
 
         b_s, d_s, h_s = [int(i) / 10 for i in model_scale]
         h_s = height / min(breadth, depth, height) / 10
@@ -379,12 +288,6 @@ class PlotBuilding(Plot):
             # print(kv1, kv2)
 
             sh = lambda f: f * l_m / speed_tpu
-            # sh = lambda f: f * l_m / speed_sp
-
-        elif db == 'interference':
-            case = kwargs['case']
-            fs = 781
-            counts = 5858
 
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
 
@@ -396,7 +299,7 @@ class PlotBuilding(Plot):
         # ax.set_yscale('log')
 
         ax.grid()
-        # ax.set_xlabel('Frequency')
+
         ax.set_xlabel('Sh')
         ax.set_ylabel('PSD, V**2/Hz')
 
@@ -404,11 +307,6 @@ class PlotBuilding(Plot):
             if data[name] is not None:
                 freq, psd = welch(data[name], fs=fs, nperseg=int(counts / 5))
                 ax.plot([sh(f) for f in freq], psd, label=name)
-                # print(freq)
-                # print(psd)
-                # print(psd.max())
-                # print(np.where(psd == psd.max()))
-                # print(temp[np.where(psd == psd.max())])
 
         ax.legend(loc='upper right', fontsize=9)
 
@@ -564,7 +462,7 @@ class PlotBuilding(Plot):
             model_name: ModelNameIsolatedType,
             parameter: ChartMode,
             pressure_coefficients
-    ):
+    ) -> plt.Figure:
         """
         Отрисовка дискретных изополей.
 
