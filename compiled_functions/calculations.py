@@ -329,11 +329,14 @@ def _calculate_cx_cy(
     cx = np.zeros(pc1.shape[0])
     cy = np.zeros(pc1.shape[0])
 
-    cx += (np.sum(np.sum(pc1 * sensors_area_effect13, axis=1), axis=1) / square13)
-    cx -= (np.sum(np.sum(pc3 * sensors_area_effect13, axis=1), axis=1) / square13)
+    cx += (np.sum(np.sum(pc1 * sensors_area_effect13, axis=1), axis=1) / square13)*np.cos(np.deg2rad(45))
+    cx -= (np.sum(np.sum(pc2 * sensors_area_effect24, axis=1), axis=1) / square24)*np.sin(np.deg2rad(45))
 
-    cy += (np.sum(np.sum(pc2 * sensors_area_effect24, axis=1), axis=1) / square24)
-    cy -= (np.sum(np.sum(pc4 * sensors_area_effect24, axis=1), axis=1) / square24)
+    cx -= (np.sum(np.sum(pc3 * sensors_area_effect13, axis=1), axis=1) / square13)*np.cos(np.deg2rad(45))
+    cx += (np.sum(np.sum(pc4 * sensors_area_effect24, axis=1), axis=1) / square24)*np.sin(np.deg2rad(45))
+
+    cy += (np.sum(np.sum(pc2 * sensors_area_effect24, axis=1), axis=1) / square24)*np.sin(np.deg2rad(45))
+    cy -= (np.sum(np.sum(pc4 * sensors_area_effect24, axis=1), axis=1) / square24)*np.sin(np.deg2rad(45))
 
     return cx, cy
 
