@@ -55,7 +55,11 @@ type BuildingSizeType = float
 
 type AlphaStandardsType = Literal[*alpha_standards]
 type Ks10Type = Literal[*ks10]
+type AlphaStandardsOrKs10Type = Union[AlphaStandardsType | Ks10Type]
+type AlphaStandardsOrKs10orNoneType = Union[AlphaStandardsOrKs10Type | None]
+
 type WindRegionsType = Literal[*wind_regions]
+type WindRegionsOrNoneType = Union[WindRegionsType | None]
 
 type CoordinatesType = Union[tuple[tuple, tuple] | tuple]
 type ChartModeType = tuple[ChartMode, ...]

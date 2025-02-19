@@ -5,19 +5,20 @@ import matplotlib.tri as mtri
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MultipleLocator, ScalarFormatter, MaxNLocator
+from matplotlib.ticker import MultipleLocator, ScalarFormatter
 from pydantic import validate_call
 from scipy.signal import welch
 
 from src.common.DbType import DbType
-from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType
+from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType, WindRegionsType, \
+    WindRegionsOrNoneType, AlphaStandardsOrKs10orNoneType
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import get_labels, calculate_levels, set_colorbar
+from src.submodules.plot.utils import calculate_levels, set_colorbar
 from src.submodules.plot.utils import interpolator as intp
 from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
+from src.submodules.utils.rule_book import pressure_coefficient_for_region
 from src.ui.common.ChartMode import ChartMode
-
 from compiled_aot.integration import aot_integration
 
 
@@ -128,27 +129,27 @@ class PlotBuilding(Plot):
 
         match db:
             case DbType.ISOLATED:
-                # breadth, depth, height = map(float, model_size)
-                # breadth_tpu, depth_tpu, height_tpu = map(int, list(model_scale))
+                breadth, depth, height = map(float, model_size)
+                breadth_tpu, depth_tpu, height_tpu = map(int, list(model_scale))
 
-                # match alpha:
-                #     case 4:
-                #         speed_sp = speed_sp_b(height)
-                #         speed_tpu = interp_025_tpu(height)
-                #     case 6:
-                #         speed_sp = speed_sp_a(height)
-                #         speed_tpu = interp_016_tpu(height)
-                #
-                # l_m = aot_integration.calculate_projection_on_the_axis(breadth, depth, angle)
-                # l_tpu = aot_integration.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
+                match alpha:
+                    case 4:
+                        speed_sp = speed_sp_b(height)
+                        speed_tpu = interp_025_tpu(height)
+                    case 6:
+                        speed_sp = speed_sp_a(height)
+                        speed_tpu = interp_016_tpu(height)
 
-                # kv = speed_sp / speed_tpu
-                # km = l_m / l_tpu
+                l_m = aot_integration.calculate_projection_on_the_axis(breadth, depth, angle)
+                l_tpu = aot_integration.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
 
-                # kt = km / kv
+                kv = speed_sp / speed_tpu
+                km = l_m / l_tpu
 
-                # ax.set_xlim(0, 32.768 * kt)
-                # ox = np.linspace(0, 32.768 * kt, 32768)
+                kt = km / kv
+
+                ax.set_xlim(0, 32.768 * kt)
+                ox = np.linspace(0, 32.768 * kt, 32768)
 
                 ax.set_xlim(0, 32.768)
                 ox = np.linspace(0, 32.768, 32768)
@@ -163,6 +164,7 @@ class PlotBuilding(Plot):
 
         for name in pressure_coefficients.keys():
             if pressure_coefficients[name] is not None:
+                print(name, np.mean(pressure_coefficients[name]))
                 ax.plot(ox, pressure_coefficients[name], label=name)
         ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
         ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
@@ -230,83 +232,33 @@ class PlotBuilding(Plot):
 
         return fig
 
-    # TODO не помню как должно быть правильно, подправить
+
     @staticmethod
     @validate_call
     def welch_graph(
-            fs,
-            counts,
+            data
 
     ):
         """Отрисовка графиков спектральной плотности мощности"""
-        data = kwargs['data']
-
-        model_size = kwargs['model_size']
-        breadth, depth, height = map(float, model_size)
-        angle = int(kwargs['angle'])
-        model_scale = kwargs['model_scale']
-        print(model_scale)  # 115
-        print(model_size)  # ('0.1', '0.1', '0.5')
-
-        b_s, d_s, h_s = [int(i) / 10 for i in model_scale]
-        h_s = height / min(breadth, depth, height) / 10
-        print(h_s)
-        print(height / h_s)
-        ks = height / h_s
-        if db == 'isolated':
-            alpha = kwargs['alpha']
-            fs = 1000
-            counts = 32768
-
-            if alpha == '4':
-                # speed_sp_s = speed_sp_b(h_s, scale_ks=1/400)
-                # speed_tpu_s = interp_025_tpu(h_s)
-                #
-                # speed_sp = speed_sp_b_m(height)
-                # # speed_tpu = interp_025_tpu_400(height)
-                # speed_tpu = scipy.interpolate.interp1d(y_016 * height/h_s, x_016)(height)
-                speed_tpu_m_ist_height = interp_025_tpu_400(height)
-                speed_sp = speed_sp_b_m(height)
-
-            elif alpha == '6':
-                speed_sp_s = speed_sp_a(h_s)
-                speed_tpu_s = interp_016_tpu(h_s)
-
-                speed_sp = speed_sp_a_m(height)
-                speed_tpu = interp_016_tpu_400(height)
-
-            l_m = breadth * np.cos(np.deg2rad(angle)) + depth * np.sin(np.deg2rad(angle))
-
-            print(speed_sp, speed_tpu_m_ist_height)
-            kv1 = speed_sp / speed_tpu_m_ist_height
-
-            # print(speed_sp, speed_tpu)
-            #
-            # kv1 = speed_sp_s / speed_tpu_s
-            # kv2 = speed_sp / speed_tpu
-
-            # print(kv1, kv2)
-
-            sh = lambda f: f * l_m / speed_tpu
-
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
 
         # ax.set_xlim([10 ** -1, 10 ** 3])
         # ax.set_xlim([10 ** -1, 10 ** 2])
         # ax.set_xlim([10 ** -1, 0.5])
-        ax.set_xlim([10 ** -1, 2])
+        ax.set_xlim([10 ** -2, 10])
         # ax.set_xscale('log')
         # ax.set_yscale('log')
 
         ax.grid()
 
-        ax.set_xlabel('Sh')
-        ax.set_ylabel('PSD, V**2/Hz')
+        # ax.set_xlabel('Sh')
+        # ax.set_ylabel('PSD, V**2/Hz')
 
         for name in data.keys():
             if data[name] is not None:
-                freq, psd = welch(data[name], fs=fs, nperseg=int(counts / 5))
-                ax.plot([sh(f) for f in freq], psd, label=name)
+                a = np.std(data[name])
+                freq, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
+                ax.plot(freq*a, psd, label=name)
 
         ax.legend(loc='upper right', fontsize=9)
 
@@ -319,7 +271,9 @@ class PlotBuilding(Plot):
             model_name: ModelNameIsolatedType,
             parameter: ChartMode,
             pressure_coefficients,
-            coordinates: CoordinatesType
+            coordinates: CoordinatesType,
+            area_type: AlphaStandardsOrKs10orNoneType = None,
+            wind_region: WindRegionsOrNoneType = None,
     ):
         """
         Отрисовка интегральных изополей.
@@ -341,6 +295,9 @@ class PlotBuilding(Plot):
             plt.Figure:
                 Объект графика
         """
+        # флаг чтобы понимать что мы рисуем, коэффициенты или давление
+        flag_pressure = area_type is not None and wind_region is not None
+
         size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
                                                                model_name,
                                                                )
@@ -350,12 +307,12 @@ class PlotBuilding(Plot):
 
         pressure_coefficients = lambdas[parameter](pressure_coefficients)
 
-        pressure_coefficients = aot_integration.split_1d_array(
+        pressure_coefficients = list(aot_integration.split_1d_array(
             count_sensors_on_model,
             count_sensors_on_middle_row,
             count_sensors_on_side_row,
             pressure_coefficients
-        )
+        ))
 
         x = aot_integration.split_1d_array(
             count_sensors_on_model,
@@ -384,6 +341,7 @@ class PlotBuilding(Plot):
                 x[i],
                 right_array
             ))
+
             # добавляем 2 строки
             result = np.vstack((
                 result[0],
@@ -415,22 +373,41 @@ class PlotBuilding(Plot):
         cmap = matplotlib.colormaps.get_cmap("jet")
         data_colorbar = None
 
-        levels = calculate_levels(parameter, pressure_coefficients)
-
         count_ticks = 5
+
+        if flag_pressure:
+            tpu_height_to_real = lambda z: (z / height) * model_size[2]
+            # масштабируем высоту датчика, как если бы он был на реальном здание
+            vectorized_function_z = np.vectorize(tpu_height_to_real)
+            # otypes=[object] чтобы np.vectorize не конвертировал str в np.str а то валидация падает
+            vectorized_function_coefficient = np.vectorize(pressure_coefficient_for_region, otypes=[object])
+            # np.vectorize чтобы применить функцию к каждому элементу массива
+            for i in range(4):
+                z_sensors = vectorized_function_z(z[i].reshape(-1))
+                coefficient_for_region = vectorized_function_coefficient(z_sensors,
+                                                                         area_type=area_type,
+                                                                         wind_region=wind_region)
+                pressure_coefficients[i] = pressure_coefficients[i].reshape(-1) * coefficient_for_region
+
+            levels = calculate_levels(parameter, pressure_coefficients, flag_pressure)
+
+        else:
+            levels = calculate_levels(parameter, pressure_coefficients)
+
+            for i in range(4):
+                pressure_coefficients[i] = pressure_coefficients[i].reshape(-1)
 
         for i in range(4):
             x_z = np.column_stack((x[i].reshape(-1), z[i].reshape(-1)))
             x_z_extended = np.column_stack((x_extended[i].reshape(-1), z_extended[i].reshape(-1)))
             # Интерполятор полученный на основе имеющихся данных
-            interpolator = intp(x_z, pressure_coefficients[i].reshape(-1))
+            interpolator = intp(x_z, pressure_coefficients[i])
 
             # Получаем данные для несуществующих датчиков
             pressure_coefficients_extended = interpolator(x_z_extended)
             triang = mtri.Triangulation(x_extended[i].reshape(-1), z_extended[i].reshape(-1))
             refiner = mtri.UniformTriRefiner(triang)
             grid, value = refiner.refine_field(pressure_coefficients_extended, subdiv=4)
-
             data_colorbar = ax[i].tricontourf(grid, value, cmap=cmap, extend='both', levels=levels)
             # Рисуем линии
             labels = ax[i].tricontour(grid, value, linewidths=1, linestyles='solid', colors='black', levels=levels)

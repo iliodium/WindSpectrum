@@ -16,6 +16,7 @@ from qfluentwidgets import ScrollArea, PushButton, TitleLabel, ComboBox, \
 
 from compiled_aot.integration import aot_integration
 from src.common.DbType import DbType
+from src.common.constants import wind_regions, alpha_standards
 from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
     load_positions
 from src.submodules.external.ReportFolder import ReportFolder
@@ -113,7 +114,7 @@ class IsolatedHighRiseInterface(QWidget):
         self.ComboBoxWindRegions = ComboBox()
         # Fill the combo box
         self.ComboBoxWindRegions.addItems([
-            self.tr(i) for i in ('Iа', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII')
+            self.tr(i) for i in [*wind_regions]
         ])
         # set fixed width of combobox
         self.ComboBoxWindRegions.setFixedWidth(75)
@@ -126,7 +127,7 @@ class IsolatedHighRiseInterface(QWidget):
         self.hBoxLayoutTypeOfArea.addWidget(StrongBodyLabel('Тип местности'))
         self.ComboBoxTypeOfArea = ComboBox()
         self.ComboBoxTypeOfArea.addItems([
-            self.tr(i) for i in ('A', 'B', 'C')
+            self.tr(i) for i in [*alpha_standards]
         ])
         self.ComboBoxTypeOfArea.setFixedWidth(75)
         self.hBoxLayoutTypeOfArea.addWidget(self.ComboBoxTypeOfArea)
@@ -370,13 +371,24 @@ class IsolatedHighRiseInterface(QWidget):
         return tuple(map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' ')))
 
     def _get_alpha(
+            self,
+            string=False
+    ):
+        if string:
+            return self.ComboBoxTypeOfArea.text()
+
+        else:
+            type_alpha = {
+                'A': 4,
+                'C': 6,
+            }
+            return type_alpha[self.ComboBoxTypeOfArea.text()]
+
+    def _get_wind_region(
             self
     ):
-        type_alpha = {
-            'A': 4,
-            'C': 6,
-        }
-        return type_alpha[self.ComboBoxTypeOfArea.text()]
+
+        return self.ComboBoxWindRegions.text()
 
     def _icon(
             self,
@@ -463,10 +475,12 @@ class IsolatedHighRiseInterface(QWidget):
         model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
         pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
             angle]
+
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
         size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
                                                                model_name,
                                                                )
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
         data_to_plot = {}
 
         if ChartMode.CX in parameters or ChartMode.CY in parameters:
@@ -493,8 +507,8 @@ class IsolatedHighRiseInterface(QWidget):
             )
             data_to_plot[ChartMode.CMZ] = cmz
 
-        PlotBuilding.welch_graph()
-
+        fig = PlotBuilding.welch_graph(data_to_plot)
+        self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def open_plot_in_new_window(
             self,
@@ -547,11 +561,25 @@ class IsolatedHighRiseInterface(QWidget):
 
         parameter = ChartMode(self.isofieldsParameters.currentText())
 
-        fig = PlotBuilding.isofields_coefficients(model_size,
-                                                  model_name,
-                                                  parameter,
-                                                  pressure_coefficients,
-                                                  coordinates)
+        match self.ComboBoxTypesIsofields.text():
+            case IsofieldsType.PRESSURE:
+                alpha_str = self._get_alpha(string=True)
+                wind_region = self._get_wind_region()
+                fig = PlotBuilding.isofields_coefficients(model_size,
+                                                          model_name,
+                                                          parameter,
+                                                          pressure_coefficients,
+                                                          coordinates,
+                                                          alpha_str,
+                                                          wind_region
+                                                          )
+            case IsofieldsType.COEFFICIENT:
+                fig = PlotBuilding.isofields_coefficients(model_size,
+                                                          model_name,
+                                                          parameter,
+                                                          pressure_coefficients,
+                                                          coordinates
+                                                          )
 
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 

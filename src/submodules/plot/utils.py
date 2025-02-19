@@ -85,23 +85,32 @@ def calculate_function_from_pressure_coefficients(data, func, decimals):
     return np.round(func([func(data[i]) for i in range(4)]), decimals)
 
 
-def calculate_levels(parameter, pressure_coefficients):
+def calculate_levels(parameter, pressure_coefficients, pressure=False):
     min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 1)
     max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 1)
+    if pressure:
+        match parameter:
+            case ChartMode.MAX | ChartMode.MIN:
+                step = 50
+            case _:
+                step = 25
 
-    match parameter:
-        case ChartMode.MAX | ChartMode.MIN:
-            step = 0.2
-        case ChartMode.RMS | ChartMode.STD:
-            step = 0.05
-        case _:
-            step = 0.1
+        decimals = 0
 
-    match parameter:
-        case ChartMode.RMS | ChartMode.STD:
-            decimals = 2
-        case _:
-            decimals = 1
+    else:
+        match parameter:
+            case ChartMode.MAX | ChartMode.MIN:
+                step = 0.2
+            case ChartMode.RMS | ChartMode.STD:
+                step = 0.05
+            case _:
+                step = 0.1
+
+        match parameter:
+            case ChartMode.RMS | ChartMode.STD:
+                decimals = 2
+            case _:
+                decimals = 1
 
     levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
 

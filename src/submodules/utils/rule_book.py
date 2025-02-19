@@ -7,7 +7,7 @@ import numpy as np
 from pydantic import validate_call
 from src.common.annotation import (AlphaStandardsType,
                                    Ks10Type,
-                                   WindRegionsType, )
+                                   WindRegionsType, AlphaStandardsOrKs10Type, )
 from src.common.constants import (alpha_standards,
                                   ks10,
                                   wind_regions, )
@@ -36,7 +36,7 @@ def speed_sp(
 @validate_call
 def speed_sp_region(
         z: int | float,
-        area_type: Union[AlphaStandardsType | Ks10Type],
+        area_type: AlphaStandardsOrKs10Type,
         wind_region: WindRegionsType,
         *,
         p0: int | float = 1.225,
@@ -54,7 +54,7 @@ def speed_sp_region(
 @validate_call
 def pressure_coefficient_for_region(
         z: int | float,
-        area_type: Union[AlphaStandardsType | Ks10Type],
+        area_type: AlphaStandardsOrKs10Type,
         wind_region: WindRegionsType,
         *,
         p0: int | float = 1.225,
