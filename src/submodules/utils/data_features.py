@@ -1,5 +1,6 @@
 import numpy as np
 from pydantic import validate_call
+
 from src.ui.common.ChartMode import ChartMode
 
 

@@ -1,11 +1,7 @@
-from PySide6.QtCore import (QEvent,
-                            Qt,)
-from PySide6.QtGui import (QFontMetrics,
-                           QPalette,
-                           QStandardItem,)
-from PySide6.QtWidgets import (QComboBox,
-                               QStyledItemDelegate,)
-from src.ui.common.ChartMode import ChartMode
+from PySide6.QtCore import Qt, QEvent
+from PySide6.QtGui import QStandardItem, QPalette, QFontMetrics
+from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
+
 from src.ui.common.StyleSheet import StyleSheet
 
 

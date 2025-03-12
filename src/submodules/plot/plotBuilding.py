@@ -9,18 +9,16 @@ from matplotlib.ticker import MultipleLocator, ScalarFormatter
 from pydantic import validate_call
 from scipy.signal import welch
 
-from src.common.DbType import DbType
-from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType, WindRegionsType, \
+from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType, \
     WindRegionsOrNoneType, AlphaStandardsOrKs10orNoneType
 from src.submodules.plot.plot import Plot
 from src.submodules.plot.utils import calculate_levels, set_colorbar
 from src.submodules.plot.utils import interpolator as intp
-from src.submodules.utils import utils
 from src.submodules.utils.data_features import lambdas
-from src.submodules.utils.rule_book import pressure_coefficient_for_region
+from src.submodules.utils.speed_sp import speed_sp_region
+from src.submodules.utils.utils import get_size_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
-from compiled_aot.integration import aot_integration
-
+from compiled_functions import aot_calculations
 
 class PlotBuilding(Plot):
     @staticmethod
@@ -87,7 +85,6 @@ class PlotBuilding(Plot):
             yticks = np.arange(start_yticks, stop_yticks, step_major_y).round(2)
             ax.set_yticks(yticks)
             ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
-
             start_xticks = sensor_index_start + step_major_x
             stop_xticks = sensor_index_start + count_sensors_ox + 1
             xticks = np.arange(start_xticks, stop_xticks, step_major_x)
@@ -112,51 +109,23 @@ class PlotBuilding(Plot):
     @validate_call
     def summary_coefficients(
             pressure_coefficients: dict[str, Any],
-            db: DbType,
+            kt: float = 1
     ) -> plt.Figure:
         """
         Построение графиков суммарных аэродинамических коэффициентов в декартовой системе координат.
 
         Args:
-            pressure_coefficients (Dict[str, np.array]): Словарь с коэффициентами, где ключ — тип графика,
+            pressure_coefficients (dict[str, np.array]): Словарь с коэффициентами, где ключ — тип графика,
                                                           а значение — массив данных.
-            db (DbType): Тип базы данных.
+            kt (Union[float, int]): коэф.
 
         Returns:
             plt.Figure: График в формате Matplotlib.
         """
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
 
-        match db:
-            case DbType.ISOLATED:
-                breadth, depth, height = map(float, model_size)
-                breadth_tpu, depth_tpu, height_tpu = map(int, list(model_scale))
-
-                match alpha:
-                    case 4:
-                        speed_sp = speed_sp_b(height)
-                        speed_tpu = interp_025_tpu(height)
-                    case 6:
-                        speed_sp = speed_sp_a(height)
-                        speed_tpu = interp_016_tpu(height)
-
-                l_m = aot_integration.calculate_projection_on_the_axis(breadth, depth, angle)
-                l_tpu = aot_integration.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
-
-                kv = speed_sp / speed_tpu
-                km = l_m / l_tpu
-
-                kt = km / kv
-
-                ax.set_xlim(0, 32.768 * kt)
-                ox = np.linspace(0, 32.768 * kt, 32768)
-
-                ax.set_xlim(0, 32.768)
-                ox = np.linspace(0, 32.768, 32768)
-
-            case DbType.INTERFERENCE:
-                ax.set_xlim(0, 7.5)
-                ox = np.linspace(0, 7.5, 5858)
+        ax.set_xlim(0, 32.768 * kt)
+        ox = np.linspace(0, 32.768 * kt, 32768)
 
         ax.grid()
         ax.set_ylabel('Суммарные аэродинамические коэффициенты', fontsize=Plot.YLABEL_FONTSIZE)
@@ -164,8 +133,8 @@ class PlotBuilding(Plot):
 
         for name in pressure_coefficients.keys():
             if pressure_coefficients[name] is not None:
-                print(name, np.mean(pressure_coefficients[name]))
                 ax.plot(ox, pressure_coefficients[name], label=name)
+
         ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
         ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
         ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
@@ -232,35 +201,35 @@ class PlotBuilding(Plot):
 
         return fig
 
-
     @staticmethod
     @validate_call
     def welch_graph(
-            data
+            data,
+            height,
+            speed
 
     ):
         """Отрисовка графиков спектральной плотности мощности"""
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
 
-        # ax.set_xlim([10 ** -1, 10 ** 3])
-        # ax.set_xlim([10 ** -1, 10 ** 2])
-        # ax.set_xlim([10 ** -1, 0.5])
-        ax.set_xlim([10 ** -2, 10])
-        # ax.set_xscale('log')
-        # ax.set_yscale('log')
+        ax.set_xscale('log')
+        ax.set_yscale('log')
 
         ax.grid()
+        ax.set_title('Спектральная плотность мощности', fontsize=Plot.TITLE_FONTSIZE)
+        ax.set_xlabel(r'$\frac{f \cdot H_{ref}}{U_{ref}}$', fontsize=Plot.XLABEL_FONTSIZE)
+        ax.set_ylabel(r'$\frac{S(f)\cdot f}{\sigma^2}$', fontsize=Plot.YLABEL_FONTSIZE)
 
-        # ax.set_xlabel('Sh')
-        # ax.set_ylabel('PSD, V**2/Hz')
+        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
+        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
 
         for name in data.keys():
             if data[name] is not None:
-                a = np.std(data[name])
+                sigma = np.std(data[name]) ** 2
                 freq, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
-                ax.plot(freq*a, psd, label=name)
+                ax.plot((freq * height) / speed, (freq * psd) / sigma, label=name)
 
-        ax.legend(loc='upper right', fontsize=9)
+        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
 
         return fig
 
@@ -268,7 +237,7 @@ class PlotBuilding(Plot):
     @validate_call
     def isofields_coefficients(
             model_size: ModelSizeType,
-            model_name: ModelNameIsolatedType,
+            model_name: int,
             parameter: ChartMode,
             pressure_coefficients,
             coordinates: CoordinatesType,
@@ -298,29 +267,29 @@ class PlotBuilding(Plot):
         # флаг чтобы понимать что мы рисуем, коэффициенты или давление
         flag_pressure = area_type is not None and wind_region is not None
 
-        size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                               model_name,
-                                                               )
+        size, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
+                                                         model_name,
+                                                         )
 
         breadth, depth, height = size
         count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
 
         pressure_coefficients = lambdas[parameter](pressure_coefficients)
 
-        pressure_coefficients = list(aot_integration.split_1d_array(
+        pressure_coefficients = list(aot_calculations.split_1d_array(
             count_sensors_on_model,
             count_sensors_on_middle_row,
             count_sensors_on_side_row,
             pressure_coefficients
         ))
 
-        x = aot_integration.split_1d_array(
+        x = aot_calculations.split_1d_array(
             count_sensors_on_model,
             count_sensors_on_middle_row,
             count_sensors_on_side_row,
             np.array(coordinates[0])
         )
-        z = aot_integration.split_1d_array(
+        z = aot_calculations.split_1d_array(
             count_sensors_on_model,
             count_sensors_on_middle_row,
             count_sensors_on_side_row,
@@ -376,14 +345,16 @@ class PlotBuilding(Plot):
         count_ticks = 5
 
         if flag_pressure:
-            tpu_height_to_real = lambda z: (z / height) * model_size[2]
+            # tpu_height_to_real_func = tpu_height_to_real(z, model_size[2], height)
             # масштабируем высоту датчика, как если бы он был на реальном здание
-            vectorized_function_z = np.vectorize(tpu_height_to_real)
+            vectorized_function_z = np.vectorize(tpu_size_to_real, otypes=[object])
             # otypes=[object] чтобы np.vectorize не конвертировал str в np.str а то валидация падает
-            vectorized_function_coefficient = np.vectorize(pressure_coefficient_for_region, otypes=[object])
+            vectorized_function_coefficient = np.vectorize(speed_sp_region, otypes=[object])
             # np.vectorize чтобы применить функцию к каждому элементу массива
             for i in range(4):
-                z_sensors = vectorized_function_z(z[i].reshape(-1))
+                z_sensors = vectorized_function_z(z[i].reshape(-1),
+                                                  building_size=model_size[2],
+                                                  tpu_size=height)
                 coefficient_for_region = vectorized_function_coefficient(z_sensors,
                                                                          area_type=area_type,
                                                                          wind_region=wind_region)
@@ -457,15 +428,15 @@ class PlotBuilding(Plot):
             plt.Figure:
                 Объект графика
         """
-        _, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                            model_name,
-                                                            )
+        _, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
+                                                      model_name,
+                                                      )
 
         count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
 
         pressure_coefficients = lambdas[parameter](pressure_coefficients)
-        pressure_coefficients = aot_integration.split_1d_array(
+        pressure_coefficients = aot_calculations.split_1d_array(
             count_sensors_on_model,
             count_sensors_on_middle_row,
             count_sensors_on_side_row,
@@ -525,7 +496,7 @@ if __name__ == "__main__":
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (load_positions,
                                                          load_pressure_coefficients, find_experiment_by_model_name, )
-    from compiled_aot.integration import aot_integration
+    from compiled_functions import aot_calculations
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
@@ -540,112 +511,6 @@ if __name__ == "__main__":
     coordinates = asyncio.run(load_positions(model_id, alpha, engine))
     pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, engine, angle=angle))[angle]
 
-    # size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-    #                                                        model_name,
-    #                                                        )
-    #
-    # cx, cy = aot_integration.calculate_cx_cy(
-    #     *count_sensors,
-    #     *size,
-    #     np.array(coordinates[0]),
-    #     np.array(coordinates[1]),
-    #     pressure_coefficients
-    # )
-    # cmz = aot_integration.calculate_cmz(
-    #     *count_sensors,
-    #     angle,
-    #     *size,
-    #     np.array(coordinates[0]),
-    #     np.array(coordinates[1]),
-    #     pressure_coefficients
-    # )
-
-    # Plot.envelopes(pressure_coefficients, (ChartMode.MEAN, ChartMode.RMS))
-
-    # Plot.pseudocolor_coefficients(pressure_coefficients, coordinates, model_name, ChartMode.MEAN)
-
-    # Plot.pseudocolor_coefficients(pressure_coefficients, coordinates, model_name, ChartMode.MEAN)
-
-    # Plot.summary_coefficients({
-    #     'Cx': cx,
-    #     'Cy': cy,
-    #     'CMz': cmz,
-    # }, DbType.ISOLATED)
-
-    # model_scale, scale_factors = get_model_and_scale_factors(*map(int, list(str(model_name))), 4)
-    # model_scale_str = str(model_scale)
-    #
-    # if model_scale_str[0] == model_scale_str[1]:
-    #     angle_border = 50
-    # else:
-    #     angle_border = 95
-    #
-    # mods = {
-    #     ChartMode.MEAN: np.mean,
-    #     ChartMode.RMS: rms,
-    #     ChartMode.STD: np.std,
-    #     ChartMode.MAX: np.max,
-    #     ChartMode.MIN: np.min,
-    #     ChartMode.CALCULATED: calculated,
-    #     ChartMode.WARRANTY_PLUS: warranty_plus,
-    #     ChartMode.WARRANTY_MINUS: warranty_minus,
-    # }
-    #
-    # x = np.array(coordinates[0])
-    # y = np.array(coordinates[1])
-    #
-    # cx_all = []
-    # cy_all = []
-    # cmz_all = []
-    # mode = ChartMode.MEAN
-    # for angle in range(0, angle_border, 5):
-    #     pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, engine, angle=angle))[angle]
-    #
-    #     cx, cy = aot_integration.calculate_cx_cy(
-    #         *count_sensors,
-    #         *size,
-    #         x,
-    #         y,
-    #         pressure_coefficients
-    #     )
-    #     cmz = aot_integration.calculate_cmz(
-    #         *count_sensors,
-    #         angle,
-    #         *size,
-    #         x,
-    #         y,
-    #         pressure_coefficients
-    #     )
-    #     cx_all.append(mods[mode](cx))
-    #     cy_all.append(mods[mode](cy))
-    #     cmz_all.append(mods[mode](cmz))
-    #
-    # cx_scale, cy_scale = scaling_data(cx_all, cy_all, angle_border=angle_border)
-    # cmz_scale = scaling_data(cmz_all, angle_border=angle_border)
-    #
-    # data = {
-    #     'Cx': cx_scale,
-    #     'Cy': cy_scale,
-    #     'CMz': cmz_scale,
-    # }
-    # Plot.polar_plot(data, mode)
-
-    # Plot.isofields_coefficients((10, 10, 10),
-    #                             model_name,
-    #                             ChartMode.MEAN,
-    #                             pressure_coefficients,
-    #                             coordinates)
-
-    PlotBuilding.pseudocolor_coefficients((30, 10, 50),
-                                          model_name,
-                                          ChartMode.MEAN,
-                                          pressure_coefficients,
-                                          )
-
-    plt.show()
-
-    # import time
-    #
-    # s = time.time()
-    # for i in range(19):
-    # print(time.time() - s)
+    size, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
+                                                     model_name,
+                                                     )
