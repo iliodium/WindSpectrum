@@ -45,7 +45,8 @@ class Widget(QFrame):
 class MainWindow(FluentWindow):
 
     def __init__(
-            self
+            self,
+            engine
     ):
         super().__init__()
         self.initWindow()
@@ -55,7 +56,7 @@ class MainWindow(FluentWindow):
 
         # create sub interface
         self.MainInterface = _MainInterface(self)
-        self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self)
+        self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self, engine)
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
@@ -124,8 +125,9 @@ class MainWindow(FluentWindow):
         # The logo in the upper left corner of the program window
         mini_logo = QIcon('src/ui/resource/images/mini_logo.png')
 
-        self.resize(960, 780)
-        self.setMinimumWidth(760)
+        self.resize(1180, 800)
+        self.setMinimumWidth(1100)
+        self.setMinimumHeight(700)
         self.setWindowIcon(mini_logo)
         self.setWindowTitle('WindSpectrum')
 
@@ -168,7 +170,7 @@ class MainWindow(FluentWindow):
             QTimer.singleShot(100, lambda: self.windowEffect.setMicaEffect(self.winId(), isDarkTheme()))
 
 
-def main():
+def main(engine):
     # enable dpi scale
     if cfg.get(cfg.dpiScale) != "Auto":
         os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
@@ -179,7 +181,7 @@ def main():
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
 
     # create main window
-    w = MainWindow()
+    w = MainWindow(engine)
     w.show()
 
     app.exec()

@@ -1,14 +1,7 @@
-from PySide6.QtCore import (QLineF,
-                            QRectF,
-                            Qt,)
-from PySide6.QtGui import (QColor,
-                           QPen,)
-from PySide6.QtWidgets import (QGraphicsScene,
-                               QGraphicsView,
-                               QSizePolicy,
-                               QWidget,)
-from qfluentwidgets import (TransparentPushButton,
-                            setFont,)
+from PySide6.QtCore import Qt, QRectF, QLineF
+from PySide6.QtGui import QColor, QPen
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget
+from qfluentwidgets import setFont, TransparentPushButton
 
 
 class SensorWidget(QWidget):

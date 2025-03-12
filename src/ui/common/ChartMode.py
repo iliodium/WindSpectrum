@@ -10,6 +10,6 @@ class ChartMode(enum.StrEnum):
     CX = 'Cx'
     CY = 'Cy'
     CMZ = 'CMz'
-    SETTLEMENT = 'Расчетное'
+    CALCULATED = 'Расчетное'
     WARRANTY_PLUS = 'Обеспеченность +'
     WARRANTY_MINUS = 'Обеспеченность -'

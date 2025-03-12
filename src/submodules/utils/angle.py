@@ -1,11 +1,12 @@
 from typing import (List,
-                    Tuple,)
+                    Tuple, )
 
 import numpy as np
 from pydantic import validate_call
-from src.common.annotation import AngleType
+
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
+from src.common.annotation import AngleType
 
 
 @validate_call
@@ -113,7 +114,7 @@ if __name__ == "__main__":
 
     from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (
-        load_pressure_coefficients,)
+        load_pressure_coefficients, )
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

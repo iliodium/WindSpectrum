@@ -8,7 +8,7 @@ from sqlalchemy import (ARRAY,
                         SmallInteger,
                         Table,)
 from sqlalchemy.orm import (declarative_base,
-                            mapped_column,)
+                            mapped_column, )
 
 Base = declarative_base()
 metadata = Base.metadata

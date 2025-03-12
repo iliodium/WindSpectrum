@@ -1,7 +1,8 @@
 import numpy as np
 from pydantic import validate_call
+
 from src.common.annotation import (AlphaType,
-                                   BuildingSizeType,)
+                                   BuildingSizeType, )
 
 
 @validate_call
