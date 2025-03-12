@@ -33,3 +33,13 @@ numba==0.60.0
 # BUILDING AN APPLICATION
 
 Nuitka==2.4.10
+
+
+# WORK WITH EXCEL
+
+openpyxl==3.1.5
+
+
+# WORK WITH WORD
+
+python-docx==1.1.2

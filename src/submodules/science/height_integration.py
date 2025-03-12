@@ -3,7 +3,7 @@ import io
 
 import numpy as np
 
-from compiled_aot.integration import aot_integration
+from compiled_functions import aot_calculations
 from src.common import DbType
 from src.common.annotation import (AlphaType,
                                    AngleType,
@@ -57,7 +57,7 @@ def height_integration_cx_cy_cmz_floors_to_txt_aot(
     breadth, depth, height = size
     count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
 
-    cx, cy, cmz = aot_integration.aot_height_integration_cx_cy_cmz_floors_to_txt(
+    cx, cy, cmz = aot_calculations.aot_height_integration_cx_cy_cmz_floors_to_txt(
         count_sensors_on_model,
         count_sensors_on_middle_row,
         count_sensors_on_side_row,

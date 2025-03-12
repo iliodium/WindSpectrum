@@ -8,7 +8,7 @@ from sqlalchemy import (ARRAY,
                         Table,
                         VARCHAR)
 from sqlalchemy.orm import (declarative_base,
-                            mapped_column,)
+                            mapped_column, )
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -22,16 +22,9 @@ class ExperimentsAlpha4(Base):
 
     model_id = mapped_column(VARCHAR(3))
     model_name = mapped_column(SmallInteger, nullable=False)
-    breadth = mapped_column(Float, nullable=False)
-    depth = mapped_column(Float, nullable=False)
-    height = mapped_column(Float, nullable=False)
-    sample_frequency = mapped_column(SmallInteger, nullable=False)
-    sample_period = mapped_column(Float, nullable=False)
-    uh_averagewindspeed = mapped_column(Float, nullable=False)
     x_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     z_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     face_number = mapped_column(ARRAY(SmallInteger()), nullable=False)
-    count_sensors = mapped_column(SmallInteger)
 
 
 class ExperimentsAlpha6(Base):
@@ -42,16 +35,9 @@ class ExperimentsAlpha6(Base):
 
     model_id = mapped_column(Integer)
     model_name = mapped_column(VARCHAR(3), nullable=False)
-    breadth = mapped_column(Float, nullable=False)
-    depth = mapped_column(Float, nullable=False)
-    height = mapped_column(Float, nullable=False)
-    sample_frequency = mapped_column(SmallInteger, nullable=False)
-    sample_period = mapped_column(Float, nullable=False)
-    uh_averagewindspeed = mapped_column(Float, nullable=False)
     x_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     z_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     face_number = mapped_column(ARRAY(SmallInteger()), nullable=False)
-    count_sensors = mapped_column(SmallInteger)
 
 
 t_models_alpha_4 = Table(

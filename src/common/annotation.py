@@ -62,7 +62,8 @@ type WindRegionsType = Literal[*wind_regions]
 type WindRegionsOrNoneType = Union[WindRegionsType | None]
 
 type CoordinatesType = Union[tuple[tuple, tuple] | tuple]
-type ChartModeType = tuple[ChartMode, ...]
+# type ChartModeType = tuple[ChartMode, ...]
+type ChartModeType = Union[tuple[ChartMode, ...] | list[ChartMode, ...]]
 
 type ModelSizeType = tuple[float, float, float]
 type ModelSizeOrNoneType = Union[ModelSizeType | None]

@@ -1,15 +1,15 @@
-from typing import Annotated
+from pydantic import (validate_call, )
 
-from pydantic import (Field,
-                      validate_call,)
-from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
+from src.common.annotation import AngleType
 
 
 @validate_call
-def get_view_permutation_data(type_base: TypeOfBasement,
-                              angle: AngleType) -> PermutationView:
+def get_view_permutation_data(
+        type_base: TypeOfBasement,
+        angle: AngleType
+) -> PermutationView:
     """Определяет порядок данных для перестановки.
     reverse = нужно перевернуть [1, 2, 3] -> [3, 2, 1]
     forward = не нужно перевернуть [1, 2, 3] -> [1, 2, 3]"""
@@ -28,9 +28,11 @@ def get_view_permutation_data(type_base: TypeOfBasement,
 
 
 @validate_call
-def get_sequence_permutation_data(type_base: TypeOfBasement,
-                                  permutation_view: PermutationView,
-                                  angle: Annotated[AngleType, Field(ge=0, lt=360)]):
+def get_sequence_permutation_data(
+        type_base: TypeOfBasement,
+        permutation_view: PermutationView,
+        angle: AngleType
+):
     """Определяет как менять расстановку датчиков"""
 
     if type_base == TypeOfBasement.SQUARE:

@@ -5,7 +5,9 @@ from src.submodules.plot.plot import Plot
 from src.ui.common.ChartMode import ChartMode
 
 
-def get_labels(point):
+def get_labels(
+        point
+) -> list[str]:
     """
     эта функция нужна тк
     np.arange(0, 0.3, 0.1) -> array([0. , 0.1, 0.2])
@@ -18,7 +20,11 @@ def get_labels(point):
     return [f"{i / 10:.1f}" for i in arange]
 
 
-def scaling_data(x, y=None, angle_border=45):
+def scaling_data(
+        x,
+        y=None,
+        angle_border=45
+):
     """Масштабирование данных до 360 градусов для графиков в полярной системе координат для изолированных зданий"""
     match angle_border:
         case 45:
@@ -61,12 +67,17 @@ def scaling_data(x, y=None, angle_border=45):
                 return x_scale
 
 
-def interpolator(coords, val):
+def interpolator(
+        coords,
+        val
+):
     """Функция интерполяции"""
     return scipy.interpolate.RBFInterpolator(coords, val, kernel='cubic')
 
 
-def round_list_model_pic(arr):
+def round_list_model_pic(
+        arr
+):
     new_arr = []
     for val in arr:
         if isinstance(val, int):
@@ -81,11 +92,19 @@ def round_list_model_pic(arr):
     return new_arr
 
 
-def calculate_function_from_pressure_coefficients(data, func, decimals):
+def calculate_function_from_pressure_coefficients(
+        data,
+        func,
+        decimals
+):
     return np.round(func([func(data[i]) for i in range(4)]), decimals)
 
 
-def calculate_levels(parameter, pressure_coefficients, pressure=False):
+def calculate_levels(
+        parameter,
+        pressure_coefficients,
+        pressure=False
+):
     min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 1)
     max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 1)
     if pressure:
@@ -96,6 +115,8 @@ def calculate_levels(parameter, pressure_coefficients, pressure=False):
                 step = 25
 
         decimals = 0
+        levels = np.round(np.linspace(min_value - 1, max_value + 1, 10), decimals)
+        levels = sorted(list(set(levels)))
 
     else:
         match parameter:
@@ -112,12 +133,18 @@ def calculate_levels(parameter, pressure_coefficients, pressure=False):
             case _:
                 decimals = 1
 
-    levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
+        levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
 
     return levels
 
 
-def set_colorbar(fig, levels, data_colorbar, ax, cmap):
+def set_colorbar(
+        fig,
+        levels,
+        data_colorbar,
+        ax,
+        cmap
+):
     lbot = levels[0:: 2]
     ltop = levels[1:: 2]
     cbar = fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=lbot)
@@ -129,7 +156,3 @@ def set_colorbar(fig, levels, data_colorbar, ax, cmap):
     for ii in ltop:
         cbar.ax.text((ii - vmin) / (vmax - vmin), 1.1, ii, transform=cbar.ax.transAxes, va='bottom',
                      ha='center', fontsize=Plot.COLORBAR_FONTSIZE)
-
-
-if __name__ == "__main__":
-    print(get_labels(0.5))
