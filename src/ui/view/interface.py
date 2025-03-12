@@ -4,23 +4,37 @@ from abc import abstractmethod
 
 import numpy as np
 import scipy
-from PySide6 import QtGui, QtCore
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QStackedLayout, QVBoxLayout
-from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
-    StrongBodyLabel, LineEdit
-
 from compiled_functions import aot_calculations
-from src.common.constants import wind_regions, alpha_standards, Uz_a_0_16_z, Uz_a_0_16_x, Uz_a_0_25_x, Uz_a_0_25_z
-from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, load_positions
+from PySide6 import (QtCore,
+                     QtGui,)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QHBoxLayout,
+                               QStackedLayout,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (ComboBox,
+                            LineEdit,
+                            PushButton,
+                            StrongBodyLabel,
+                            TitleLabel,)
+from src.common.annotation import ModelSizeType
+from src.common.constants import (Uz_a_0_16_x,
+                                  Uz_a_0_16_z,
+                                  Uz_a_0_25_x,
+                                  Uz_a_0_25_z,
+                                  alpha_standards,
+                                  wind_regions,)
+from src.submodules.databasetoolkit.isolated import (load_positions,
+                                                     load_pressure_coefficients,)
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
 from src.submodules.utils import utils
 from src.submodules.utils.angle import get_angle_border
 from src.submodules.utils.data_features import polar_lambdas
-from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.scaling import get_model_and_scale_factors
-from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
+from src.submodules.utils.speed_sp import speed_sp_region
+from src.ui.common.CartesianModelSummaryCoefficients import (
+    CartesianModelSummaryCoefficients,)
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
@@ -29,7 +43,6 @@ from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
-from src.common.annotation import ModelSizeType
 
 
 class Interface(QWidget):
