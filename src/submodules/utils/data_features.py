@@ -1,42 +1,30 @@
 import numpy as np
 from pydantic import validate_call
-
 from src.ui.common.ChartMode import ChartMode
 
 
 @validate_call
-def rms(
-        data
-) -> float:
+def rms(data) -> float:
     """Среднеквадратичное отклонение"""
     return np.sqrt(np.array(data).dot(np.array(data)) / np.array(data).size).round(2)
 
 
 @validate_call
-def calculated(
-        data,
-        axis=None
-) -> float:
+def settlement(data) -> float:
     """Расчетное"""
-    return np.max([np.abs(np.min(data, axis=axis)), np.abs(np.max(data, axis=axis))], axis=axis).round(2)
+    return np.max([np.abs(np.min(data)), np.abs(np.max(data))]).round(2)
 
 
 @validate_call
-def warranty_plus(
-        data,
-        axis=None
-) -> float:
+def warranty_plus(data) -> float:
     """Обеспеченность +"""
-    return (np.abs(np.max(data, axis=axis) - np.mean(data, axis=axis)) / np.std(data, axis=axis)).round(2)
+    return (np.abs(np.max(data) - np.mean(data)) / np.std(data)).round(2)
 
 
 @validate_call
-def warranty_minus(
-        data,
-        axis=None
-) -> float:
+def warranty_minus(data) -> float:
     """Обеспеченность -"""
-    return (np.abs(np.min(data, axis=axis) - np.mean(data, axis=axis)) / np.std(data, axis=axis)).round(2)
+    return (np.abs(np.min(data) - np.mean(data)) / np.std(data)).round(2)
 
 
 lambdas = {
@@ -45,16 +33,4 @@ lambdas = {
     ChartMode.MIN: lambda coefficients: np.min(coefficients, axis=0),
     ChartMode.STD: lambda coefficients: np.std(coefficients, axis=0),
     ChartMode.RMS: lambda coefficients: np.array([np.sqrt(i.dot(i) / i.size) for i in coefficients.T]),
-}
-
-polar_lambdas = {
-    ChartMode.MEAN: np.mean,
-    ChartMode.RMS: rms,
-
-    ChartMode.STD: np.std,
-    ChartMode.MAX: np.max,
-    ChartMode.MIN: np.min,
-    ChartMode.CALCULATED: calculated,
-    ChartMode.WARRANTY_PLUS: warranty_plus,
-    ChartMode.WARRANTY_MINUS: warranty_minus,
 }
