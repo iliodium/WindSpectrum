@@ -1,14 +1,17 @@
 import numpy as np
 from pydantic import validate_call
+
 from src.common.annotation import (AlphaType,
-                                   BuildingSizeType,)
+                                   BuildingSizeType, )
 
 
 @validate_call
-def get_model_and_scale_factors(x: BuildingSizeType,
-                                y: BuildingSizeType,
-                                z: BuildingSizeType,
-                                alpha: AlphaType) -> tuple[int, tuple]:
+def get_model_and_scale_factors(
+        x: BuildingSizeType,
+        y: BuildingSizeType,
+        z: BuildingSizeType,
+        alpha: AlphaType
+) -> tuple[int, tuple]:
     """
     Функция для расчета модели и коэффициентов масштабирования на основе входных параметров.
 
@@ -72,10 +75,13 @@ def get_model_and_scale_factors(x: BuildingSizeType,
 
     return model_from_db, scale_factors
 
+
 @validate_call
-def get_model_and_scale_factors_interference(x: BuildingSizeType,
-                                             y: BuildingSizeType,
-                                             z: BuildingSizeType) -> tuple[int, tuple]:
+def get_model_and_scale_factors_interference(
+        x: BuildingSizeType,
+        y: BuildingSizeType,
+        z: BuildingSizeType
+) -> tuple[int, tuple]:
     """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели"""
     z_and_model_from_db = {2: 140,
                            2.8: 196,
@@ -108,6 +114,59 @@ def get_model_and_scale_factors_interference(x: BuildingSizeType,
     scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
 
     return model_from_db, scale_factors
+
+
+def converter_coordinates_to_real(
+        x,
+        z,
+        model_size,
+        model_name
+):
+    breadth_real, depth_real, height_real = model_size
+    breadth_db, depth_db, height_db = [int(i) / 10 for i in str(model_name)]
+
+    x_scale_factor = breadth_real / breadth_db
+    y_scale_factor = depth_real / depth_db
+    z_scale_factor = height_real / height_db
+
+    count_sensors_on_model = len(x)
+    count_sensors_on_middle = int(model_name[0]) * 5
+    count_sensors_on_side = int(model_name[1]) * 5
+    count_row = count_sensors_on_model // (2 * (count_sensors_on_middle + count_sensors_on_side))
+
+    x = np.reshape(x, (count_row, -1))
+    x = np.split(x, [count_sensors_on_middle,
+                     count_sensors_on_middle + count_sensors_on_side,
+                     2 * count_sensors_on_middle + count_sensors_on_side,
+                     2 * (count_sensors_on_middle + count_sensors_on_side)
+                     ], axis=1)
+
+    z_real = np.array(z) * z_scale_factor
+
+    del x[4]
+
+    x[0] *= x_scale_factor
+
+    x[1] -= breadth_db
+    x[1] *= y_scale_factor
+    x[1] += breadth_real
+
+    x[2] -= breadth_db + depth_db
+    x[2] *= x_scale_factor
+    x[2] += breadth_real + depth_real
+
+    x[3] -= 2 * breadth_db + depth_db
+    x[3] *= y_scale_factor
+    x[3] += 2 * breadth_real + depth_real
+
+    x_real = np.array([])
+    for i in range(count_row):
+        x_real = np.append(x_real, x[0][i])
+        x_real = np.append(x_real, x[1][i])
+        x_real = np.append(x_real, x[2][i])
+        x_real = np.append(x_real, x[3][i])
+
+    return x_real, z_real
 
 
 if __name__ == "__main__":

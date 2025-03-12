@@ -15,7 +15,15 @@ from src.ui.common.StyleSheet import StyleSheet
 class SampleCard(CardWidget):
     """ Sample card """
 
-    def __init__(self, icon, title, content, routeKey, index, parent=None):
+    def __init__(
+            self,
+            icon,
+            title,
+            content,
+            routeKey,
+            index,
+            parent=None
+    ):
         super().__init__(parent=parent)
         self.index = index
         self.routekey = routeKey
@@ -47,7 +55,10 @@ class SampleCard(CardWidget):
         self.titleLabel.setObjectName('titleLabel')
         self.contentLabel.setObjectName('contentLabel')
 
-    def mouseReleaseEvent(self, e):
+    def mouseReleaseEvent(
+            self,
+            e
+    ):
         super().mouseReleaseEvent(e)
         signalBus.switchToSampleCard.emit(self.routekey, self.index)
 
@@ -55,7 +66,11 @@ class SampleCard(CardWidget):
 class SampleCardView(QWidget):
     """ Sample card view """
 
-    def __init__(self, title: str, parent=None):
+    def __init__(
+            self,
+            title: str,
+            parent=None
+    ):
         super().__init__(parent=parent)
         self.titleLabel = QLabel(title, self)
         self.vBoxLayout = QVBoxLayout(self)
@@ -73,7 +88,14 @@ class SampleCardView(QWidget):
         self.titleLabel.setObjectName('viewTitleLabel')
         StyleSheet.SAMPLE_CARD.apply(self)
 
-    def addSampleCard(self, icon, title, content, routeKey, index):
+    def addSampleCard(
+            self,
+            icon,
+            title,
+            content,
+            routeKey,
+            index
+    ):
         """ add sample card """
         card = SampleCard(icon, title, content, routeKey, index, self)
         self.flowLayout.addWidget(card)

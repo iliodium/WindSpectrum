@@ -5,3 +5,7 @@ venv*/
 
 db_init/*.sql
 /tests/
+Отчеты
+
+/windspectrum
+/windspectrum.db

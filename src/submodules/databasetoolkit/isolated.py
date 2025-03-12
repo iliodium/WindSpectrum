@@ -1,29 +1,35 @@
+import json
 from typing import (Any,
-                    Sequence,)
+                    Sequence, )
 
 import numpy
+import numpy as np
 from pydantic import (BaseModel,
                       ConfigDict,
-                      validate_call,)
+                      validate_call, )
 from pydantic.dataclasses import dataclass
-from sqlalchemy import select
+from sqlalchemy import select, insert, create_engine
 from sqlalchemy.orm import Session
+
 from src.common.annotation import (AlphaType,
-                                   AngleOrNoneType,
                                    CoordinatesType,
                                    ExperimentIdType,
                                    FaceOrNoneType,
                                    ModelNameIsolatedType,
                                    PositionXOrNoneType,
                                    PositionYOrNoneType,
-                                   check_type_engine,)
-from src.common.FaceType import FaceType
+                                   check_type_engine, AngleType, )
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
-                                                       t_models_alpha_6,)
+                                                       t_models_alpha_6, )
 
 __SENSOR_VALUES_DISCARD = 1000
+
+with open(r'config.json', 'r') as file:
+    config_db = json.load(file)
+
+__DB_URL_SERVER = config_db['db_url_server']
 
 
 @validate_call
@@ -32,20 +38,11 @@ async def find_experiment_by_model_name(
         alpha: AlphaType,
         _engine
 ) -> ExperimentsAlpha4 | ExperimentsAlpha6 | None:
-
     check_type_engine(_engine)
 
-    models_type = ExperimentsAlpha4 if alpha == 4 else ExperimentsAlpha6
+    experiment = await __load_experiments_alpha_by_model_name(model_name, alpha, _engine)
 
-    stmt = select(models_type).where(models_type.model_name == model_name)
-
-    with Session(_engine) as session:
-        result = list(session.execute(stmt).scalars())
-
-    if len(result) == 0:
-        return None
-
-    return result[0]
+    return experiment
 
 
 @validate_call
@@ -172,29 +169,126 @@ def __identity(
 
 
 @validate_call
+async def load_positions(
+        experiment_id: ExperimentIdType,
+        alpha: AlphaType,
+        _engine,
+        *,
+        load_x: bool = True,
+        load_y: bool = True,
+) -> CoordinatesType:
+    check_type_engine(_engine)
+
+    if not (load_x or load_y):
+        raise ValueError("load_x or load_y must be True")
+
+    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, local_db=True)
+
+    if load_x and load_y:
+        return experiment.x_coordinates, experiment.z_coordinates
+
+    if load_x:
+        return experiment.x_coordinates
+
+    if load_y:
+        return experiment.z_coordinates
+
+
+def __load_experiments_alpha(
+        experiment_id: ExperimentIdType,
+        alpha,
+        _engine,
+        local_db: bool = False
+
+):
+    match alpha:
+        case 4:
+            experiments_alpha = ExperimentsAlpha4
+        case 6:
+            experiments_alpha = ExperimentsAlpha6
+
+    stmt = select(experiments_alpha).where(experiments_alpha.model_id == experiment_id)
+
+    with Session(_engine) as session:
+        experiment = session.scalars(stmt).first()
+
+    if experiment is None:
+        server_engine = create_engine(__DB_URL_SERVER)
+        with Session(server_engine) as session:
+            experiment = session.scalars(stmt).first()
+        server_engine.dispose()
+
+        if experiment is not None:
+            __write_experiments_alpha(experiments_alpha, experiment, _engine)
+
+    if experiment is None:
+        raise ValueError(f"Experiment with id {experiment_id} not found")
+
+    if local_db:
+        experiment.x_coordinates = np.frombuffer(experiment.x_coordinates, dtype=float)
+        experiment.z_coordinates = np.frombuffer(experiment.z_coordinates, dtype=float)
+        experiment.face_number = np.frombuffer(experiment.face_number, dtype=int)
+
+    return experiment
+
+
+async def __load_experiments_alpha_by_model_name(
+        model_name: ModelNameIsolatedType,
+        alpha,
+        _engine,
+        local_db: bool = False
+
+):
+    match alpha:
+        case 4:
+            experiments_alpha = ExperimentsAlpha4
+        case 6:
+            experiments_alpha = ExperimentsAlpha6
+    stmt = select(experiments_alpha).where(experiments_alpha.model_name == model_name)
+
+    with Session(_engine) as session:
+        experiment = session.scalars(stmt).first()
+
+    if experiment is None:
+        server_engine = create_engine(__DB_URL_SERVER)
+        with Session(server_engine) as session:
+            experiment = session.scalars(stmt).first()
+        server_engine.dispose()
+
+        if experiment is not None:
+            __write_experiments_alpha(experiments_alpha, experiment, _engine)
+
+    if experiment is None:
+        raise ValueError(f"Experiment with model_name {model_name} not found")
+
+    if local_db:
+        experiment.x_coordinates = np.frombuffer(experiment.x_coordinates, dtype=float)
+        experiment.z_coordinates = np.frombuffer(experiment.z_coordinates, dtype=float)
+        experiment.face_number = np.frombuffer(experiment.face_number, dtype=int)
+
+    return experiment
+
+
+# @validate_call
 async def __load_pressure_coefficients_for_type_and_alpha(
         experiment_id: ExperimentIdType,
         models_type,
         alpha: AlphaType,
         _engine,
         *,
-        angle: AngleOrNoneType = None,
+        angle: AngleType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None
-) -> dict[int, numpy.ndarray] | None:
-    stmt = select(models_type).where(models_type.c.model_id == experiment_id)
+        position_y: PositionYOrNoneType = None,
+        local_db: bool = False
 
-    if angle is not None:
-        stmt = stmt.where(models_type.c.angle == angle)
+) -> dict[int, numpy.ndarray] | None:
+    stmt = select(models_type).where(models_type.c.model_id == experiment_id, models_type.c.angle == angle)
 
     with Session(_engine) as session:
         result = session.execute(stmt).fetchall()
 
-    if result is None:
-        return None
-
-    if len(result) == 0:
+    if result is None or len(result) == 0:
         return None
 
     _mapper = __identity
@@ -205,129 +299,114 @@ async def __load_pressure_coefficients_for_type_and_alpha(
     fc_result = dict()
 
     for row in result:
-        fc_result[row.angle] = _mapper(numpy.array(row.pressure_coefficients, dtype=float)) / __SENSOR_VALUES_DISCARD
+        if local_db:
+            fc_result[row.angle] = np.frombuffer(row.pressure_coefficients, dtype=int).reshape(32768,
+                                                                                               -1) / __SENSOR_VALUES_DISCARD
+        else:
+            fc_result[row.angle] = _mapper(
+                numpy.array(row.pressure_coefficients, dtype=float)) / __SENSOR_VALUES_DISCARD
 
     return fc_result
 
 
-@validate_call
-async def __load_pressure_coefficients_alpha_4(
-        experiment_id: ExperimentIdType,
-        _engine,
-        *,
-        angle: AngleOrNoneType = None,
-        face_number: FaceOrNoneType = None,
-        position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None
-):
-    return await __load_pressure_coefficients_for_type_and_alpha(
-        experiment_id,
-        t_models_alpha_4,
-        4,
-        _engine,
-        angle=angle,
-        face_number=face_number,
-        position_x=position_x,
-        position_y=position_y
-    )
-
-
-@validate_call
-async def load_positions(
-        experiment_id: ExperimentIdType,
-        alpha: AlphaType,
-        _engine,
-        *,
-        load_x: bool = True,
-        load_y: bool = True
-) -> CoordinatesType:
-    check_type_engine(_engine)
-
-    if not (load_x or load_y):
-        raise ValueError("load_x or load_y must be True")
-
-    experiment_description: ExperimentsAlpha4 | ExperimentsAlpha6
-
-    if alpha == 4:
-        stmt = select(ExperimentsAlpha4).where(ExperimentsAlpha4.model_id == experiment_id)
-
-        with Session(_engine) as session:
-            experiment_description: ExperimentsAlpha4 = session.scalars(stmt).first()
-
-        if experiment_description is None:
-            raise ValueError(f"Experiment with id {experiment_id} not found")
-    elif alpha == 6:
-        stmt = select(ExperimentsAlpha6).where(ExperimentsAlpha6.model_id == experiment_id)
-
-        with Session(_engine) as session:
-            experiment_description: ExperimentsAlpha6 = session.scalars(stmt).first()
-
-        if experiment_description is None:
-            raise ValueError(f"Experiment with id {experiment_id} not found")
-
-    if load_x and load_y:
-        return experiment_description.x_coordinates, experiment_description.z_coordinates
-
-    if load_x:
-        return experiment_description.x_coordinates
-
-    if load_y:
-        return experiment_description.z_coordinates
-
-
-@validate_call
-async def __load_pressure_coefficients_alpha_6(
-        experiment_id: ExperimentIdType,
-        _engine,
-        *,
-        angle: AngleOrNoneType = None,
-        face_number: FaceOrNoneType = None,
-        position_x: PositionXOrNoneType = None,
-        position_y: PositionYOrNoneType = None
-):
-    return await __load_pressure_coefficients_for_type_and_alpha(
-        experiment_id,
-        t_models_alpha_6,
-        6,
-        _engine,
-        angle=angle,
-        face_number=face_number,
-        position_x=position_x,
-        position_y=position_y
-    )
-
-
-@validate_call
+# @validate_call
 async def load_pressure_coefficients(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,
         _engine,
         *,
-        angle: AngleOrNoneType = None,
+        angle: AngleType = None,
         face_number: FaceOrNoneType = None,
         position_x: PositionXOrNoneType = None,
         position_y: PositionYOrNoneType = None
 ):
     check_type_engine(_engine)
 
-    if alpha == 4:
-        return await __load_pressure_coefficients_alpha_4(
+    match alpha:
+        case 4:
+            models_alpha = t_models_alpha_4
+        case 6:
+            models_alpha = t_models_alpha_6
+
+    result = await __load_pressure_coefficients_for_type_and_alpha(
+        experiment_id,
+        models_alpha,
+        alpha,
+        _engine=_engine,
+        angle=angle,
+        face_number=face_number,
+        position_x=position_x,
+        position_y=position_y,
+        local_db=True
+    )
+
+    if result is None:
+        server_engine = create_engine(__DB_URL_SERVER)
+        result = await __load_pressure_coefficients_for_type_and_alpha(
             experiment_id,
-            _engine,
+            models_alpha,
+            alpha,
+            _engine=server_engine,
             angle=angle,
             face_number=face_number,
             position_x=position_x,
-            position_y=position_y
+            position_y=position_y,
+            local_db=False
         )
-    elif alpha == 6:
-        return await __load_pressure_coefficients_alpha_6(
-            experiment_id,
-            _engine,
-            angle=angle,
-            face_number=face_number,
-            position_x=position_x,
-            position_y=position_y
-        )
+        server_engine.dispose()
+
+        if result is None:
+            return None
+        else:
+            __write_models_alpha(models_alpha, experiment_id, angle, result[angle], _engine)
+
+    return result
+
+
+@validate_call
+def __write_models_alpha(
+        models_alpha,
+        experiment_id: ExperimentIdType,
+        angle: AngleType,
+        pressure_coefficients,
+        _engine,
+):
+    pressure_coefficients = pressure_coefficients * 1000
+    pressure_coefficients = pressure_coefficients.astype(int)
+    with Session(_engine) as session:
+        stmt = insert(models_alpha).values(model_id=experiment_id,
+                                           angle=angle,
+                                           pressure_coefficients=pressure_coefficients.tobytes())
+        session.execute(stmt)
+        session.commit()
+
+
+@validate_call
+def __write_experiments_alpha(
+        experiments_alpha, experiment_description, _engine,
+):
+    with Session(_engine) as session:
+        stmt = insert(experiments_alpha).values(model_id=experiment_description.model_id,
+                                                model_name=experiment_description.model_name,
+                                                x_coordinates=np.array(experiment_description.x_coordinates).tobytes(),
+                                                z_coordinates=np.array(experiment_description.z_coordinates).tobytes(),
+                                                face_number=np.array(experiment_description.face_number).tobytes())
+        session.execute(stmt)
+        session.commit()
+
+
+@validate_call
+async def load_face_number(
+        experiment_id: ExperimentIdType,
+        alpha: AlphaType,
+        _engine,
+
+):
+    check_type_engine(_engine)
+
+    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, local_db=True)
+
+    return experiment.face_number
 
 
 if __name__ == "__main__":
@@ -335,19 +414,19 @@ if __name__ == "__main__":
 
     from sqlalchemy import create_engine
 
-    # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
-    # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")
-    engine = create_engine("postgresql://postgres:1234@localhost/postgres")
-
-    res = asyncio.run(
-        load_pressure_coefficients(1, 6, engine, angle=130, face_number=FaceType.ON_WIND, position_x=0.05,
-                                   position_y=0.07))
-
-    # for i in res.keys():
-    #     print(i, res[i], res[i].shape)
+    local_engine = create_engine('sqlite:///windspectrum.db')
+    server_engine = create_engine(__DB_URL_SERVER)
+    # for angle in range(0,50, 5):
+    #     res = asyncio.run(load_pressure_coefficients(1, 4, local_engine, angle=angle))
+    #     print(res)
+    #     # res = asyncio.run(load_pressure_coefficients(1, 4, local_engine))
     #
-    # res = asyncio.run(
-    #     load_pressure_coefficients(1, 4, engine, angle=0, face_number=FaceType.ON_WIND, position_x=0.05))
-    #
-    # for i in res.keys():
-    #     print(i, res[i], res[i].shape)
+    # print(res)
+    # print(len(res))
+
+    # for i in range(1, 14):
+    #     res = asyncio.run(load_positions(i, 4, local_engine))
+    #     print(res)
+
+    res = asyncio.run(find_experiment_by_model_name(112, 4, local_engine))
+    print(res.model_id)

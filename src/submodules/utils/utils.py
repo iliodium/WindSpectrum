@@ -1,5 +1,6 @@
 from typing import Union
 
+import numpy as np
 from pydantic import validate_call
 from src.common.annotation import ModelNameIsolatedType
 from src.common.DbType import DbType
@@ -8,7 +9,7 @@ from src.common.DbType import DbType
 @validate_call
 def get_size_and_count_sensors(
         pressure_coefficients_shape: int,
-        model_name: Union[ModelNameIsolatedType | None] = None,
+        model_name: Union[int | None] = None,
         height: float | None = None,
         db: DbType = DbType.ISOLATED
 ):
@@ -36,3 +37,42 @@ def get_size_and_count_sensors(
             (count_sensors_on_model,
              count_sensors_on_middle_row,
              count_sensors_on_side_row))
+
+
+def converter_coordinates(
+        x_old,
+        breadth: float,
+        depth: float,
+        face_number,
+        count_sensors: int,
+        accuracy: int = 1
+):
+    """Возвращает из (x_old) -> (x,y)"""
+    x = []
+    y = []
+    for i in range(count_sensors):
+        if face_number[i] == 1:
+            x.append(float('%.5f' % (-depth / 2)))
+            y.append(float('%.5f' % (breadth / 2 - x_old[i])))
+        elif face_number[i] == 2:
+            x.append(float('%.5f' % (- depth / 2 + x_old[i] - breadth)))
+            y.append(float('%.5f' % (-breadth / 2)))
+        elif face_number[i] == 3:
+            x.append(float('%.5f' % (depth / 2)))
+            y.append(float('%.5f' % (-3 * breadth / 2 + x_old[i] - depth)))
+        else:
+            x.append(float('%.5f' % (3 * depth / 2 - x_old[i] + 2 * breadth)))
+            y.append(float('%.5f' % (breadth / 2)))
+
+    x = np.array(x).round(accuracy)
+    y = np.array(y).round(accuracy)
+
+    return x, y
+
+
+def tpu_size_to_real(
+        size,
+        building_size,
+        tpu_size
+):
+    return (size / tpu_size) * building_size
