@@ -19,6 +19,8 @@ from qfluentwidgets import (FluentIcon,
 from src.ui.config.config import cfg
 from src.ui.view.isolated_high_rise_interface import (
     IsolatedHighRiseInterface as _IsolatedHighRiseInterface,)
+from src.ui.view.interference_high_rise_interface import (
+    InterferenceHighRiseInterface as _InterferenceHighRiseInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 
@@ -57,6 +59,7 @@ class MainWindow(FluentWindow):
         # create sub interface
         self.MainInterface = _MainInterface(self)
         self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self, engine)
+        self.InterferenceHighRiseInterface = _InterferenceHighRiseInterface(self, engine)
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
@@ -77,8 +80,7 @@ class MainWindow(FluentWindow):
         self.WindLoadsInterface = Widget('Wind Loads Interface', self)
         self.AerodynamicInterferenceInterface = Widget('AerodynamicInterferenceInterface', self)
         self.IsolatedInterface = Widget('Isolated Interface', self)
-        self.AerodynamicInterferenceOfHighRiseInterface = Widget('Aerodynamic Interference Of High Rise Buildings',
-                                                                 self)
+
         self.IsolatedLowRiseBuildingsWithoutInterface = Widget('Isolated Low Rise Buildings Without Cornice', self)
         self.IsolatedLowRiseBuildingsWithInterface = Widget('Isolated Low Rise Buildings With Cornices', self)
         self.AerodynamicInterferenceOfLowRiseInterface = Widget('Aerodynamic Interference Of Low Rise Buildings', self)
@@ -106,7 +108,7 @@ class MainWindow(FluentWindow):
                              FluentIcon.EDUCATION,
                              self.tr('Аэродинамическая интерференция'),
                              NavigationItemPosition.SCROLL)
-        self.addSubInterface(self.AerodynamicInterferenceOfHighRiseInterface,
+        self.addSubInterface(self.InterferenceHighRiseInterface,
                              '',
                              self.tr('Высотные здания'),
                              parent=self.AerodynamicInterferenceInterface)
@@ -126,8 +128,8 @@ class MainWindow(FluentWindow):
         mini_logo = QIcon('src/ui/resource/images/mini_logo.png')
 
         self.resize(1180, 800)
-        self.setMinimumWidth(1100)
-        self.setMinimumHeight(700)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(500)
         self.setWindowIcon(mini_logo)
         self.setWindowTitle('WindSpectrum')
 

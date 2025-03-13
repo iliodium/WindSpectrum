@@ -1,4 +1,5 @@
 __all__ = [
+    "Buttons",
     "CartesianModelSummaryCoefficients",
     "ChartMode",
     "ChartType",

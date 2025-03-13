@@ -20,6 +20,7 @@ from src.submodules.utils.angle import get_angle_border
 from src.submodules.utils.data_features import polar_lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.ui.common.Buttons import Buttons
 from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
@@ -86,7 +87,7 @@ class Interface(QWidget):
         current_index = self.StackedLayoutMainMenu.currentIndex()
         new_index = 1 if current_index == 0 else 0
         if new_index == 1:
-            self.PushButtonSensorsOverview.setText('Графики')
+            self.PushButtonSensorsOverview.setText(Buttons.PLOTS)
             model_size = self._get_model_size()
 
             if model_size != self.SensorWidget.model_size:
@@ -124,7 +125,7 @@ class Interface(QWidget):
             else:
                 pass
         else:
-            self.PushButtonSensorsOverview.setText('Датчики')
+            self.PushButtonSensorsOverview.setText(Buttons.SENSORS)
 
         self.StackedLayoutMainMenu.setCurrentIndex(new_index)
 
@@ -171,10 +172,10 @@ class Interface(QWidget):
                         for line in ax.get_lines():
                             label = line.get_label()
                             last_space_index = label.rfind(" ")
-                            sensor_id = int(label[last_space_index+1:])-1
+                            sensor_id = int(label[last_space_index + 1:]) - 1
                             data_to_plot[label] = self.get_pressure_coefficients_for_the_sensor(model_id, alpha, angle,
                                                                                                 str(model_name),
-                                                                              sensor_id)
+                                                                                                sensor_id)
                     self.windows_plot_sensors_overview_summary_coefficients.close()
 
                     fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp)
@@ -185,20 +186,20 @@ class Interface(QWidget):
     def _init_general_information(
             self
     ):
-        container = QWidget()
-        container.setFixedWidth(275)
-        container.setFixedHeight(300)
+        self.generalInformationContainer = QWidget()
+        self.generalInformationContainer.setFixedWidth(275)
+        self.generalInformationContainer.setFixedHeight(300)
 
-        vBoxLayoutGenInf = QVBoxLayout(container)
+        self.vBoxLayoutGenInf = QVBoxLayout(self.generalInformationContainer)
 
         # Add label to grid layout
-        vBoxLayoutGenInf.addWidget(TitleLabel("Общие сведения"))
+        self.vBoxLayoutGenInf.addWidget(TitleLabel(Buttons.GENERAL_INFORMATION))
 
         # Wind regions
         # Create horizontal box layout
         self.hBoxLayoutWindRegions = QHBoxLayout()
         # Add label to horizontal box layout
-        self.hBoxLayoutWindRegions.addWidget(StrongBodyLabel('Ветровой район'))
+        self.hBoxLayoutWindRegions.addWidget(StrongBodyLabel(Buttons.WIND_REGION))
         # Create combo box
         self.ComboBoxWindRegions = ComboBox()
         # Fill the combo box
@@ -209,22 +210,22 @@ class Interface(QWidget):
         self.ComboBoxWindRegions.setFixedWidth(75)
         # Add combo box to horizontal box layout
         self.hBoxLayoutWindRegions.addWidget(self.ComboBoxWindRegions)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindRegions)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindRegions)
 
         # Type of area
         self.hBoxLayoutTypeOfArea = QHBoxLayout(self.view)
-        self.hBoxLayoutTypeOfArea.addWidget(StrongBodyLabel('Тип местности'))
+        self.hBoxLayoutTypeOfArea.addWidget(StrongBodyLabel(Buttons.TYPE_OF_AREA))
         self.ComboBoxTypeOfArea = ComboBox()
         self.ComboBoxTypeOfArea.addItems([
             self.tr(i) for i in [*alpha_standards]
         ])
         self.ComboBoxTypeOfArea.setFixedWidth(75)
         self.hBoxLayoutTypeOfArea.addWidget(self.ComboBoxTypeOfArea)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutTypeOfArea)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutTypeOfArea)
 
         # Wind angle
         self.hBoxLayoutWindAngle = QHBoxLayout(self.view)
-        self.hBoxLayoutWindAngle.addWidget(StrongBodyLabel('Угол атаки ветра'))
+        self.hBoxLayoutWindAngle.addWidget(StrongBodyLabel(Buttons.WIND_ANGLE))
         # Create text input widget
         self.lineEditWindAngle = LineEdit()
         # Set default text
@@ -234,31 +235,31 @@ class Interface(QWidget):
         self.lineEditWindAngle.setFixedWidth(75)
         # Add text input widget to horizontal box layout
         self.hBoxLayoutWindAngle.addWidget(self.lineEditWindAngle)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindAngle)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindAngle)
 
         # Building size
-        self.hBoxLayoutBuildingSize = QHBoxLayout(self.view)
-        self.hBoxLayoutBuildingSize.addWidget(StrongBodyLabel('Размеры здания'))
-        self.lineEditBuildingSize = LineEdit()
-        self.lineEditBuildingSize.setText(self.tr('10 10 20'))
-        self.lineEditBuildingSize.setClearButtonEnabled(True)
-        self.lineEditBuildingSize.setFixedWidth(125)
-        self.hBoxLayoutBuildingSize.addWidget(self.lineEditBuildingSize)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSize)
+        self.hBoxLayoutBuildingSizeInterfering = QHBoxLayout(self.view)
+        self.hBoxLayoutBuildingSizeInterfering.addWidget(StrongBodyLabel(Buttons.BUILDING_SIZE))
+        self.lineEditBuildingSizeInterfering = LineEdit()
+        self.lineEditBuildingSizeInterfering.setText(self.tr('10 10 20'))
+        self.lineEditBuildingSizeInterfering.setClearButtonEnabled(True)
+        self.lineEditBuildingSizeInterfering.setFixedWidth(125)
+        self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSizeInterfering)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSizeInterfering)
 
-        PushButtonReport = PushButton('Отчет')
+        PushButtonReport = PushButton(Buttons.REPORT)
         PushButtonReport.clicked.connect(self.create_report)
-        vBoxLayoutGenInf.addWidget(PushButtonReport)
+        self.vBoxLayoutGenInf.addWidget(PushButtonReport)
 
-        self.PushButtonSensorsOverview = PushButton("Датчики")
+        self.PushButtonSensorsOverview = PushButton(Buttons.SENSORS)
         self.PushButtonSensorsOverview.clicked.connect(self._switch_stacked_layout_sensors_overview)
-        vBoxLayoutGenInf.addWidget(self.PushButtonSensorsOverview)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonSensorsOverview)
 
-        self.PushButtonFiniteElementMethod = PushButton("МКЭ")
+        self.PushButtonInterferingInformation = PushButton(Buttons.FEA)
         # self.PushButtonFiniteElementMethod.clicked.connect(self._switch_stacked_layout_sensors_overview)
-        vBoxLayoutGenInf.addWidget(self.PushButtonFiniteElementMethod)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonInterferingInformation)
 
-        self.hBoxLayoutMain.addWidget(container)
+        self.hBoxLayoutMain.addWidget(self.generalInformationContainer)
 
     def _init_chart_menu(
             self
@@ -288,7 +289,7 @@ class Interface(QWidget):
 
         hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
-        PushButtonCreatePlot = PushButton('Построить')
+        PushButtonCreatePlot = PushButton(Buttons.BUILD_PLOT)
         PushButtonCreatePlot.clicked.connect(self.create_plot)
         PushButtonCreatePlot.setFixedWidth(100)
 
@@ -361,7 +362,7 @@ class Interface(QWidget):
     ):
         self.WidgetEnvelopes = QWidget()
         self.hBoxLayoutEnvelopes = QHBoxLayout(self.WidgetEnvelopes)
-        self.envelopesParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.envelopesParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.envelopesParameters.addItems([ChartMode.MAX,
                                            ChartMode.MEAN,
                                            ChartMode.MIN,
@@ -402,7 +403,7 @@ class Interface(QWidget):
                                  )
         ])
 
-        self.cartesianParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.cartesianParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.cartesianParameters.addItems([ChartMode.CX,
                                            ChartMode.CY,
                                            ChartMode.CMZ,
@@ -413,12 +414,12 @@ class Interface(QWidget):
         # Polar system
         self.WidgetPolarSummaryCoefficients = QWidget()
         self.hBoxLayoutPolarCoordinateSystem = QHBoxLayout(self.WidgetPolarSummaryCoefficients)
-        self.polarView = MultiSelectComboBox(placeholderText='Вид')
+        self.polarView = MultiSelectComboBox(placeholderText=Buttons.VIEW)
         self.polarView.addItems([ChartMode.CX,
                                  ChartMode.CY,
                                  ChartMode.CMZ,
                                  ])
-        self.polarParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.polarParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.polarParameters.addItems([ChartMode.MAX,
                                        ChartMode.MEAN,
                                        ChartMode.MIN,
@@ -439,7 +440,7 @@ class Interface(QWidget):
     ):
         self.WidgetSpectrum = QWidget()
         self.hBoxLayoutSpectrum = QHBoxLayout(self.WidgetSpectrum)
-        self.spectrumParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.spectrumParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.spectrumParameters.addItems([ChartMode.CX,
                                           ChartMode.CY,
                                           ChartMode.CMZ,
@@ -492,7 +493,7 @@ class Interface(QWidget):
     def _get_model_size(
             self
     ) -> ModelSizeType:
-        return tuple(map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' ')))
+        return tuple(map(float, self.lineEditBuildingSizeInterfering.text().replace(',', '.').split(' ')))
 
     def _get_alpha(
             self,
@@ -707,6 +708,7 @@ class Interface(QWidget):
         layout.addWidget(plotWidget.toolbar)
         layout.addWidget(plotWidget)
         self.windows_plot_sensors_overview_spectrum.show()
+
     def plot_envelopes(
             self
     ):
@@ -772,6 +774,13 @@ class Interface(QWidget):
             self,
             model_id,
             alpha
+    ):
+        print('Необходимо переопределить')
+        pass
+
+    @abstractmethod
+    def create_report(
+            self
     ):
         print('Необходимо переопределить')
         pass

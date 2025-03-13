@@ -37,7 +37,14 @@ from src.ui.view.interface import Interface
 
 
 class IsolatedHighRiseInterface(Interface):
-    """Isolated High Rise Interface"""
+    """Isolated High Rise Interface
+
+    constants :
+
+    sample_frequency 32768
+    sample_period 32.768
+
+    """
 
     def __init__(
             self,
