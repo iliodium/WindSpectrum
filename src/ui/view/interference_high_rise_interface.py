@@ -1,52 +1,26 @@
 # coding:utf-8
 import asyncio
-import os
 
-import matplotlib
 import numpy as np
-import scipy
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QWidget, QVBoxLayout, QLabel
-from docx import Document
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.shared import Pt, Mm
-from matplotlib import pyplot as plt
-from openpyxl import Workbook
-from qfluentwidgets import PushButton, LineEdit, StrongBodyLabel, TitleLabel, ComboBox
+from PySide6.QtWidgets import QHBoxLayout, QWidget, QVBoxLayout
+from qfluentwidgets import PushButton, LineEdit, StrongBodyLabel
 
-from compiled_functions import aot_calculations
-from src.common.PermutationView import PermutationView
-from src.common.TypeOfBasement import TypeOfBasement
-from src.common.constants import Uz_a_0_16_x, Uz_a_0_16_z, Uz_a_0_25_x, Uz_a_0_25_z, wind_regions, alpha_standards
-from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
-    load_positions, load_face_number
-from src.submodules.plot.plotBuilding import PlotBuilding
-from src.submodules.plot.utils import scaling_data
-from src.submodules.report_tools.reportFolder import ReportFolder
-from src.submodules.report_tools.utils import create_directory_to_report
-from src.submodules.report_tools.wordBuilder import WordBuilder
-from src.submodules.utils.angle import get_angle_border, get_base_angle, changer_sequence_coefficients
-from src.submodules.utils.data_features import lambdas, calculated, warranty_plus, warranty_minus, polar_lambdas
-from src.submodules.utils.permutations import get_view_permutation_data, get_sequence_permutation_data
-from src.submodules.utils.scaling import get_model_and_scale_factors
-from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import converter_coordinates, get_size_and_count_sensors, tpu_size_to_real
+from src.common.annotation import ModelSizeType
+from src.submodules.databasetoolkit.interference import load_pressure_coefficients, find_id_building_by_height
+from src.submodules.utils.scaling import get_model_and_scale_factors_interference
 from src.ui.common.Buttons import Buttons
 from src.ui.common.ChartMode import ChartMode
-from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
-from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.components.ImageLabel import ImageLabel
 from src.ui.view.interface import Interface
 
 
-from PySide6.QtGui import QPixmap
 class InterferenceHighRiseInterface(Interface):
     """Interference High Rise Interface
 
     constants :
 
+    number of time counts 5 858
     sample_frequency 781
     sample_period 7.5
     turbulence_intensity 20
@@ -54,6 +28,10 @@ class InterferenceHighRiseInterface(Interface):
     principal_building (мм) 70 70 280
 
     """
+
+    SAMPLE_PERIOD = 7.5
+    SAMPLE_FREQUENCY = 781
+    NUMBER_OF_TIME_COUNTS = 5858
 
     def __init__(
             self,
@@ -69,7 +47,6 @@ class InterferenceHighRiseInterface(Interface):
 
         self.image_label = ImageLabel('src/ui/resource/images/Building_arrangments.JPEG')
         self.vBoxLayoutSensorsOverview.addWidget(self.image_label)
-
 
         self.StackedLayoutMainMenu.addWidget(WidgetInterferingInformation)
 
@@ -133,92 +110,248 @@ class InterferenceHighRiseInterface(Interface):
                 self.StackedLayoutMainMenu.setCurrentIndex(0)
                 self.previousIndex = False
 
+    def _get_model_size_interfering(
+            self
+    ) -> ModelSizeType:
+        return tuple(map(float, self.lineEditBuildingSizeInterfering.text().replace(',', '.').split(' ')))
 
-
-    def get_pressure_coefficients_for_the_sensor(
-            self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str,
-            sensor_id
-    ):
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-        return pressure_coefficients[:, sensor_id]
+    def _get_position_interfering(
+            self
+    ) -> int:
+        return int(self.lineEditPositionInterfering.text())
 
     def get_pressure_coefficients(
             self,
-            model_id,
-            alpha,
             angle,
-            model_name: str
+            position,
+            id_interfering_building
     ):
-        model_name_base = model_name
-        turn_flag = False
-        if model_name[0] == model_name[1]:
-            angle_border = 45
-            type_base = TypeOfBasement.SQUARE
+        pressure_coefficients = asyncio.run(
+            load_pressure_coefficients(position, angle, id_interfering_building, self.engine))[angle]
 
-        else:
-            angle_border = 90
-            type_base = TypeOfBasement.RECTANGLE
-
-        if model_name[1] in ['2', '3']:
-            model_name_base = model_name[1] + model_name[0] + model_name[2]
-            angle = str((int(angle) + 270) % 360)
-            turn_flag = True
-
-        # Поворот данных для отображения углов, выходящих за границы имеющихся
-        if int(angle) > angle_border:
-            permutation_view = get_view_permutation_data(type_base, int(angle))  # вид последовательности данных
-            base_angle = get_base_angle(int(angle), permutation_view, type_base)
-            sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
-
-            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
-                                                                           angle=base_angle))[base_angle]
-
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
-                                                                  model_name, sequence_permutation)
-        else:
-            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
-                                                                           angle=angle))[angle]
-
-        # Поворот модели
-        if turn_flag:
-            if int(angle) % 90 != 0:
-                model_name_base = model_name
-            pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, PermutationView.FORWARD,
-                                                                  model_name_base,
-                                                                  (3, 0, 1, 2))
         return pressure_coefficients
 
-    def get_model_id(
-            self,
-            model_name,
-            alpha
-    ):
-        model_name_str = str(model_name)
-        if model_name_str[1] in ['2', '3']:
-            model_name = int(model_name_str[1] + model_name_str[0] + model_name_str[2])
-
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
-
-        return model_id
-
     def get_coordinates(
-            self,
-            model_id,
-            alpha
+            self
     ):
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+        x = np.array(
+            [3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223,
+             233, 243, 253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173,
+             183, 193, 203, 213, 223, 233, 243, 253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123,
+             133, 143, 153, 163, 173, 183, 193, 203, 213, 223, 233, 243, 253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73,
+             83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223, 233, 243, 253, 263, 273, 3, 13,
+             23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223, 233, 243,
+             253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193,
+             203, 213, 223, 233, 243, 253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143,
+             153, 163, 173, 183, 193, 203, 213, 223, 233, 243, 253, 263, 273, 3, 13, 23, 33, 43, 53, 63, 73, 83, 93,
+             103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223, 233, 243, 253, 263, 273, 3, 13, 23, 33,
+             43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223, 233, 243, 253,
+             263, 273]) / 1000
 
-        return coordinates
+        z = np.array(
+            [275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275, 275,
+             275, 275, 275, 275, 275, 275, 275, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260,
+             260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 260, 225, 225, 225, 225, 225, 225, 225,
+             225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225, 225,
+             190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190,
+             190, 190, 190, 190, 190, 190, 190, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155,
+             155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 120, 120, 120, 120, 120, 120, 120,
+             120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120,
+             85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85,
+             85, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
+             50, 50, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+             15, 15, 15]
+        ) / 1000
+
+        return x, z
+
+    def _get_tpu_size_principal_building(
+            self
+    ):
+        return 0.07, 0.07, 0.28
+
+    def _get_count_sensors(
+            self
+    ):
+        count_sensors_on_model = 252
+        count_sensors_on_middle_row = 7
+        count_sensors_on_side_row = 7
+
+        return count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row
 
     def get_face_number(
             self,
-            model_id,
-            alpha
-    ):
-        face_number = asyncio.run(load_face_number(model_id, alpha, self.engine))
+            model_id=None,
+            alpha=None
+    ) -> list[int]:
+        face_number = [1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1,
+                       1, 1, 1, 2, 2,
+                       2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2,
+                       2, 3, 3, 3, 3,
+                       3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4,
+                       4, 4, 4, 4, 4,
+                       4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1,
+                       1, 1, 1, 1, 2,
+                       2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
+                       2, 2, 3, 3, 3,
+                       3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
+                       4, 4, 4, 4, 4,
+                       4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4]
 
         return face_number
+
+    def get_pressure_coefficients_for_the_sensor(
+            self,
+            angle,
+            position,
+            id_interfering_building,
+            sensor_id
+    ):
+        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+
+        return pressure_coefficients[:, sensor_id]
+
+    def plot_isofields(
+            self,
+            *args,
+            **kwargs
+    ):
+        model_size_interfering = self._get_model_size_interfering()
+        coordinates = self.get_coordinates()
+
+        angle = int(self.lineEditWindAngle.text())
+
+        position = self._get_position_interfering()
+        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+
+        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+
+        count_sensors = self._get_count_sensors()
+        size = self._get_tpu_size_principal_building()
+
+        super().plot_isofields(pressure_coefficients,
+                               coordinates,
+                               size,
+                               count_sensors)
+
+    def plot_envelopes(
+            self,
+            *args,
+            **kwargs
+    ):
+        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+
+        if not mods:
+            return
+
+        model_size_interfering = self._get_model_size_interfering()
+
+        angle = int(self.lineEditWindAngle.text())
+
+        position = self._get_position_interfering()
+        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+
+        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+
+        super().plot_envelopes(mods, pressure_coefficients)
+
+    def plot_pseudocolor_coefficients(
+            self,
+            *args,
+            **kwargs
+    ):
+        model_size_interfering = self._get_model_size_interfering()
+
+        angle = int(self.lineEditWindAngle.text())
+
+        position = self._get_position_interfering()
+        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+
+        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
+
+        count_sensors = self._get_count_sensors()
+
+        super().plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
+
+    def plot_welch_graph(
+            self,
+            *args,
+            **kwargs
+    ):
+        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
+        if not parameters:
+            return
+
+        model_size_interfering = self._get_model_size_interfering()
+
+        angle = int(self.lineEditWindAngle.text())
+
+        position = self._get_position_interfering()
+        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+
+        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+
+        count_sensors = self._get_count_sensors()
+        size = self._get_tpu_size_principal_building()
+        coordinates = self.get_coordinates()
+
+        super().plot_welch_graph(angle, height, pressure_coefficients, coordinates, size,
+                                 count_sensors,
+                                 parameters, sample_frequency=InterferenceHighRiseInterface.SAMPLE_FREQUENCY,
+                                 number_of_time_counts=InterferenceHighRiseInterface.NUMBER_OF_TIME_COUNTS)
+
+    def plot_summary_coefficients(
+            self,
+            *args,
+            **kwargs
+    ):
+        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
+                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
+                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
+            return
+
+        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
+
+        model_size_interfering = self._get_model_size_interfering()
+        position = self._get_position_interfering()
+        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+
+        count_sensors = self._get_count_sensors()
+        coordinates = self.get_coordinates()
+
+        size_tpu = self._get_tpu_size_principal_building()
+
+        scale_flag = False
+
+        pressure_coefficients_storage = {}
+
+        match type_plot:
+            case CoordinateSystem.CARTESIAN:
+                model_size = self._get_model_size()
+                angle = int(self.lineEditWindAngle.text())
+
+                pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+                pressure_coefficients_storage[angle] = pressure_coefficients
+
+                super().plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
+                                                            count_sensors, model_size,
+                                                            sample_period=InterferenceHighRiseInterface.SAMPLE_PERIOD,
+                                                            number_of_time_counts=InterferenceHighRiseInterface.NUMBER_OF_TIME_COUNTS)
+
+            case CoordinateSystem.POLAR:
+                angle_border = 355
+                for angle in range(0, angle_border + 5, 5):
+                    pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+                    pressure_coefficients_storage[angle] = pressure_coefficients
+
+                super().plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
+                                                        size_tpu,
+                                                        count_sensors, scale_flag)

@@ -3,6 +3,7 @@ from pydantic import validate_call
 
 from src.common.annotation import (AlphaType,
                                    BuildingSizeType, )
+from src.submodules.databasetoolkit.orm.models import Interference, Buildings
 
 
 @validate_call
@@ -80,40 +81,41 @@ def get_model_and_scale_factors(
 def get_model_and_scale_factors_interference(
         x: BuildingSizeType,
         y: BuildingSizeType,
-        z: BuildingSizeType
-) -> tuple[int, tuple]:
-    """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели"""
+        z: BuildingSizeType,
+        position_interfering: int
+) -> Buildings.height:
+    """Вычисление ближайшей модели из БД и коэффициентов масштабирования модели
+    breadth=depth=70(mm)
+    2 2.8 4 6 8 отношение высоты к breadth/depth
+    """
     z_and_model_from_db = {2: 140,
                            2.8: 196,
                            4: 280,
                            6: 420,
                            8: 560,
                            }
+
+    scale_coefficients = np.array(np.array(list(z_and_model_from_db.keys())))
+    model_from_db_and_instance = {
+        140: list(range(1, 38)),
+        196: [28, 33, 34, 37],
+        280: list(range(1, 38)),
+        420: list(range(1, 38)),
+        560: [28, 33, 34, 37]
+    }
+
     min_size = min(x, y, z)
 
     # Относительный масштаб фигуры
     z_scale = z / min_size
 
-    x_nearest = 1
-
-    y_nearest = 1
-
-    z_from_db = np.array([*z_and_model_from_db])
+    z_from_db = np.array([k for k, v in model_from_db_and_instance.items() if position_interfering in v])
 
     # Расчет коэффициента для Z
-    difference_z = np.absolute(z_from_db - z_scale)
+    difference_z = np.absolute(scale_coefficients - z_scale)
     index_z = difference_z.argmin()
     z_nearest = z_from_db[index_z]
-
-    # Коэффициенты масштабирования
-    x_scale_factor = x / x_nearest
-    y_scale_factor = y / y_nearest
-    z_scale_factor = z / z_nearest
-
-    model_from_db = z_and_model_from_db[z_nearest]  # Модель из БД
-    scale_factors = (x_scale_factor, y_scale_factor, z_scale_factor)
-
-    return model_from_db, scale_factors
+    return z_nearest
 
 
 def converter_coordinates_to_real(
@@ -171,10 +173,10 @@ def converter_coordinates_to_real(
 
 if __name__ == "__main__":
     print(
-        get_model_and_scale_factors(
-            '1',
-            '1.5',
-            '3.4',
-            4
+        get_model_and_scale_factors_interference(
+            10,
+            10,
+            60,
+            33
         )
     )

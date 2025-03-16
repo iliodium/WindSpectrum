@@ -1,6 +1,8 @@
-from sqlalchemy import ARRAY, Column, Float, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, SmallInteger, String, \
-    Table, UniqueConstraint
-from sqlalchemy.orm import declarative_base, mapped_column
+from typing import List, Optional
+
+from sqlalchemy import ARRAY, Column, Float, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Sequence, SmallInteger, String, Table, UniqueConstraint
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
+from sqlalchemy.orm.base import Mapped
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -40,6 +42,8 @@ class Buildings(Base):
     depth = mapped_column(SmallInteger)
     height = mapped_column(SmallInteger)
 
+    interference: Mapped[List['Interference']] = relationship('Interference', uselist=True, back_populates='buildings')
+
 
 class EaveTypes(Base):
     __tablename__ = 'eave_types'
@@ -76,17 +80,6 @@ class ExperimentsAlpha6(Base):
     x_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     z_coordinates = mapped_column(ARRAY(Float()), nullable=False)
     face_number = mapped_column(ARRAY(SmallInteger()), nullable=False)
-
-
-class MeanWindSpeeds(Base):
-    __tablename__ = 'mean_wind_speeds'
-    __table_args__ = (
-        PrimaryKeyConstraint('id_mean_wind_speed', name='mean_wind_speeds_pkey'),
-        UniqueConstraint('speed', name='mean_wind_speeds_speed_key')
-    )
-
-    id_mean_wind_speed = mapped_column(SmallInteger)
-    speed = mapped_column(Float)
 
 
 class RoofPitches(Base):
@@ -206,20 +199,15 @@ t_building_with_eaves = Table(
     ForeignKeyConstraint(['id_eave'], ['eave_types.id_eave'], name='building_with_eaves_id_eave_fkey'),
     ForeignKeyConstraint(['id_pitch'], ['roof_pitches.id_pitch'], name='building_with_eaves_id_pitch_fkey'),
     ForeignKeyConstraint(['id_roof'], ['roof_types.id_roof'], name='building_with_eaves_id_roof_fkey'),
-    ForeignKeyConstraint(['id_sample_frequency'], ['sample_frequencies.id_sample_frequency'],
-                         name='building_with_eaves_id_sample_frequency_fkey'),
-    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'],
-                         name='building_with_eaves_id_sample_period_fkey'),
+    ForeignKeyConstraint(['id_sample_frequency'], ['sample_frequencies.id_sample_frequency'], name='building_with_eaves_id_sample_frequency_fkey'),
+    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'], name='building_with_eaves_id_sample_period_fkey'),
     ForeignKeyConstraint(['id_surface'], ['surfaces_roof.id_surface'], name='building_with_eaves_id_surface_fkey'),
-    ForeignKeyConstraint(['id_wind_azimuth'], ['wind_azimuths.id_wind_azimuth'],
-                         name='building_with_eaves_id_wind_azimuth_fkey'),
-    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'],
-                         name='building_with_eaves_id_x_coordinates_fkey'),
-    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'],
-                         name='building_with_eaves_id_y_coordinates_fkey'),
-    UniqueConstraint('breadth', 'depth', 'height', 'id_eave', 'id_wind_azimuth', 'id_pitch', 'id_roof',
-                     name='building_with_eaves_breadth_depth_height_id_wind_azimuth_id_key')
+    ForeignKeyConstraint(['id_wind_azimuth'], ['wind_azimuths.id_wind_azimuth'], name='building_with_eaves_id_wind_azimuth_fkey'),
+    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'], name='building_with_eaves_id_x_coordinates_fkey'),
+    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'], name='building_with_eaves_id_y_coordinates_fkey'),
+    UniqueConstraint('breadth', 'depth', 'height', 'id_eave', 'id_wind_azimuth', 'id_pitch', 'id_roof', name='building_with_eaves_breadth_depth_height_id_wind_azimuth_id_key')
 )
+
 
 t_building_without_eaves = Table(
     'building_without_eaves', metadata,
@@ -237,34 +225,29 @@ t_building_without_eaves = Table(
     Column('pressure_coefficients', ARRAY(SmallInteger())),
     ForeignKeyConstraint(['id_pitch'], ['roof_pitches.id_pitch'], name='building_without_eaves_id_pitch_fkey'),
     ForeignKeyConstraint(['id_roof'], ['roof_types.id_roof'], name='building_without_eaves_id_roof_fkey'),
-    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'],
-                         name='building_without_eaves_id_sample_period_fkey'),
+    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'], name='building_without_eaves_id_sample_period_fkey'),
     ForeignKeyConstraint(['id_surface'], ['surfaces_roof.id_surface'], name='building_without_eaves_id_surface_fkey'),
-    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'],
-                         name='building_without_eaves_id_x_coordinates_fkey'),
-    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'],
-                         name='building_without_eaves_id_y_coordinates_fkey'),
-    UniqueConstraint('breadth', 'depth', 'height', 'angle', 'id_pitch', 'id_roof',
-                     name='building_without_eaves_breadth_depth_height_angle_id_pitch__key')
+    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'], name='building_without_eaves_id_x_coordinates_fkey'),
+    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'], name='building_without_eaves_id_y_coordinates_fkey'),
+    UniqueConstraint('breadth', 'depth', 'height', 'angle', 'id_pitch', 'id_roof', name='building_without_eaves_breadth_depth_height_angle_id_pitch__key')
 )
 
-t_interference = Table(
-    'interference', metadata,
-    Column('instance', SmallInteger),
-    Column('angle', SmallInteger),
-    Column('id_interfering_building', SmallInteger),
-    Column('id_mean_wind_speed', SmallInteger),
-    Column('pressure_coefficients', ARRAY(SmallInteger())),
-    Column('id_principal_building', SmallInteger),
-    ForeignKeyConstraint(['id_interfering_building'], ['buildings.id_building'],
-                         name='interference_id_interfering_building_fkey'),
-    ForeignKeyConstraint(['id_mean_wind_speed'], ['mean_wind_speeds.id_mean_wind_speed'],
-                         name='interference_id_mean_wind_speed_fkey'),
-    ForeignKeyConstraint(['id_principal_building'], ['buildings.id_building'],
-                         name='interference_id_principal_building_fkey'),
-    UniqueConstraint('id_interfering_building', 'id_principal_building', 'instance', 'angle',
-                     name='interference_id_interfering_building_id_principal_building__key')
-)
+
+class Interference(Base):
+    __tablename__ = 'interference'
+    __table_args__ = (
+        ForeignKeyConstraint(['id_interfering_building'], ['buildings.id_building'], name='interference_id_interfering_building_fkey'),
+        PrimaryKeyConstraint('id_interference', name=' id_interference')
+    )
+
+    id_interference = mapped_column(Integer, Sequence('interference_ id_interference_seq'))
+    position = mapped_column(SmallInteger)
+    angle = mapped_column(SmallInteger)
+    id_interfering_building = mapped_column(SmallInteger)
+    pressure_coefficients = mapped_column(ARRAY(SmallInteger()))
+
+    buildings: Mapped[Optional['Buildings']] = relationship('Buildings', back_populates='interference')
+
 
 t_models_alpha_4 = Table(
     'models_alpha_4', metadata,
@@ -274,6 +257,7 @@ t_models_alpha_4 = Table(
     ForeignKeyConstraint(['model_id'], ['experiments_alpha_4.model_id'], name='fk_e99481390edf4b0e87ccab2040fcde48')
 )
 
+
 t_models_alpha_6 = Table(
     'models_alpha_6', metadata,
     Column('model_id', Integer, nullable=False),
@@ -281,6 +265,7 @@ t_models_alpha_6 = Table(
     Column('pressure_coefficients', ARRAY(SmallInteger()), nullable=False),
     ForeignKeyConstraint(['model_id'], ['experiments_alpha_6.model_id'], name='fk_dc23ad1d409d4698bec7b2cfccb04b17')
 )
+
 
 t_non_isolated_building = Table(
     'non_isolated_building', metadata,
@@ -299,25 +284,16 @@ t_non_isolated_building = Table(
     Column('id_surrounding_height', SmallInteger),
     Column('id_wind_azimuth', SmallInteger),
     Column('pressure_coefficients', ARRAY(SmallInteger())),
-    ForeignKeyConstraint(['id_area_density'], ['areas_density.id_area_density'],
-                         name='non_isolated_building_id_area_density_fkey'),
-    ForeignKeyConstraint(['id_arrange_order'], ['arrange_orders.id_arrange_order'],
-                         name='non_isolated_building_id_arrange_order_fkey'),
+    ForeignKeyConstraint(['id_area_density'], ['areas_density.id_area_density'], name='non_isolated_building_id_area_density_fkey'),
+    ForeignKeyConstraint(['id_arrange_order'], ['arrange_orders.id_arrange_order'], name='non_isolated_building_id_arrange_order_fkey'),
     ForeignKeyConstraint(['id_pitch'], ['roof_pitches.id_pitch'], name='non_isolated_building_id_pitch_fkey'),
     ForeignKeyConstraint(['id_roof'], ['roof_types.id_roof'], name='non_isolated_building_id_roof_fkey'),
-    ForeignKeyConstraint(['id_sample_frequency'], ['sample_frequencies.id_sample_frequency'],
-                         name='non_isolated_building_id_sample_frequency_fkey'),
-    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'],
-                         name='non_isolated_building_id_sample_period_fkey'),
+    ForeignKeyConstraint(['id_sample_frequency'], ['sample_frequencies.id_sample_frequency'], name='non_isolated_building_id_sample_frequency_fkey'),
+    ForeignKeyConstraint(['id_sample_period'], ['sample_periods.id_sample_period'], name='non_isolated_building_id_sample_period_fkey'),
     ForeignKeyConstraint(['id_surface'], ['surfaces_roof.id_surface'], name='non_isolated_building_id_surface_fkey'),
-    ForeignKeyConstraint(['id_surrounding_height'], ['surrounding_heights.id_surrounding_height'],
-                         name='non_isolated_building_id_surrounding_height_fkey'),
-    ForeignKeyConstraint(['id_wind_azimuth'], ['wind_azimuths.id_wind_azimuth'],
-                         name='non_isolated_building_id_wind_azimuth_fkey'),
-    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'],
-                         name='non_isolated_building_id_x_coordinates_fkey'),
-    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'],
-                         name='non_isolated_building_id_y_coordinates_fkey'),
-    UniqueConstraint('breadth', 'depth', 'height', 'id_wind_azimuth', 'id_pitch', 'id_roof', 'id_area_density',
-                     'id_arrange_order', name='non_isolated_building_breadth_depth_height_id_wind_azimuth__key')
+    ForeignKeyConstraint(['id_surrounding_height'], ['surrounding_heights.id_surrounding_height'], name='non_isolated_building_id_surrounding_height_fkey'),
+    ForeignKeyConstraint(['id_wind_azimuth'], ['wind_azimuths.id_wind_azimuth'], name='non_isolated_building_id_wind_azimuth_fkey'),
+    ForeignKeyConstraint(['id_x_coordinates'], ['x_coordinates_roof.id_x_coordinates'], name='non_isolated_building_id_x_coordinates_fkey'),
+    ForeignKeyConstraint(['id_y_coordinates'], ['y_coordinates_roof.id_y_coordinates'], name='non_isolated_building_id_y_coordinates_fkey'),
+    UniqueConstraint('breadth', 'depth', 'height', 'id_wind_azimuth', 'id_pitch', 'id_roof', 'id_area_density', 'id_arrange_order', name='non_isolated_building_breadth_depth_height_id_wind_azimuth__key')
 )

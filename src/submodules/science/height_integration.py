@@ -50,10 +50,10 @@ def height_integration_cx_cy_cmz_floors_to_txt_aot(
     coordinates = asyncio.run(load_positions(experiment.model_id, _alpha, _engine))
     uh_speed = np.round(float(experiment.uh_averagewindspeed), 3)
 
-    size, count_sensors = utils.get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                           model_name,
-                                                           db=_db
-                                                           )
+    size, count_sensors = utils.get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
+                                                               model_name,
+                                                               db=_db
+                                                               )
     breadth, depth, height = size
     count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
 

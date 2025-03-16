@@ -20,6 +20,7 @@ from src.submodules.utils.angle import get_angle_border
 from src.submodules.utils.data_features import polar_lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.submodules.utils.utils import get_size_tpu_and_count_sensors
 from src.ui.common.Buttons import Buttons
 from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
 from src.ui.common.ChartMode import ChartMode
@@ -132,7 +133,7 @@ class Interface(QWidget):
     def sensors_overview_button_action(self, sensor_id):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
-        model_name, scale_factors = get_model_and_scale_factors(*model_size, alpha)
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
         angle = int(self.lineEditWindAngle.text())
 
         model_id = self.get_model_id(model_name, alpha)
@@ -158,7 +159,7 @@ class Interface(QWidget):
                 self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig, ChartType.SUMMARY_COEFFICIENTS)
             case ChartType.SPECTRUM:
                 height = model_size[2]
-                alpha_str = self._get_alpha(string=True)
+                alpha_str = self._get_alpha(area_type=True)
                 wind_region = self._get_wind_region()
 
                 speed_sp = speed_sp_region(height, alpha_str, wind_region)
@@ -240,11 +241,11 @@ class Interface(QWidget):
         # Building size
         self.hBoxLayoutBuildingSizeInterfering = QHBoxLayout(self.view)
         self.hBoxLayoutBuildingSizeInterfering.addWidget(StrongBodyLabel(Buttons.BUILDING_SIZE))
-        self.lineEditBuildingSizeInterfering = LineEdit()
-        self.lineEditBuildingSizeInterfering.setText(self.tr('10 10 20'))
-        self.lineEditBuildingSizeInterfering.setClearButtonEnabled(True)
-        self.lineEditBuildingSizeInterfering.setFixedWidth(125)
-        self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSizeInterfering)
+        self.lineEditBuildingSize = LineEdit()
+        self.lineEditBuildingSize.setText(self.tr('10 10 20'))
+        self.lineEditBuildingSize.setClearButtonEnabled(True)
+        self.lineEditBuildingSize.setFixedWidth(125)
+        self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSize)
         self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSizeInterfering)
 
         PushButtonReport = PushButton(Buttons.REPORT)
@@ -493,13 +494,13 @@ class Interface(QWidget):
     def _get_model_size(
             self
     ) -> ModelSizeType:
-        return tuple(map(float, self.lineEditBuildingSizeInterfering.text().replace(',', '.').split(' ')))
+        return tuple(map(float, self.lineEditBuildingSize.text().replace(',', '.').split(' ')))
 
     def _get_alpha(
             self,
-            string=False
+            area_type=False
     ):
-        if string:
+        if area_type:
             return self.ComboBoxTypeOfArea.text()
 
         else:
@@ -586,26 +587,18 @@ class Interface(QWidget):
 
         self.plotFlag = True
 
-    def plot_welch_graph(self):
-        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
-        if not parameters:
-            return
-
-        alpha = self._get_alpha()
-        model_size = self._get_model_size()
-        height = model_size[2]
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-
-        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
-                                                               model_name,
-                                                               )
+    def plot_welch_graph(
+            self,
+            angle,
+            height,
+            pressure_coefficients,
+            coordinates,
+            size,
+            count_sensors,
+            parameters,
+            sample_frequency,
+            number_of_time_counts
+    ):
         data_to_plot = {}
 
         if ChartMode.CX in parameters or ChartMode.CY in parameters:
@@ -632,11 +625,12 @@ class Interface(QWidget):
             )
             data_to_plot[ChartMode.CMZ] = cmz
 
-        alpha_str = self._get_alpha(string=True)
+        alpha_str = self._get_alpha(area_type=True)
         wind_region = self._get_wind_region()
         speed_sp = speed_sp_region(height, alpha_str, wind_region)
 
-        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp)
+        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp, sample_frequency=sample_frequency,
+                                       number_of_time_counts=number_of_time_counts)
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def open_plot_in_new_window(
@@ -710,21 +704,11 @@ class Interface(QWidget):
         self.windows_plot_sensors_overview_spectrum.show()
 
     def plot_envelopes(
-            self
+            self,
+            mods,
+            pressure_coefficients
+
     ):
-        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
-
-        if not mods:
-            return
-
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-            angle]
         figs = PlotBuilding.envelopes(pressure_coefficients, mods)
 
         for fig in figs:
@@ -733,21 +717,16 @@ class Interface(QWidget):
     @abstractmethod
     def get_pressure_coefficients(
             self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str
+            *args,
+            **kwargs
     ):
         print('Необходимо переопределить')
         pass
 
     def get_pressure_coefficients_for_the_sensor(
             self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str,
-            sensor_id
+            *args,
+            **kwargs
     ):
         print('Необходимо переопределить')
         pass
@@ -763,8 +742,8 @@ class Interface(QWidget):
     @abstractmethod
     def get_coordinates(
             self,
-            model_id,
-            alpha
+            *args,
+            **kwargs
     ):
         print('Необходимо переопределить')
         pass
@@ -786,34 +765,32 @@ class Interface(QWidget):
         pass
 
     def plot_isofields(
-            self
+            self,
+            pressure_coefficients,
+            coordinates,
+            size,
+            count_sensors
     ):
-        alpha = self._get_alpha()
         model_size = self._get_model_size()
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-        coordinates = self.get_coordinates(model_id, alpha)
-
         parameter = ChartMode(self.isofieldsParameters.currentText())
 
         match self.ComboBoxTypesIsofields.text():
             case IsofieldsType.PRESSURE:
-                alpha_str = self._get_alpha(string=True)
+                area_type = self._get_alpha(area_type=True)
                 wind_region = self._get_wind_region()
                 fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          model_name,
+                                                          size,
+                                                          count_sensors,
                                                           parameter,
                                                           pressure_coefficients,
                                                           coordinates,
-                                                          alpha_str,
+                                                          area_type,
                                                           wind_region
                                                           )
             case IsofieldsType.COEFFICIENT:
                 fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          model_name,
+                                                          size,
+                                                          count_sensors,
                                                           parameter,
                                                           pressure_coefficients,
                                                           coordinates
@@ -821,183 +798,205 @@ class Interface(QWidget):
 
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
-    def plot_summary_coefficients(
-            self
+    def plot_summary_coefficients_cartesian(
+            self,
+            angle,
+            pressure_coefficients_storage: dict,
+            coordinates,
+            size_tpu,
+            count_sensors,
+            model_size,
+            sample_period: float,
+            number_of_time_counts: int
     ):
-        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
-                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
-                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
-            return
 
-        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
-        alpha = self._get_alpha()
-
-        model_size = self._get_model_size()
-        model_name, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-        model_id = self.get_model_id(model_name, alpha)
-        coordinates = self.get_coordinates(model_id, alpha)
-
-        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
-                                                               model_name,
-                                                               )
         data_to_plot = {}
-        match type_plot:
-            case CoordinateSystem.CARTESIAN:
-                parameters = [ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()]
-                pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
 
-                if ChartMode.CX in parameters or ChartMode.CY in parameters:
-                    cx, cy = aot_calculations.calculate_cx_cy(
-                        *count_sensors,
-                        *size,
-                        np.array(coordinates[0]),
-                        np.array(coordinates[1]),
-                        pressure_coefficients
-                    )
-                    if ChartMode.CX in parameters:
-                        data_to_plot[ChartMode.CX] = cx
-                    if ChartMode.CY in parameters:
-                        data_to_plot[ChartMode.CY] = cy
-                if ChartMode.CMZ in parameters:
-                    cmz = aot_calculations.calculate_cmz(
-                        *count_sensors,
-                        angle,
-                        *size,
-                        np.array(coordinates[0]),
-                        np.array(coordinates[1]),
-                        pressure_coefficients
-                    )
+        parameters = [ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()]
+        pressure_coefficients = pressure_coefficients_storage[angle]
 
-                    data_to_plot[ChartMode.CMZ] = cmz
+        if ChartMode.CX in parameters or ChartMode.CY in parameters:
+            cx, cy = aot_calculations.calculate_cx_cy(
+                *count_sensors,
+                *size_tpu,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
+            if ChartMode.CX in parameters:
+                data_to_plot[ChartMode.CX] = cx
+            if ChartMode.CY in parameters:
+                data_to_plot[ChartMode.CY] = cy
+        if ChartMode.CMZ in parameters:
+            cmz = aot_calculations.calculate_cmz(
+                *count_sensors,
+                angle,
+                *size_tpu,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
 
-                match CartesianModelSummaryCoefficients(self.cartesianModelSummaryCoefficients.currentText()):
-                    case CartesianModelSummaryCoefficients.TPU:
-                        kt = 1
-                    case CartesianModelSummaryCoefficients.REAL:
-                        breadth, depth, height = model_size
-                        breadth_tpu, depth_tpu, height_tpu = [int(i) / 10 for i in str(model_name)]
-                        alpha_str = self._get_alpha(string=True)
-                        wind_region = self._get_wind_region()
+            data_to_plot[ChartMode.CMZ] = cmz
 
-                        kz = height / height_tpu
+        match CartesianModelSummaryCoefficients(self.cartesianModelSummaryCoefficients.currentText()):
+            case CartesianModelSummaryCoefficients.TPU:
+                kt = 1
+            case CartesianModelSummaryCoefficients.REAL:
+                breadth, depth, height = model_size
+                breadth_tpu, depth_tpu, height_tpu = size_tpu
+                alpha_str = self._get_alpha(area_type=True)
+                wind_region = self._get_wind_region()
 
-                        match alpha_str:
-                            case 'A':
-                                Uz_a_x = Uz_a_0_16_x
-                                Uz_a_z = np.array(Uz_a_0_16_z)
-                            case 'C':
-                                Uz_a_x = Uz_a_0_25_x
-                                Uz_a_z = np.array(Uz_a_0_25_z)
+                kz = height / height_tpu
 
-                        Uz_a_z_scaled = Uz_a_z * kz
-                        speed_tpu_function = scipy.interpolate.interp1d(Uz_a_z_scaled, Uz_a_x)
-                        speed_tpu = speed_tpu_function(height)
+                match alpha_str:
+                    case 'A':
+                        Uz_a_x = Uz_a_0_16_x
+                        Uz_a_z = np.array(Uz_a_0_16_z)
+                    case 'C':
+                        Uz_a_x = Uz_a_0_25_x
+                        Uz_a_z = np.array(Uz_a_0_25_z)
 
-                        speed_sp = speed_sp_region(height, alpha_str, wind_region)
+                Uz_a_z_scaled = Uz_a_z * kz
+                speed_tpu_function = scipy.interpolate.interp1d(Uz_a_z_scaled, Uz_a_x)
+                speed_tpu = speed_tpu_function(height)
 
-                        l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
-                        l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
+                speed_sp = speed_sp_region(height, alpha_str, wind_region)
 
-                        kv = speed_sp / speed_tpu
-                        km = l_m / l_tpu
+                l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
+                l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
 
-                        kt = km / kv
+                kv = speed_sp / speed_tpu
+                km = l_m / l_tpu
 
-                fig = PlotBuilding.summary_coefficients(data_to_plot, kt)
+                kt = km / kv
 
-            case CoordinateSystem.POLAR:
-                views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
-                parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
-
-                angle_border = get_angle_border(str(model_name))
-
-                x = np.array(coordinates[0])
-                y = np.array(coordinates[1])
-
-                cx_flag = ChartMode.CX in views
-                cy_flag = ChartMode.CY in views
-                cmz_flag = ChartMode.CMZ in views
-
-                if cx_flag or cy_flag:
-                    for v in [ChartMode.CX, ChartMode.CY]:
-                        data_to_plot[v] = {}
-                        for p in parameters:
-                            data_to_plot[v][p] = []
-
-                if cmz_flag:
-                    data_to_plot[ChartMode.CMZ] = {}
-                    for p in parameters:
-                        data_to_plot[ChartMode.CMZ][p] = []
-
-                for angle in range(0, angle_border + 5, 5):
-                    pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
-                                                                                   angle=angle))[angle]
-
-                    if cx_flag or cy_flag:
-                        cx, cy = aot_calculations.calculate_cx_cy(
-                            *count_sensors,
-                            *size,
-                            x,
-                            y,
-                            pressure_coefficients
-                        )
-                        for p in parameters:
-                            data_to_plot[ChartMode.CX][p].append(polar_lambdas[p](cx))
-                            data_to_plot[ChartMode.CY][p].append(polar_lambdas[p](cy))
-
-                    if cmz_flag:
-                        cmz = aot_calculations.calculate_cmz(
-                            *count_sensors,
-                            angle,
-                            *size,
-                            x,
-                            y,
-                            pressure_coefficients
-                        )
-                        for p in parameters:
-                            data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
-
-                if cx_flag or cy_flag:
-                    for p in parameters:
-                        cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
-                                                          angle_border=angle_border)
-                        data_to_plot[ChartMode.CX][p] = cx_scale
-                        data_to_plot[ChartMode.CY][p] = cy_scale
-
-                if cmz_flag:
-                    for p in parameters:
-                        cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
-                        data_to_plot[ChartMode.CMZ][p] = cmz_scale
-
-                if not cx_flag and ChartMode.CX in data_to_plot:
-                    del data_to_plot[ChartMode.CX]
-
-                if not cy_flag and ChartMode.CY in data_to_plot:
-                    del data_to_plot[ChartMode.CY]
-
-                if not cmz_flag and ChartMode.CMZ in data_to_plot:
-                    del data_to_plot[ChartMode.CMZ]
-
-                fig = PlotBuilding.polar_plot(data_to_plot)
+        fig = PlotBuilding.summary_coefficients(data_to_plot,
+                                                kt,
+                                                sample_period=sample_period,
+                                                number_of_time_counts=number_of_time_counts)
 
         self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
 
-    def plot_pseudocolor_coefficients(
+    def plot_summary_coefficients_polar(
+            self,
+            angle_border,
+            pressure_coefficients_storage: dict,
+            coordinates,
+            size_tpu,
+            count_sensors,
+            scale_flag
+    ):
+
+        data_to_plot = {}
+
+        views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
+        parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
+
+        x = np.array(coordinates[0])
+        y = np.array(coordinates[1])
+
+        cx_flag = ChartMode.CX in views
+        cy_flag = ChartMode.CY in views
+        cmz_flag = ChartMode.CMZ in views
+
+        if cx_flag or cy_flag:
+            for v in [ChartMode.CX, ChartMode.CY]:
+                data_to_plot[v] = {}
+                for p in parameters:
+                    data_to_plot[v][p] = []
+
+        if cmz_flag:
+            data_to_plot[ChartMode.CMZ] = {}
+            for p in parameters:
+                data_to_plot[ChartMode.CMZ][p] = []
+
+        for angle in range(0, angle_border + 5, 5):
+            pressure_coefficients = pressure_coefficients_storage[angle]
+
+            if cx_flag or cy_flag:
+                cx, cy = aot_calculations.calculate_cx_cy(
+                    *count_sensors,
+                    *size_tpu,
+                    x,
+                    y,
+                    pressure_coefficients
+                )
+                for p in parameters:
+                    data_to_plot[ChartMode.CX][p].append(polar_lambdas[p](cx))
+                    data_to_plot[ChartMode.CY][p].append(polar_lambdas[p](cy))
+
+            if cmz_flag:
+                cmz = aot_calculations.calculate_cmz(
+                    *count_sensors,
+                    angle,
+                    *size_tpu,
+                    x,
+                    y,
+                    pressure_coefficients
+                )
+                for p in parameters:
+                    data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
+
+        if scale_flag:
+            if cx_flag or cy_flag:
+                for p in parameters:
+                    cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
+                                                      angle_border=angle_border)
+                    data_to_plot[ChartMode.CX][p] = cx_scale
+                    data_to_plot[ChartMode.CY][p] = cy_scale
+
+            if cmz_flag:
+                for p in parameters:
+                    cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
+                    data_to_plot[ChartMode.CMZ][p] = cmz_scale
+        else:
+            if cx_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CX][p] = np.append(data_to_plot[ChartMode.CX][p],
+                                                              data_to_plot[ChartMode.CX][p][0])
+
+            if cy_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CY][p] = np.append(data_to_plot[ChartMode.CY][p],
+                                                              data_to_plot[ChartMode.CY][p][0])
+
+            if cmz_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CMZ][p] = np.append(data_to_plot[ChartMode.CMZ][p],
+                                                               data_to_plot[ChartMode.CMZ][p][0])
+
+        if not cx_flag and ChartMode.CX in data_to_plot:
+            del data_to_plot[ChartMode.CX]
+
+        if not cy_flag and ChartMode.CY in data_to_plot:
+            del data_to_plot[ChartMode.CY]
+
+        if not cmz_flag and ChartMode.CMZ in data_to_plot:
+            del data_to_plot[ChartMode.CMZ]
+
+        fig = PlotBuilding.polar_plot(data_to_plot)
+
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
+
+    @abstractmethod
+    def plot_summary_coefficients(
             self
     ):
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
+        print('Необходимо переопределить')
+        pass
 
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+    def plot_pseudocolor_coefficients(
+            self,
+            model_size,
+            count_sensors,
+            parameter,
+            pressure_coefficients
 
-        model_size = self._get_model_size()
-        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
-
+    ):
         fig = PlotBuilding.pseudocolor_coefficients(model_size,
-                                                    model_name,
+                                                    count_sensors,
                                                     parameter,
                                                     pressure_coefficients)
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)

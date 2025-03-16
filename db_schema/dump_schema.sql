@@ -89,15 +89,11 @@ CREATE TABLE experiments_alpha_6 (
 
 
 CREATE TABLE interference (
-    instance smallint,
+    id_interference integer,
+    position smallint,
     angle smallint,
     id_interfering_building smallint,
-    id_mean_wind_speed smallint,
-    pressure_coefficients smallint[],
-    id_principal_building smallint,
-    sample_frequency smallint,
-    id_sample_period smallint,
-    turbulence_intensity smallint
+    pressure_coefficients smallint[]
 );
 
 

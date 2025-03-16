@@ -9,3 +9,5 @@ db_init/*.sql
 
 /windspectrum
 /windspectrum.db
+
+models.py

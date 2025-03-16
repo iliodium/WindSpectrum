@@ -28,7 +28,7 @@ from src.submodules.utils.data_features import lambdas, calculated, warranty_plu
 from src.submodules.utils.permutations import get_view_permutation_data, get_sequence_permutation_data
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import converter_coordinates, get_size_and_count_sensors, tpu_size_to_real
+from src.submodules.utils.utils import converter_coordinates, get_size_tpu_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem
@@ -41,10 +41,14 @@ class IsolatedHighRiseInterface(Interface):
 
     constants :
 
-    sample_frequency 32768
+    number of time counts 32 768
+    sample_frequency 1000
     sample_period 32.768
 
     """
+    SAMPLE_PERIOD = 32.768
+    SAMPLE_FREQUENCY = 1000
+    NUMBER_OF_TIME_COUNTS = 32768
 
     def __init__(
             self,
@@ -209,6 +213,142 @@ class IsolatedHighRiseInterface(Interface):
                 sheet.append(row.tolist())
 
         wb.save(f'{os.path.join(path_report, ReportFolder.FILE_NAME_SENSOR_STATISTICS)}.xlsx')
+
+    def plot_isofields(
+            self,
+            *args,
+            **kwargs
+    ):
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = self.get_model_id(model_name, alpha)
+        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+        coordinates = self.get_coordinates(model_id, alpha)
+
+        size, count_sensors = get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
+                                                             model_name,
+                                                             )
+        super().plot_isofields(pressure_coefficients, coordinates, size, count_sensors)
+
+    def plot_envelopes(
+            self,
+            *args,
+            **kwargs
+    ):
+        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+
+        if not mods:
+            return
+
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = self.get_model_id(model_name, alpha)
+
+        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+
+        super().plot_envelopes(mods, pressure_coefficients)
+
+    def plot_pseudocolor_coefficients(
+            self,
+            *args,
+            **kwargs
+    ):
+        alpha = self._get_alpha()
+        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = self.get_model_id(model_name, alpha)
+        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
+        size, count_sensors = get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
+                                                             model_name,
+                                                             )
+        super().plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
+
+    def plot_welch_graph(
+            self,
+            *args,
+            **kwargs
+    ):
+        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
+        if not parameters:
+            return
+
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+        height = model_size[2]
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = self.get_model_id(model_name, alpha)
+
+        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+
+        size, count_sensors = get_size_tpu_and_count_sensors(len(coordinates[0]),
+                                                             model_name,
+                                                             )
+
+        super().plot_welch_graph(angle, height, pressure_coefficients, coordinates, size, count_sensors, parameters,
+                                 sample_frequency=IsolatedHighRiseInterface.SAMPLE_FREQUENCY,
+                                 number_of_time_counts=IsolatedHighRiseInterface.NUMBER_OF_TIME_COUNTS)
+
+    def plot_summary_coefficients(
+            self,
+            *args,
+            **kwargs
+    ):
+        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
+                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
+                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
+            return
+
+        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
+        alpha = self._get_alpha()
+
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+        model_id = self.get_model_id(model_name, alpha)
+        coordinates = self.get_coordinates(model_id, alpha)
+
+        size_tpu, count_sensors = get_size_tpu_and_count_sensors(len(coordinates[0]),
+                                                                 model_name,
+                                                                 )
+
+        scale_flag = True
+
+        pressure_coefficients_storage = {}
+
+        match type_plot:
+            case CoordinateSystem.CARTESIAN:
+                pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+                pressure_coefficients_storage[angle] = pressure_coefficients
+
+                super().plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
+                                                            count_sensors, model_size,
+                                                            sample_period=IsolatedHighRiseInterface.SAMPLE_PERIOD,
+                                                            number_of_time_counts=IsolatedHighRiseInterface.NUMBER_OF_TIME_COUNTS)
+
+            case CoordinateSystem.POLAR:
+                angle_border = get_angle_border(str(model_name))
+
+                for angle in range(0, angle_border + 5, 5):
+                    pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
+                                                                                   angle=angle))[angle]
+                    pressure_coefficients_storage[angle] = pressure_coefficients
+
+                super().plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
+                                                        size_tpu,
+                                                        count_sensors, scale_flag)
 
     def draw_and_save_all_plots(
             self,
@@ -395,7 +535,9 @@ class IsolatedHighRiseInterface(Interface):
         # Спектры
         for angle in range(0, angle_border + 5, 5):
             for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
-                fig = PlotBuilding.welch_graph({i: data_to_plot[angle][i]}, height, speed_sp)
+                fig = PlotBuilding.welch_graph({i: data_to_plot[angle][i]}, height, speed_sp,
+                                               sample_frequency=IsolatedHighRiseInterface.SAMPLE_FREQUENCY,
+                                               number_of_time_counts=IsolatedHighRiseInterface.NUMBER_OF_TIME_COUNTS)
                 fig_name = f'{model_size_str} {alpha_str} {angle}.png'
                 fig.set_size_inches(18.5, 10.5)
                 fig.savefig(
@@ -655,7 +797,7 @@ class IsolatedHighRiseInterface(Interface):
 
         model_size = self._get_model_size()
         alpha = self._get_alpha()
-        alpha_str = self._get_alpha(string=True)
+        alpha_str = self._get_alpha(area_type=True)
         wind_region = self._get_wind_region()
 
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
@@ -669,9 +811,9 @@ class IsolatedHighRiseInterface(Interface):
 
         create_directory_to_report(report_name)
         angle_border = get_angle_border(str(model_name))
-        size_model_tpu, count_sensors = get_size_and_count_sensors(len(coordinates[0]),
-                                                                   model_name,
-                                                                   )
+        size_model_tpu, count_sensors = get_size_tpu_and_count_sensors(len(coordinates[0]),
+                                                                       model_name,
+                                                                       )
 
         # Получаем коэффициенты сразу для всех углов
         pressure_coefficients_storage = {}

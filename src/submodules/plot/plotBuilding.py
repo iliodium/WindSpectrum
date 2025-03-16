@@ -16,9 +16,10 @@ from src.submodules.plot.utils import calculate_levels, set_colorbar
 from src.submodules.plot.utils import interpolator as intp
 from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import get_size_and_count_sensors, tpu_size_to_real
+from src.submodules.utils.utils import get_size_tpu_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
 from compiled_functions import aot_calculations
+
 
 class PlotBuilding(Plot):
     @staticmethod
@@ -109,7 +110,10 @@ class PlotBuilding(Plot):
     @validate_call
     def summary_coefficients(
             pressure_coefficients: dict[str, Any],
-            kt: float = 1
+            kt: float = 1,
+            sample_period: float = 32.768,
+            number_of_time_counts: int = 32768
+
     ) -> plt.Figure:
         """
         Построение графиков суммарных аэродинамических коэффициентов в декартовой системе координат.
@@ -124,8 +128,8 @@ class PlotBuilding(Plot):
         """
         fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
 
-        ax.set_xlim(0, 32.768 * kt)
-        ox = np.linspace(0, 32.768 * kt, 32768)
+        ax.set_xlim(0, sample_period * kt)
+        ox = np.linspace(0, sample_period * kt, number_of_time_counts)
 
         ax.grid()
         ax.set_ylabel('Суммарные аэродинамические коэффициенты', fontsize=Plot.YLABEL_FONTSIZE)
@@ -206,7 +210,9 @@ class PlotBuilding(Plot):
     def welch_graph(
             data,
             height,
-            speed
+            speed,
+            sample_frequency:int,
+            number_of_time_counts:int
 
     ):
         """Отрисовка графиков спектральной плотности мощности"""
@@ -217,8 +223,8 @@ class PlotBuilding(Plot):
 
         ax.grid()
         ax.set_title('Спектральная плотность мощности', fontsize=Plot.TITLE_FONTSIZE)
-        ax.set_xlabel(r'$\frac{f \cdot H_{ref}}{U_{ref}}$', fontsize=Plot.XLABEL_FONTSIZE)
-        ax.set_ylabel(r'$\frac{S(f)\cdot f}{\sigma^2}$', fontsize=Plot.YLABEL_FONTSIZE)
+        ax.set_xlabel(r'$\frac{f \cdot H_{ref}}{U_{ref}}$', fontsize=Plot.XLABEL_FONTSIZE+20)
+        ax.set_ylabel(r'$\frac{S(f)\cdot f}{\sigma^2}$', fontsize=Plot.YLABEL_FONTSIZE+20)
 
         ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
         ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
@@ -226,7 +232,7 @@ class PlotBuilding(Plot):
         for name in data.keys():
             if data[name] is not None:
                 sigma = np.std(data[name]) ** 2
-                freq, psd = welch(data[name], fs=1000, nperseg=int(32768 / 5))
+                freq, psd = welch(data[name], fs=sample_frequency, nperseg=int(number_of_time_counts / 5))
                 ax.plot((freq * height) / speed, (freq * psd) / sigma, label=name)
 
         ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
@@ -237,7 +243,8 @@ class PlotBuilding(Plot):
     @validate_call
     def isofields_coefficients(
             model_size: ModelSizeType,
-            model_name: int,
+            size,
+            count_sensors,
             parameter: ChartMode,
             pressure_coefficients,
             coordinates: CoordinatesType,
@@ -266,10 +273,6 @@ class PlotBuilding(Plot):
         """
         # флаг чтобы понимать что мы рисуем, коэффициенты или давление
         flag_pressure = area_type is not None and wind_region is not None
-
-        size, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                         model_name,
-                                                         )
 
         breadth, depth, height = size
         count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
@@ -407,7 +410,7 @@ class PlotBuilding(Plot):
     @validate_call
     def pseudocolor_coefficients(
             model_size: ModelSizeType,
-            model_name: ModelNameIsolatedType,
+            count_sensors,
             parameter: ChartMode,
             pressure_coefficients
     ) -> plt.Figure:
@@ -428,9 +431,6 @@ class PlotBuilding(Plot):
             plt.Figure:
                 Объект графика
         """
-        _, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                      model_name,
-                                                      )
 
         count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
         count_row = count_sensors_on_model // (2 * (count_sensors_on_middle_row + count_sensors_on_side_row))
@@ -511,6 +511,6 @@ if __name__ == "__main__":
     coordinates = asyncio.run(load_positions(model_id, alpha, engine))
     pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, engine, angle=angle))[angle]
 
-    size, count_sensors = get_size_and_count_sensors(pressure_coefficients.shape[1],
-                                                     model_name,
-                                                     )
+    size, count_sensors = get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
+                                                         model_name,
+                                                         )
