@@ -26,7 +26,7 @@ from src.submodules.report_tools.wordBuilder import WordBuilder
 from src.submodules.utils.angle import get_angle_border, get_base_angle, changer_sequence_coefficients
 from src.submodules.utils.data_features import lambdas, calculated, warranty_plus, warranty_minus, polar_lambdas
 from src.submodules.utils.permutations import get_view_permutation_data, get_sequence_permutation_data
-from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.submodules.utils.scaling import get_model_and_scale_factors, calculate_kt
 from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.utils import converter_coordinates, get_size_tpu_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
@@ -59,16 +59,7 @@ class IsolatedHighRiseInterface(Interface):
         super().__init__(parent=parent, engine=engine)
         self.setObjectName('IsolatedHighRiseInterface')
 
-    def get_pressure_coefficients_for_the_sensor(
-            self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str,
-            sensor_id
-    ):
-        pressure_coefficients = self._get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-        return pressure_coefficients[:, sensor_id]
+
 
     def _get_pressure_coefficients_for_definition_angle(
             self,
@@ -146,9 +137,7 @@ class IsolatedHighRiseInterface(Interface):
         return model_id
 
     def _get_coordinates(
-            self,
-            # model_id,
-            # alpha
+            self
     ):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
@@ -160,11 +149,14 @@ class IsolatedHighRiseInterface(Interface):
 
         return coordinates
 
-    def get_face_number(
-            self,
-            model_id,
-            alpha
+    def _get_face_number(
+            self
     ):
+        alpha = self._get_alpha()
+
+        model_name = self._get_model_name()
+        model_id = self.get_model_id(model_name, alpha)
+
         face_number = asyncio.run(load_face_number(model_id, alpha, self.engine))
 
         return face_number
@@ -236,11 +228,20 @@ class IsolatedHighRiseInterface(Interface):
 
         wb.save(f'{os.path.join(path_report, ReportFolder.FILE_NAME_SENSOR_STATISTICS)}.xlsx')
 
+    def _get_size_tpu(
+            self
+    ):
+        model_name = self._get_model_name()
+        model_name_list = [i for i in list(str(model_name))]
+        breadth, depth, height = [int(i) / 10 for i in model_name_list]
+
+        return breadth, depth, height
+
     def _get_size_and_count_sensors(
             self,
             count_sensors_on_model
     ):
-        model_name = self.get_model_name()
+        model_name = self._get_model_name()
 
         size, count_sensors = get_size_tpu_and_count_sensors(
             count_sensors_on_model,
@@ -248,7 +249,7 @@ class IsolatedHighRiseInterface(Interface):
         )
         return size, count_sensors
 
-    def get_model_name(
+    def _get_model_name(
             self
     ):
         alpha = self._get_alpha()
@@ -289,7 +290,7 @@ class IsolatedHighRiseInterface(Interface):
     def _get_angle_border(
             self
     ):
-        model_name = self.get_model_name()
+        model_name = self._get_model_name()
         angle_border = get_angle_border(str(model_name))
 
         return angle_border
@@ -308,28 +309,6 @@ class IsolatedHighRiseInterface(Interface):
             count_sensors,
             wind_region,
     ):
-        breadth_tpu, depth_tpu, height_tpu = size_model_tpu
-        breadth, depth, height = model_size
-
-        kz = height / size_model_tpu[2]
-
-        match alpha_str:
-            case 'A':
-                Uz_a_x = Uz_a_0_16_x
-                Uz_a_z = np.array(Uz_a_0_16_z)
-            case 'C':
-                Uz_a_x = Uz_a_0_25_x
-                Uz_a_z = np.array(Uz_a_0_25_z)
-
-        Uz_a_z_scaled = Uz_a_z * kz
-
-        speed_tpu_function = scipy.interpolate.interp1d(Uz_a_z_scaled, Uz_a_x)
-        speed_tpu = speed_tpu_function(height)
-
-        speed_sp = speed_sp_region(height, alpha_str, wind_region)
-
-        kv = speed_sp / speed_tpu
-
         # изополя в виде давления и коэффициентов
         for angle in range(0, angle_border + 5, 5):
             for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
@@ -420,10 +399,8 @@ class IsolatedHighRiseInterface(Interface):
         # получаем Cx Cy CMz для всех параметров
 
         for angle in range(0, angle_border + 5, 5):
-            l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
-            l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
-            km = l_m / l_tpu
-            kt = km / kv
+            kt = calculate_kt(model_size, size_model_tpu, alpha_str, wind_region, angle)
+
             data_to_plot[angle] = {}
             cx, cy = aot_calculations.calculate_cx_cy(
                 *count_sensors,
@@ -457,7 +434,7 @@ class IsolatedHighRiseInterface(Interface):
             fig_name = f'{model_size_str} {alpha_str} {angle} {ChartMode.CMZ}.png'
             fig.set_size_inches(18.5, 10.5)
             fig.savefig(
-                os.path.join(path_report, ChartType.SUMMARY_COEFFICIENTS,
+                os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
                              CoordinateSystem.CARTESIAN, fig_name),
                 dpi=200,
                 bbox_inches='tight')
@@ -470,7 +447,7 @@ class IsolatedHighRiseInterface(Interface):
             fig_name = f'{model_size_str} {alpha_str} {angle} {ChartMode.CX} {ChartMode.CY}.png'
             fig.set_size_inches(18.5, 10.5)
             fig.savefig(
-                os.path.join(path_report, ChartType.SUMMARY_COEFFICIENTS,
+                os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
                              CoordinateSystem.CARTESIAN, fig_name),
                 dpi=200,
                 bbox_inches='tight')
@@ -511,7 +488,7 @@ class IsolatedHighRiseInterface(Interface):
                 fig_name = f'{model_size_str} {alpha_str} {p}.png'
                 fig.set_size_inches(18.5, 10.5)
                 fig.savefig(
-                    os.path.join(path_report, ChartType.SUMMARY_COEFFICIENTS,
+                    os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
                                  CoordinateSystem.POLAR, i, fig_name),
                     dpi=200,
                     bbox_inches='tight')
@@ -670,11 +647,11 @@ class IsolatedHighRiseInterface(Interface):
         counter_head_lvl1 += 1
         counter_head_lvl2 = 1
 
-        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.SUMMARY_COEFFICIENTS}',
+        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS}',
                                 page_break=True)
 
         WordBuilder.add_heading(doc,
-                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_COEFFICIENTS} {CoordinateSystem.CARTESIAN.lower()}',
+                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.CARTESIAN.lower()}',
                                 head_level=2,
                                 font_size=head_lvl2)
 
@@ -682,22 +659,22 @@ class IsolatedHighRiseInterface(Interface):
 
         counter_plots = WordBuilder.fill_chapter_with_pictures(
             doc,
-            folder_path=os.path.join(path_report, ChartType.SUMMARY_COEFFICIENTS, CoordinateSystem.CARTESIAN),
+            folder_path=os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, CoordinateSystem.CARTESIAN),
             counter_pictures=counter_plots,
             picture_height=fig_height - Mm(10)
         )
 
         WordBuilder.add_heading(doc,
-                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_COEFFICIENTS} {CoordinateSystem.POLAR.lower()}',
+                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.POLAR.lower()}',
                                 head_level=2,
                                 font_size=head_lvl2)
 
         counter_head_lvl3 = 1
 
-        path_temp = os.path.join(path_report, ChartType.SUMMARY_COEFFICIENTS, CoordinateSystem.POLAR)
+        path_temp = os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, CoordinateSystem.POLAR)
         for mode in os.listdir(path_temp):
             WordBuilder.add_heading(doc,
-                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}.{counter_head_lvl3}. {ChartType.SUMMARY_COEFFICIENTS} {CoordinateSystem.POLAR.lower()} {mode}',
+                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}.{counter_head_lvl3}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.POLAR.lower()} {mode}',
                                     head_level=3,
                                     font_size=head_lvl3)
 
@@ -746,8 +723,8 @@ class IsolatedHighRiseInterface(Interface):
 
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
         model_id = self.get_model_id(model_name, alpha)
-        coordinates = self._get_coordinates(model_id, alpha)
-        face_number = self.get_face_number(model_id, alpha)
+        coordinates = self._get_coordinates()
+        face_number = self._get_face_number()
 
         model_size_str = " ".join(list(map(str, model_size)))
         report_name = f'{model_size_str} {alpha_str} {wind_region}'
@@ -762,7 +739,7 @@ class IsolatedHighRiseInterface(Interface):
         # Получаем коэффициенты сразу для всех углов
         pressure_coefficients_storage = {}
         for angle in range(0, angle_border + 5, 5):
-            pressure_coefficients = self._get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+            pressure_coefficients = self._get_pressure_coefficients()
 
             pressure_coefficients_storage[angle] = pressure_coefficients
 

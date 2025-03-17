@@ -1,3 +1,4 @@
 __all__ = [
-    "plotBuilding"
+    "plotBuilding",
+    "PlotLabel.py"
 ]

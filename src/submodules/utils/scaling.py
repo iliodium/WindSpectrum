@@ -1,9 +1,13 @@
 import numpy as np
+import scipy
 from pydantic import validate_call
 
+from compiled_functions import aot_calculations
 from src.common.annotation import (AlphaType,
                                    BuildingSizeType, )
-from src.submodules.databasetoolkit.orm.models import Interference, Buildings
+from src.common.constants import Uz_a_0_16_x, Uz_a_0_16_z, Uz_a_0_25_x, Uz_a_0_25_z
+from src.submodules.databasetoolkit.orm.models import Buildings
+from src.submodules.utils.speed_sp import speed_sp_region
 
 
 @validate_call
@@ -169,6 +173,38 @@ def converter_coordinates_to_real(
         x_real = np.append(x_real, x[3][i])
 
     return x_real, z_real
+
+
+def calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle):
+    breadth, depth, height = model_size
+    breadth_tpu, depth_tpu, height_tpu = size_tpu
+
+    kz = height / height_tpu
+
+    match alpha_str:
+        case 'A':
+            uz_a_x = Uz_a_0_16_x
+            uz_a_z = np.array(Uz_a_0_16_z)
+        case 'C':
+            uz_a_x = Uz_a_0_25_x
+            uz_a_z = np.array(Uz_a_0_25_z)
+
+    uz_a_z_scaled = uz_a_z * kz
+
+    speed_tpu_function = scipy.interpolate.interp1d(uz_a_z_scaled, uz_a_x)
+    speed_tpu = speed_tpu_function(height)
+
+    speed_sp = speed_sp_region(height, alpha_str, wind_region)
+
+    l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
+    l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
+
+    kv = speed_sp / speed_tpu
+    km = l_m / l_tpu
+
+    kt = km / kv
+
+    return kt
 
 
 if __name__ == "__main__":

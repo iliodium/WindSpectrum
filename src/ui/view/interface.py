@@ -2,7 +2,6 @@
 from abc import abstractmethod
 
 import numpy as np
-import scipy
 from PySide6 import QtGui, QtCore
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QStackedLayout, QVBoxLayout
@@ -11,12 +10,13 @@ from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
 
 from compiled_functions import aot_calculations
 from src.common.annotation import ModelSizeType
-from src.common.constants import wind_regions, alpha_standards, Uz_a_0_16_z, Uz_a_0_16_x, Uz_a_0_25_x, Uz_a_0_25_z
+from src.common.constants import wind_regions, alpha_standards
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
 from src.submodules.utils.data_features import polar_lambdas
-from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.submodules.utils.scaling import calculate_kt
 from src.submodules.utils.speed_sp import speed_sp_region
+from src.submodules.utils.utils import tpu_size_to_real
 from src.ui.common.Buttons import Buttons
 from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
 from src.ui.common.ChartMode import ChartMode
@@ -32,9 +32,9 @@ from src.ui.view.widgets.SensorWidget import SensorWidget
 class Interface(QWidget):
     """Interface"""
 
-    SAMPLE_PERIOD = 7.5
-    SAMPLE_FREQUENCY = 781
-    NUMBER_OF_TIME_COUNTS = 5858
+    SAMPLE_PERIOD = None
+    SAMPLE_FREQUENCY = None
+    NUMBER_OF_TIME_COUNTS = None
 
     def __init__(
             self,
@@ -88,27 +88,22 @@ class Interface(QWidget):
         new_index = 1 if current_index == 0 else 0
         if new_index == 1:
             self.PushButtonSensorsOverview.setText(Buttons.PLOTS)
-            model_size = self._get_model_size()
+            coordinates = self._get_coordinates()
+            size_model_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+            breadth_tpu, depth_tpu, height_tpu = size_model_tpu
 
-            if model_size != self.SensorWidget.model_size:
-                self.SensorWidget.model_size = model_size
+            if size_model_tpu != self.SensorWidget.model_size:
+                self.SensorWidget.model_size = size_model_tpu
 
-                breadth, depth, _ = model_size
-                length = 2 * (breadth + depth)
+                length = 2 * (breadth_tpu + depth_tpu)
 
-                lines_pos = [i / length for i in (breadth, breadth + depth, 2 * breadth + depth)]
+                lines_pos = [i / length for i in (breadth_tpu, breadth_tpu + depth_tpu, 2 * breadth_tpu + depth_tpu)]
 
                 self.SensorWidget.lines_pos = lines_pos
                 self.SensorWidget.update_lines()
 
-                alpha = self._get_alpha()
-                model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-                model_name_str = str(model_name)
-                model_id = self.get_model_id(model_name, alpha)
-                coordinates = self._get_coordinates(model_id, alpha)
-
-                length_x = 2 * (int(model_name_str[0]) + int(model_name_str[1])) / 10
-                length_y = int(model_name_str[2]) / 10
+                length_x = 2 * (breadth_tpu + depth_tpu)
+                length_y = height_tpu
 
                 x = [i / length_x for i in coordinates[0]]
                 y = [i / length_y for i in coordinates[1]]
@@ -118,8 +113,9 @@ class Interface(QWidget):
                     b.deleteLater()  # Уничтожаем объект
 
                 self.SensorWidget.buttons = []
+                buttons_pos = [(i, 1 - j) for i, j in zip(x, y)]
+                self.SensorWidget.buttons_pos = buttons_pos
 
-                self.SensorWidget.buttons_pos = [(i, j) for i, j in zip(x, y)]
                 self.SensorWidget.add_buttons()
 
             else:
@@ -129,21 +125,32 @@ class Interface(QWidget):
 
         self.StackedLayoutMainMenu.setCurrentIndex(new_index)
 
+    @abstractmethod
+    def _get_size_tpu(
+            self
+    ):
+        pass
+
     def sensors_overview_button_action(self, sensor_id):
-        alpha = self._get_alpha()
         model_size = self._get_model_size()
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = self._get_angle()
 
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients_for_the_sensor(model_id, alpha, angle, str(model_name),
-                                                                              sensor_id)
+        pressure_coefficients = self._get_pressure_coefficients_for_the_sensor(sensor_id)
         type_plot = ChartType(self.ComboBoxSensorsOverview.currentText())
+
+        angle = self._get_angle()
+        alpha_str = self._get_alpha(area_type=True)
+        wind_region = self._get_wind_region()
+        size_tpu = self._get_size_tpu()
+
         match type_plot:
-            case ChartType.SUMMARY_COEFFICIENTS:
+            case ChartType.AERODYNAMIC_COEFFICIENTS:
+                kt = calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle)
+
                 if self.fig_summary_coefficients_sensors_overview is None:
-                    fig = PlotBuilding.summary_coefficients({f"Датчик {sensor_id + 1}": pressure_coefficients})
+                    fig = PlotBuilding.sensor_signal({f"Датчик {sensor_id + 1}": pressure_coefficients},
+                                                     kt=kt,
+                                                     sample_period=self.SAMPLE_PERIOD,
+                                                     number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
                 else:
                     data_to_plot = {f"Датчик {sensor_id + 1}": pressure_coefficients}
                     # Перенос данных из первой фигуры
@@ -152,19 +159,25 @@ class Interface(QWidget):
                             data_to_plot[line.get_label()] = line.get_ydata()
                     self.windows_plot_sensors_overview_summary_coefficients.close()
 
-                    fig = PlotBuilding.summary_coefficients(data_to_plot)
+                    fig = PlotBuilding.sensor_signal(data_to_plot,
+                                                     kt=kt,
+                                                     sample_period=self.SAMPLE_PERIOD,
+                                                     number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
 
                 self.fig_summary_coefficients_sensors_overview = fig
-                self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig, ChartType.SUMMARY_COEFFICIENTS)
+                self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig,
+                                                                                   ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
             case ChartType.SPECTRUM:
                 height = model_size[2]
-                alpha_str = self._get_alpha(area_type=True)
-                wind_region = self._get_wind_region()
+                z_coordinate = self._get_coordinates()[1][sensor_id]
 
-                speed_sp = speed_sp_region(height, alpha_str, wind_region)
+                height_sensor = tpu_size_to_real(z_coordinate, height, size_tpu[2])
+                speed_sp = speed_sp_region(height_sensor, alpha_str, wind_region)
 
                 if self.fig_spectrum_sensors_overview is None:
-                    fig = PlotBuilding.welch_graph({f"Датчик {sensor_id + 1}": pressure_coefficients}, height, speed_sp)
+                    fig = PlotBuilding.welch_graph({f"Датчик {sensor_id + 1}": pressure_coefficients},
+                                                   height_sensor, speed_sp,
+                                                   self.SAMPLE_FREQUENCY, self.NUMBER_OF_TIME_COUNTS)
                 else:
                     data_to_plot = {f"Датчик {sensor_id + 1}": pressure_coefficients}
                     # Перенос данных из первой фигуры
@@ -173,12 +186,12 @@ class Interface(QWidget):
                             label = line.get_label()
                             last_space_index = label.rfind(" ")
                             sensor_id = int(label[last_space_index + 1:]) - 1
-                            data_to_plot[label] = self.get_pressure_coefficients_for_the_sensor(model_id, alpha, angle,
-                                                                                                str(model_name),
-                                                                                                sensor_id)
+                            data_to_plot[label] = self._get_pressure_coefficients_for_the_sensor(sensor_id)
+
                     self.windows_plot_sensors_overview_summary_coefficients.close()
 
-                    fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp)
+                    fig = PlotBuilding.welch_graph(data_to_plot, height_sensor, speed_sp,
+                                                   self.SAMPLE_FREQUENCY, self.NUMBER_OF_TIME_COUNTS)
 
                 self.fig_spectrum_sensors_overview = fig
                 self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig, ChartType.SPECTRUM)
@@ -306,9 +319,9 @@ class Interface(QWidget):
         hBoxLayoutChartMenu.setAlignment(Qt.AlignLeft)
         self.ComboBoxSensorsOverview = ComboBox()
         self.ComboBoxSensorsOverview.addItems([
-            self.tr(i) for i in (ChartType.SUMMARY_COEFFICIENTS, ChartType.SPECTRUM)
+            self.tr(i) for i in (ChartType.AERODYNAMIC_COEFFICIENTS, ChartType.SPECTRUM)
         ])
-        self.ComboBoxSensorsOverview.setFixedWidth(350)
+        self.ComboBoxSensorsOverview.setFixedWidth(300)
         hBoxLayoutChartMenu.addWidget(self.ComboBoxSensorsOverview)
         self.vBoxLayoutSensorsOverview.addWidget(container)
 
@@ -473,7 +486,7 @@ class Interface(QWidget):
                 self.StackedLayoutTypeChart.setCurrentIndex(0)
             case ChartType.ENVELOPES:
                 self.StackedLayoutTypeChart.setCurrentIndex(1)
-            case ChartType.SUMMARY_COEFFICIENTS:
+            case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                 self.StackedLayoutTypeChart.setCurrentIndex(2)
             case ChartType.SPECTRUM:
                 self.StackedLayoutTypeChart.setCurrentIndex(3)
@@ -674,7 +687,7 @@ class Interface(QWidget):
 
         def closeEvent(event):
             match self.windows_plot_sensors_overview_summary_coefficients.windowTitle():
-                case ChartType.SUMMARY_COEFFICIENTS:
+                case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                     self.fig_summary_coefficients_sensors_overview = None
                 case ChartType.SPECTRUM:
                     self.fig_spectrum_sensors_overview = None
@@ -701,7 +714,7 @@ class Interface(QWidget):
 
         def closeEvent(event):
             match self.windows_plot_sensors_overview_spectrum.windowTitle():
-                case ChartType.SUMMARY_COEFFICIENTS:
+                case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                     self.fig_summary_coefficients_sensors_overview = None
                 case ChartType.SPECTRUM:
                     self.fig_spectrum_sensors_overview = None
@@ -744,23 +757,21 @@ class Interface(QWidget):
             *args,
             **kwargs
     ):
-        print('Необходимо переопределить')
         pass
 
-    def get_pressure_coefficients_for_the_sensor(
+    def _get_pressure_coefficients_for_the_sensor(
             self,
-            *args,
-            **kwargs
+            sensor_id
     ):
-        print('Необходимо переопределить')
-        pass
+        pressure_coefficients = self._get_pressure_coefficients()
+
+        return pressure_coefficients[:, sensor_id]
 
     @abstractmethod
     def get_model_id(self,
                      model_name,
                      alpha
                      ):
-        print('Необходимо переопределить')
         pass
 
     @abstractmethod
@@ -769,23 +780,18 @@ class Interface(QWidget):
             *args,
             **kwargs
     ):
-        print('Необходимо переопределить')
         pass
 
     @abstractmethod
-    def get_face_number(
-            self,
-            model_id,
-            alpha
-    ):
-        print('Необходимо переопределить')
+    def _get_face_number(
+            self
+    ) -> list[int]:
         pass
 
     @abstractmethod
     def create_report(
             self
     ):
-        print('Необходимо переопределить')
         pass
 
     @abstractmethod
@@ -797,10 +803,8 @@ class Interface(QWidget):
         pass
 
     @abstractmethod
-    def get_model_name(
-            self,
-            *args,
-            **kwargs
+    def _get_model_name(
+            self
     ):
         pass
 
@@ -893,41 +897,17 @@ class Interface(QWidget):
             case CartesianModelSummaryCoefficients.TPU:
                 kt = 1
             case CartesianModelSummaryCoefficients.REAL:
-                breadth, depth, height = model_size
-                breadth_tpu, depth_tpu, height_tpu = size_tpu
                 alpha_str = self._get_alpha(area_type=True)
                 wind_region = self._get_wind_region()
 
-                kz = height / height_tpu
-
-                match alpha_str:
-                    case 'A':
-                        Uz_a_x = Uz_a_0_16_x
-                        Uz_a_z = np.array(Uz_a_0_16_z)
-                    case 'C':
-                        Uz_a_x = Uz_a_0_25_x
-                        Uz_a_z = np.array(Uz_a_0_25_z)
-
-                Uz_a_z_scaled = Uz_a_z * kz
-                speed_tpu_function = scipy.interpolate.interp1d(Uz_a_z_scaled, Uz_a_x)
-                speed_tpu = speed_tpu_function(height)
-
-                speed_sp = speed_sp_region(height, alpha_str, wind_region)
-
-                l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
-                l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
-
-                kv = speed_sp / speed_tpu
-                km = l_m / l_tpu
-
-                kt = km / kv
+                kt = calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle)
 
         fig = PlotBuilding.summary_coefficients(data_to_plot,
                                                 kt,
                                                 sample_period=self.SAMPLE_PERIOD,
                                                 number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
 
-        self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
 
     def plot_summary_coefficients_polar(
             self,
@@ -1027,7 +1007,7 @@ class Interface(QWidget):
 
         fig = PlotBuilding.polar_plot(data_to_plot)
 
-        self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
 
     def plot_summary_coefficients(
             self

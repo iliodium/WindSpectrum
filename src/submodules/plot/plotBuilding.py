@@ -18,7 +18,6 @@ from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.utils import get_size_tpu_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
-from compiled_functions import aot_calculations
 
 
 class PlotBuilding(Plot):
@@ -147,6 +146,35 @@ class PlotBuilding(Plot):
 
     @staticmethod
     @validate_call
+    def sensor_signal(
+            signal: dict[str, Any],
+            kt: float = 1,
+            sample_period: float = 32.768,
+            number_of_time_counts: int = 32768
+
+    ) -> plt.Figure:
+
+        fig, ax = plt.subplots(dpi=PlotBuilding.DPI)
+
+        ax.set_xlim(0, sample_period * kt)
+        ox = np.linspace(0, sample_period * kt, number_of_time_counts)
+
+        ax.grid()
+        ax.set_ylabel('Аэродинамический коэффициент', fontsize=Plot.YLABEL_FONTSIZE)
+        ax.set_xlabel('Время, с', labelpad=.3, fontsize=Plot.XLABEL_FONTSIZE)
+
+        for name in signal.keys():
+            if signal[name] is not None:
+                ax.plot(ox, signal[name], label=name)
+
+        ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
+        ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
+        ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)
+
+        return fig
+
+    @staticmethod
+    @validate_call
     def polar_plot(
             data: dict[str, dict[str, Any]],
             title: str = '',
@@ -211,8 +239,8 @@ class PlotBuilding(Plot):
             data,
             height,
             speed,
-            sample_frequency:int,
-            number_of_time_counts:int
+            sample_frequency: int,
+            number_of_time_counts: int
 
     ):
         """Отрисовка графиков спектральной плотности мощности"""
@@ -223,8 +251,8 @@ class PlotBuilding(Plot):
 
         ax.grid()
         ax.set_title('Спектральная плотность мощности', fontsize=Plot.TITLE_FONTSIZE)
-        ax.set_xlabel(r'$\frac{f \cdot H_{ref}}{U_{ref}}$', fontsize=Plot.XLABEL_FONTSIZE+20)
-        ax.set_ylabel(r'$\frac{S(f)\cdot f}{\sigma^2}$', fontsize=Plot.YLABEL_FONTSIZE+20)
+        ax.set_xlabel(r'$\frac{f \cdot H_{ref}}{U_{ref}}$', fontsize=Plot.XLABEL_FONTSIZE + 20)
+        ax.set_ylabel(r'$\frac{S(f)\cdot f}{\sigma^2}$', fontsize=Plot.YLABEL_FONTSIZE + 20)
 
         ax.tick_params(axis='x', labelsize=Plot.XTICKS_FONTSIZE)
         ax.tick_params(axis='y', labelsize=Plot.YTICKS_FONTSIZE)

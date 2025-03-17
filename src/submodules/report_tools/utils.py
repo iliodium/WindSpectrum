@@ -27,11 +27,11 @@ def create_directory_to_report(
 
     # folders for summary coefficients
     for i in CoordinateSystem:
-        os.makedirs(os.path.join(folder, ChartType.SUMMARY_COEFFICIENTS, i), exist_ok=True)
+        os.makedirs(os.path.join(folder, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, i), exist_ok=True)
 
     # folders for polar summary coefficients
     for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
-        os.makedirs(os.path.join(folder, ChartType.SUMMARY_COEFFICIENTS, CoordinateSystem.POLAR, i), exist_ok=True)
+        os.makedirs(os.path.join(folder, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, CoordinateSystem.POLAR, i), exist_ok=True)
 
     # folders for spectrum
     for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):

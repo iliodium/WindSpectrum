@@ -48,7 +48,7 @@ class InterferenceHighRiseInterface(Interface):
 
         self.StackedLayoutMainMenu.addWidget(WidgetInterferingInformation)
 
-        self.previousIndex = False
+        self.previousScreenFlag = False
 
     def _init_general_information(
             self
@@ -83,10 +83,10 @@ class InterferenceHighRiseInterface(Interface):
             self
     ):
 
-        if self.previousIndex:
+        if self.previousScreenFlag:
             self.PushButtonInterferingInformation.setText(Buttons.INTERFERING_INFORMATION)
             self.StackedLayoutMainMenu.setCurrentIndex(0)
-            self.previousIndex = False
+            self.previousScreenFlag = False
 
         super()._switch_stacked_layout_sensors_overview()
 
@@ -100,13 +100,13 @@ class InterferenceHighRiseInterface(Interface):
                 self.StackedLayoutMainMenu.setCurrentIndex(2)
                 self.PushButtonSensorsOverview.setText(Buttons.SENSORS)
                 self.PushButtonInterferingInformation.setText(Buttons.PLOTS)
-                self.previousIndex = True
+                self.previousScreenFlag = True
 
             case 2:
                 self.PushButtonSensorsOverview.setText(Buttons.SENSORS)
                 self.PushButtonInterferingInformation.setText(Buttons.INTERFERING_INFORMATION)
                 self.StackedLayoutMainMenu.setCurrentIndex(0)
-                self.previousIndex = False
+                self.previousScreenFlag = False
 
     def _get_model_size_interfering(
             self
@@ -183,11 +183,9 @@ class InterferenceHighRiseInterface(Interface):
 
         return count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row
 
-    def get_face_number(
-            self,
-            model_id=None,
-            alpha=None
-    ) -> list[int]:
+    def _get_face_number(
+            self
+    ):
         face_number = [1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1,
                        1, 1, 1, 2, 2,
                        2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2,
@@ -204,16 +202,12 @@ class InterferenceHighRiseInterface(Interface):
 
         return face_number
 
-    def get_pressure_coefficients_for_the_sensor(
-            self,
-            angle,
-            position,
-            id_interfering_building,
-            sensor_id
+    def _get_size_tpu(
+            self
     ):
-        pressure_coefficients = self._get_pressure_coefficients(angle, position, id_interfering_building)
+        size = self._get_tpu_size_principal_building()
 
-        return pressure_coefficients[:, sensor_id]
+        return size
 
     def _get_size_and_count_sensors(
             self,
@@ -261,3 +255,8 @@ class InterferenceHighRiseInterface(Interface):
             pressure_coefficients_storage[angle] = pressure_coefficients
 
         return pressure_coefficients_storage
+
+    def _get_model_name(
+            self
+    ):
+        pass
