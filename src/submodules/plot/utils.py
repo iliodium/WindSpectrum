@@ -105,17 +105,11 @@ def calculate_levels(
         pressure_coefficients,
         pressure=False
 ):
-    min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 1)
-    max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 1)
+    min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 2)
+    max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 2)
     if pressure:
-        match parameter:
-            case ChartMode.MAX | ChartMode.MIN:
-                step = 50
-            case _:
-                step = 25
-
-        decimals = 0
-        levels = np.round(np.linspace(min_value - 1, max_value + 1, 10), decimals)
+        levels = np.linspace(min_value - 1, max_value + 1, 10).astype(int)
+        # используем set тк числа могут повторяться
         levels = sorted(list(set(levels)))
 
     else:
