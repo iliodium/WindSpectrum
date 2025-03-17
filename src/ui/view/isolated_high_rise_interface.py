@@ -67,15 +67,15 @@ class IsolatedHighRiseInterface(Interface):
             model_name: str,
             sensor_id
     ):
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+        pressure_coefficients = self._get_pressure_coefficients(model_id, alpha, angle, str(model_name))
         return pressure_coefficients[:, sensor_id]
 
-    def get_pressure_coefficients(
+    def _get_pressure_coefficients_for_definition_angle(
             self,
-            model_id,
-            alpha,
+            model_name,
             angle,
-            model_name: str
+            model_id,
+            alpha
     ):
         model_name_base = model_name
         turn_flag = False
@@ -116,6 +116,22 @@ class IsolatedHighRiseInterface(Interface):
                                                                   (3, 0, 1, 2))
         return pressure_coefficients
 
+    def _get_pressure_coefficients(
+            self
+    ):
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        angle = int(self.lineEditWindAngle.text())
+
+        model_id = self.get_model_id(model_name, alpha)
+
+        model_name = str(model_name)
+
+        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(model_name, angle, model_id, alpha)
+
+        return pressure_coefficients
+
     def get_model_id(
             self,
             model_name,
@@ -129,11 +145,17 @@ class IsolatedHighRiseInterface(Interface):
 
         return model_id
 
-    def get_coordinates(
+    def _get_coordinates(
             self,
-            model_id,
-            alpha
+            # model_id,
+            # alpha
     ):
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+
+        model_id = self.get_model_id(model_name, alpha)
+
         coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
 
         return coordinates
@@ -214,141 +236,63 @@ class IsolatedHighRiseInterface(Interface):
 
         wb.save(f'{os.path.join(path_report, ReportFolder.FILE_NAME_SENSOR_STATISTICS)}.xlsx')
 
-    def plot_isofields(
+    def _get_size_and_count_sensors(
             self,
-            *args,
-            **kwargs
+            count_sensors_on_model
+    ):
+        model_name = self.get_model_name()
+
+        size, count_sensors = get_size_tpu_and_count_sensors(
+            count_sensors_on_model,
+            model_name,
+        )
+        return size, count_sensors
+
+    def get_model_name(
+            self
     ):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
+
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
 
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-        coordinates = self.get_coordinates(model_id, alpha)
+        return model_name
 
-        size, count_sensors = get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
-                                                             model_name,
-                                                             )
-        super().plot_isofields(pressure_coefficients, coordinates, size, count_sensors)
-
-    def plot_envelopes(
-            self,
-            *args,
-            **kwargs
+    def _get_count_sensors(
+            self
     ):
-        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+        count_sensors_on_model = 252
+        count_sensors_on_middle_row = 7
+        count_sensors_on_side_row = 7
 
-        if not mods:
-            return
+        return count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row
 
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
-        super().plot_envelopes(mods, pressure_coefficients)
-
-    def plot_pseudocolor_coefficients(
-            self,
-            *args,
-            **kwargs
+    def _get_pressure_coefficients_for_polar_plot(
+            self
     ):
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
-        model_size = self._get_model_size()
-        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
-        size, count_sensors = get_size_tpu_and_count_sensors(pressure_coefficients.shape[1],
-                                                             model_name,
-                                                             )
-        super().plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
-
-    def plot_welch_graph(
-            self,
-            *args,
-            **kwargs
-    ):
-        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
-        if not parameters:
-            return
-
-        alpha = self._get_alpha()
-        model_size = self._get_model_size()
-        height = model_size[2]
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-
-        size, count_sensors = get_size_tpu_and_count_sensors(len(coordinates[0]),
-                                                             model_name,
-                                                             )
-
-        super().plot_welch_graph(angle, height, pressure_coefficients, coordinates, size, count_sensors, parameters,
-                                 sample_frequency=IsolatedHighRiseInterface.SAMPLE_FREQUENCY,
-                                 number_of_time_counts=IsolatedHighRiseInterface.NUMBER_OF_TIME_COUNTS)
-
-    def plot_summary_coefficients(
-            self,
-            *args,
-            **kwargs
-    ):
-        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
-                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
-                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
-            return
-
-        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
-        alpha = self._get_alpha()
-
-        model_size = self._get_model_size()
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-        model_id = self.get_model_id(model_name, alpha)
-        coordinates = self.get_coordinates(model_id, alpha)
-
-        size_tpu, count_sensors = get_size_tpu_and_count_sensors(len(coordinates[0]),
-                                                                 model_name,
-                                                                 )
-
-        scale_flag = True
-
         pressure_coefficients_storage = {}
 
-        match type_plot:
-            case CoordinateSystem.CARTESIAN:
-                pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-                pressure_coefficients_storage[angle] = pressure_coefficients
+        alpha = self._get_alpha()
+        model_size = self._get_model_size()
+        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
 
-                super().plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
-                                                            count_sensors, model_size,
-                                                            sample_period=IsolatedHighRiseInterface.SAMPLE_PERIOD,
-                                                            number_of_time_counts=IsolatedHighRiseInterface.NUMBER_OF_TIME_COUNTS)
+        model_id = self.get_model_id(model_name, alpha)
 
-            case CoordinateSystem.POLAR:
-                angle_border = get_angle_border(str(model_name))
+        angle_border = self._get_angle_border()
+        for angle in range(0, angle_border + 5, 5):
+            pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(str(model_name), angle,
+                                                                                         model_id, alpha)
+            pressure_coefficients_storage[angle] = pressure_coefficients
 
-                for angle in range(0, angle_border + 5, 5):
-                    pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
-                                                                                   angle=angle))[angle]
-                    pressure_coefficients_storage[angle] = pressure_coefficients
+        return pressure_coefficients_storage
 
-                super().plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
-                                                        size_tpu,
-                                                        count_sensors, scale_flag)
+    def _get_angle_border(
+            self
+    ):
+        model_name = self.get_model_name()
+        angle_border = get_angle_border(str(model_name))
+
+        return angle_border
 
     def draw_and_save_all_plots(
             self,
@@ -802,7 +746,7 @@ class IsolatedHighRiseInterface(Interface):
 
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
         model_id = self.get_model_id(model_name, alpha)
-        coordinates = self.get_coordinates(model_id, alpha)
+        coordinates = self._get_coordinates(model_id, alpha)
         face_number = self.get_face_number(model_id, alpha)
 
         model_size_str = " ".join(list(map(str, model_size)))
@@ -818,7 +762,7 @@ class IsolatedHighRiseInterface(Interface):
         # Получаем коэффициенты сразу для всех углов
         pressure_coefficients_storage = {}
         for angle in range(0, angle_border + 5, 5):
-            pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+            pressure_coefficients = self._get_pressure_coefficients(model_id, alpha, angle, str(model_name))
 
             pressure_coefficients_storage[angle] = pressure_coefficients
 

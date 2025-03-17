@@ -37,6 +37,10 @@ from src.common.annotation import ModelSizeType
 class Interface(QWidget):
     """Interface"""
 
+    SAMPLE_PERIOD = 7.5
+    SAMPLE_FREQUENCY = 781
+    NUMBER_OF_TIME_COUNTS = 5858
+
     def __init__(
             self,
             parent=None,
@@ -106,7 +110,7 @@ class Interface(QWidget):
                 model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
                 model_name_str = str(model_name)
                 model_id = self.get_model_id(model_name, alpha)
-                coordinates = self.get_coordinates(model_id, alpha)
+                coordinates = self._get_coordinates(model_id, alpha)
 
                 length_x = 2 * (int(model_name_str[0]) + int(model_name_str[1])) / 10
                 length_y = int(model_name_str[2]) / 10
@@ -568,7 +572,10 @@ class Interface(QWidget):
             self.del_plot()
 
         self.containerPlot = QWidget()
+        self.containerPlot.setStyleSheet("border: 0px;")
         self.vBoxLayoutPlot1 = QVBoxLayout(self.containerPlot)
+
+        fig.patch.set_facecolor('#f7f9fc')
 
         # Create plot widget
         self.plotWidget = MatplotlibWidget(fig, title)
@@ -588,23 +595,28 @@ class Interface(QWidget):
         self.plotFlag = True
 
     def plot_welch_graph(
-            self,
-            angle,
-            height,
-            pressure_coefficients,
-            coordinates,
-            size,
-            count_sensors,
-            parameters,
-            sample_frequency,
-            number_of_time_counts
+            self
     ):
+
+        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
+        if not parameters:
+            return
+
         data_to_plot = {}
+
+        coordinates = self._get_coordinates()
+        angle = int(self.lineEditWindAngle.text())
+        pressure_coefficients = self._get_pressure_coefficients()
+
+        size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+
+        model_size = self._get_model_size()
+        height = model_size[2]
 
         if ChartMode.CX in parameters or ChartMode.CY in parameters:
             cx, cy = aot_calculations.calculate_cx_cy(
                 *count_sensors,
-                *size,
+                *size_tpu,
                 np.array(coordinates[0]),
                 np.array(coordinates[1]),
                 pressure_coefficients
@@ -618,7 +630,7 @@ class Interface(QWidget):
             cmz = aot_calculations.calculate_cmz(
                 *count_sensors,
                 angle,
-                *size,
+                *size_tpu,
                 np.array(coordinates[0]),
                 np.array(coordinates[1]),
                 pressure_coefficients
@@ -629,8 +641,8 @@ class Interface(QWidget):
         wind_region = self._get_wind_region()
         speed_sp = speed_sp_region(height, alpha_str, wind_region)
 
-        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp, sample_frequency=sample_frequency,
-                                       number_of_time_counts=number_of_time_counts)
+        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp, sample_frequency=self.SAMPLE_FREQUENCY,
+                                       number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def open_plot_in_new_window(
@@ -703,19 +715,28 @@ class Interface(QWidget):
         layout.addWidget(plotWidget)
         self.windows_plot_sensors_overview_spectrum.show()
 
-    def plot_envelopes(
+    def _plot_envelopes(
             self,
-            mods,
-            pressure_coefficients
-
+            pressure_coefficients,
+            mods
     ):
         figs = PlotBuilding.envelopes(pressure_coefficients, mods)
+
+        return figs
+
+    def plot_envelopes(
+            self
+    ):
+        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+        pressure_coefficients = self._get_pressure_coefficients()
+
+        figs = self._plot_envelopes(pressure_coefficients, mods)
 
         for fig in figs:
             self.open_plot_in_new_window(fig, ChartType.ENVELOPES)
 
     @abstractmethod
-    def get_pressure_coefficients(
+    def _get_pressure_coefficients(
             self,
             *args,
             **kwargs
@@ -740,7 +761,7 @@ class Interface(QWidget):
         pass
 
     @abstractmethod
-    def get_coordinates(
+    def _get_coordinates(
             self,
             *args,
             **kwargs
@@ -764,16 +785,31 @@ class Interface(QWidget):
         print('Необходимо переопределить')
         pass
 
-    def plot_isofields(
+    @abstractmethod
+    def _get_size_and_count_sensors(
             self,
-            pressure_coefficients,
-            coordinates,
-            size,
-            count_sensors
+            *args,
+            **kwargs
     ):
-        model_size = self._get_model_size()
-        parameter = ChartMode(self.isofieldsParameters.currentText())
+        pass
 
+    @abstractmethod
+    def get_model_name(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
+
+    def _plot_isofields(
+            self,
+            model_size,
+            size,
+            count_sensors,
+            parameter,
+            pressure_coefficients,
+            coordinates
+    ):
         match self.ComboBoxTypesIsofields.text():
             case IsofieldsType.PRESSURE:
                 area_type = self._get_alpha(area_type=True)
@@ -796,6 +832,19 @@ class Interface(QWidget):
                                                           coordinates
                                                           )
 
+        return fig
+
+    def plot_isofields(
+            self
+    ):
+        pressure_coefficients = self._get_pressure_coefficients()
+        coordinates = self._get_coordinates()
+        size, count_sensors = self._get_size_and_count_sensors(pressure_coefficients.shape[1])
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.isofieldsParameters.currentText())
+
+        fig = self._plot_isofields(model_size, size, count_sensors, parameter, pressure_coefficients, coordinates)
+
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def plot_summary_coefficients_cartesian(
@@ -805,9 +854,7 @@ class Interface(QWidget):
             coordinates,
             size_tpu,
             count_sensors,
-            model_size,
-            sample_period: float,
-            number_of_time_counts: int
+            model_size
     ):
 
         data_to_plot = {}
@@ -874,8 +921,8 @@ class Interface(QWidget):
 
         fig = PlotBuilding.summary_coefficients(data_to_plot,
                                                 kt,
-                                                sample_period=sample_period,
-                                                number_of_time_counts=number_of_time_counts)
+                                                sample_period=self.SAMPLE_PERIOD,
+                                                number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
 
         self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
 
@@ -885,8 +932,7 @@ class Interface(QWidget):
             pressure_coefficients_storage: dict,
             coordinates,
             size_tpu,
-            count_sensors,
-            scale_flag
+            count_sensors
     ):
 
         data_to_plot = {}
@@ -939,7 +985,7 @@ class Interface(QWidget):
                 for p in parameters:
                     data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
 
-        if scale_flag:
+        if len(pressure_coefficients_storage) != 72:
             if cx_flag or cy_flag:
                 for p in parameters:
                     cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
@@ -980,23 +1026,79 @@ class Interface(QWidget):
 
         self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
 
-    @abstractmethod
     def plot_summary_coefficients(
             self
     ):
-        print('Необходимо переопределить')
+        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
+                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
+                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
+            return
+
+        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
+
+        coordinates = self._get_coordinates()
+
+        size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+
+        pressure_coefficients_storage = {}
+
+        match type_plot:
+            case CoordinateSystem.CARTESIAN:
+                model_size = self._get_model_size()
+                angle = int(self.lineEditWindAngle.text())
+
+                pressure_coefficients = self._get_pressure_coefficients()
+                pressure_coefficients_storage[angle] = pressure_coefficients
+
+                self.plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
+                                                         count_sensors, model_size,
+                                                         sample_period=self.SAMPLE_PERIOD,
+                                                         number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
+
+            case CoordinateSystem.POLAR:
+                pressure_coefficients_storage = self._get_pressure_coefficients_for_polar_plot()
+                angle_border = self._get_angle_border()
+                self.plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
+                                                     size_tpu, count_sensors)
+
+    @abstractmethod
+    def _get_pressure_coefficients_for_polar_plot(
+            self,
+            *args,
+            **kwargs
+    ):
         pass
 
-    def plot_pseudocolor_coefficients(
+    @abstractmethod
+    def _get_angle_border(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
+
+    def _plot_pseudocolor_coefficients(
             self,
             model_size,
             count_sensors,
             parameter,
             pressure_coefficients
-
     ):
         fig = PlotBuilding.pseudocolor_coefficients(model_size,
                                                     count_sensors,
                                                     parameter,
                                                     pressure_coefficients)
+
+        return fig
+
+    def plot_pseudocolor_coefficients(
+            self
+    ):
+        pressure_coefficients = self._get_pressure_coefficients()
+        size, count_sensors = self._get_size_and_count_sensors(pressure_coefficients.shape[1])
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
+
+        fig = self._plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
+
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)

@@ -9,8 +9,6 @@ from src.common.annotation import ModelSizeType
 from src.submodules.databasetoolkit.interference import load_pressure_coefficients, find_id_building_by_height
 from src.submodules.utils.scaling import get_model_and_scale_factors_interference
 from src.ui.common.Buttons import Buttons
-from src.ui.common.ChartMode import ChartMode
-from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.components.ImageLabel import ImageLabel
 from src.ui.view.interface import Interface
 
@@ -120,10 +118,10 @@ class InterferenceHighRiseInterface(Interface):
     ) -> int:
         return int(self.lineEditPositionInterfering.text())
 
-    def get_pressure_coefficients(
+    def _get_pressure_coefficients_for_definition_angle(
             self,
-            angle,
             position,
+            angle,
             id_interfering_building
     ):
         pressure_coefficients = asyncio.run(
@@ -131,7 +129,7 @@ class InterferenceHighRiseInterface(Interface):
 
         return pressure_coefficients
 
-    def get_coordinates(
+    def _get_coordinates(
             self
     ):
         x = np.array(
@@ -164,6 +162,12 @@ class InterferenceHighRiseInterface(Interface):
         ) / 1000
 
         return x, z
+
+    def _get_angle_border(
+            self
+    ):
+
+        return 355
 
     def _get_tpu_size_principal_building(
             self
@@ -207,151 +211,53 @@ class InterferenceHighRiseInterface(Interface):
             id_interfering_building,
             sensor_id
     ):
-        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+        pressure_coefficients = self._get_pressure_coefficients(angle, position, id_interfering_building)
 
         return pressure_coefficients[:, sensor_id]
 
-    def plot_isofields(
+    def _get_size_and_count_sensors(
             self,
             *args,
             **kwargs
     ):
-        model_size_interfering = self._get_model_size_interfering()
-        coordinates = self.get_coordinates()
-
-        angle = int(self.lineEditWindAngle.text())
-
-        position = self._get_position_interfering()
-        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
-        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
-
-        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
-
         count_sensors = self._get_count_sensors()
         size = self._get_tpu_size_principal_building()
 
-        super().plot_isofields(pressure_coefficients,
-                               coordinates,
-                               size,
-                               count_sensors)
+        return size, count_sensors
 
-    def plot_envelopes(
-            self,
-            *args,
-            **kwargs
+    def _get_pressure_coefficients(
+            self
     ):
-        mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
-
-        if not mods:
-            return
-
-        model_size_interfering = self._get_model_size_interfering()
-
         angle = int(self.lineEditWindAngle.text())
-
         position = self._get_position_interfering()
-        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
-        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+        id_interfering_building = self._get_id_interfering_building()
 
-        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(position, angle,
+                                                                                     id_interfering_building)
 
-        super().plot_envelopes(mods, pressure_coefficients)
+        return pressure_coefficients
 
-    def plot_pseudocolor_coefficients(
-            self,
-            *args,
-            **kwargs
+    def _get_id_interfering_building(
+            self
     ):
         model_size_interfering = self._get_model_size_interfering()
-
-        angle = int(self.lineEditWindAngle.text())
-
         position = self._get_position_interfering()
         height = get_model_and_scale_factors_interference(*model_size_interfering, position)
         id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
 
-        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
+        return id_interfering_building
 
-        model_size = self._get_model_size()
-        parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
-
-        count_sensors = self._get_count_sensors()
-
-        super().plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
-
-    def plot_welch_graph(
-            self,
-            *args,
-            **kwargs
+    def _get_pressure_coefficients_for_polar_plot(
+            self
     ):
-        parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
-        if not parameters:
-            return
-
-        model_size_interfering = self._get_model_size_interfering()
-
-        angle = int(self.lineEditWindAngle.text())
-
-        position = self._get_position_interfering()
-        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
-        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
-
-        pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
-
-        count_sensors = self._get_count_sensors()
-        size = self._get_tpu_size_principal_building()
-        coordinates = self.get_coordinates()
-
-        super().plot_welch_graph(angle, height, pressure_coefficients, coordinates, size,
-                                 count_sensors,
-                                 parameters, sample_frequency=InterferenceHighRiseInterface.SAMPLE_FREQUENCY,
-                                 number_of_time_counts=InterferenceHighRiseInterface.NUMBER_OF_TIME_COUNTS)
-
-    def plot_summary_coefficients(
-            self,
-            *args,
-            **kwargs
-    ):
-        if not ([ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()] or
-                ([ChartMode(i) for i in self.polarView.getCurrentOptions()] and
-                 [ChartMode(i) for i in self.polarView.getCurrentOptions()])):
-            return
-
-        type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
-
-        model_size_interfering = self._get_model_size_interfering()
-        position = self._get_position_interfering()
-        height = get_model_and_scale_factors_interference(*model_size_interfering, position)
-        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
-
-        count_sensors = self._get_count_sensors()
-        coordinates = self.get_coordinates()
-
-        size_tpu = self._get_tpu_size_principal_building()
-
-        scale_flag = False
-
         pressure_coefficients_storage = {}
+        position = self._get_position_interfering()
+        id_interfering_building = self._get_id_interfering_building()
 
-        match type_plot:
-            case CoordinateSystem.CARTESIAN:
-                model_size = self._get_model_size()
-                angle = int(self.lineEditWindAngle.text())
+        angle_border = 355
+        for angle in range(0, angle_border + 5, 5):
+            pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(position, angle,
+                                                                                         id_interfering_building)
+            pressure_coefficients_storage[angle] = pressure_coefficients
 
-                pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
-                pressure_coefficients_storage[angle] = pressure_coefficients
-
-                super().plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
-                                                            count_sensors, model_size,
-                                                            sample_period=InterferenceHighRiseInterface.SAMPLE_PERIOD,
-                                                            number_of_time_counts=InterferenceHighRiseInterface.NUMBER_OF_TIME_COUNTS)
-
-            case CoordinateSystem.POLAR:
-                angle_border = 355
-                for angle in range(0, angle_border + 5, 5):
-                    pressure_coefficients = self.get_pressure_coefficients(angle, position, id_interfering_building)
-                    pressure_coefficients_storage[angle] = pressure_coefficients
-
-                super().plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
-                                                        size_tpu,
-                                                        count_sensors, scale_flag)
+        return pressure_coefficients_storage

@@ -37,7 +37,7 @@ async def __load_building_by_height(
 
     with Session(_engine) as session:
         building = session.scalars(stmt).first()
-    print(building, 13)
+
     return building
 
 
@@ -96,7 +96,6 @@ async def __load_pressure_coefficients_by_id_building_instance_angle(
 
     fc_result = dict()
 
-    print(result)
 
     if local_db:
         fc_result[result.angle] = np.frombuffer(result.pressure_coefficients, dtype=int).reshape(5858,

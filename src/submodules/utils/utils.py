@@ -8,13 +8,18 @@ from src.common.DbType import DbType
 
 @validate_call
 def get_size_tpu_and_count_sensors(
-        pressure_coefficients_shape: int,
+        count_sensors_on_model: int,
         model_name: Union[int | None] = None
 ):
+    """
+
+    :param count_sensors_on_model: len(coordinates[0]) or pressure_coefficients.shape[1]
+    :param model_name:
+    :return:
+    """
     model_name_list = [i for i in list(str(model_name))]
     breadth, depth, height = [int(i) / 10 for i in model_name_list]
 
-    count_sensors_on_model = pressure_coefficients_shape
     count_sensors_on_middle_row = int(model_name_list[0]) * 5
     count_sensors_on_side_row = int(model_name_list[1]) * 5
 
