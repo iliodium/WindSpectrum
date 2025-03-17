@@ -228,7 +228,7 @@ class InterferenceHighRiseInterface(Interface):
     def _get_pressure_coefficients(
             self
     ):
-        angle = int(self.lineEditWindAngle.text())
+        angle = self._get_angle()
         position = self._get_position_interfering()
         id_interfering_building = self._get_id_interfering_building()
 

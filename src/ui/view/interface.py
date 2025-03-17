@@ -1,5 +1,4 @@
 # coding:utf-8
-import asyncio
 from abc import abstractmethod
 
 import numpy as np
@@ -11,16 +10,13 @@ from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
     StrongBodyLabel, LineEdit
 
 from compiled_functions import aot_calculations
+from src.common.annotation import ModelSizeType
 from src.common.constants import wind_regions, alpha_standards, Uz_a_0_16_z, Uz_a_0_16_x, Uz_a_0_25_x, Uz_a_0_25_z
-from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, load_positions
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
-from src.submodules.utils import utils
-from src.submodules.utils.angle import get_angle_border
 from src.submodules.utils.data_features import polar_lambdas
-from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.scaling import get_model_and_scale_factors
-from src.submodules.utils.utils import get_size_tpu_and_count_sensors
+from src.submodules.utils.speed_sp import speed_sp_region
 from src.ui.common.Buttons import Buttons
 from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
 from src.ui.common.ChartMode import ChartMode
@@ -31,7 +27,6 @@ from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
-from src.common.annotation import ModelSizeType
 
 
 class Interface(QWidget):
@@ -138,7 +133,7 @@ class Interface(QWidget):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
+        angle = self._get_angle()
 
         model_id = self.get_model_id(model_name, alpha)
 
@@ -520,6 +515,14 @@ class Interface(QWidget):
 
         return self.ComboBoxWindRegions.text()
 
+    def _get_angle(
+            self
+    ):
+        """получаем угол и возвращаем ближайшее кратное число на 5"""
+        angle = int(self.lineEditWindAngle.text()) % 360
+
+        return 5 * round(angle / 5)
+
     def _icon(
             self,
             path
@@ -605,7 +608,7 @@ class Interface(QWidget):
         data_to_plot = {}
 
         coordinates = self._get_coordinates()
-        angle = int(self.lineEditWindAngle.text())
+        angle = self._get_angle()
         pressure_coefficients = self._get_pressure_coefficients()
 
         size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
@@ -1045,15 +1048,13 @@ class Interface(QWidget):
         match type_plot:
             case CoordinateSystem.CARTESIAN:
                 model_size = self._get_model_size()
-                angle = int(self.lineEditWindAngle.text())
+                angle = self._get_angle()
 
                 pressure_coefficients = self._get_pressure_coefficients()
                 pressure_coefficients_storage[angle] = pressure_coefficients
 
                 self.plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
-                                                         count_sensors, model_size,
-                                                         sample_period=self.SAMPLE_PERIOD,
-                                                         number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
+                                                         count_sensors, model_size)
 
             case CoordinateSystem.POLAR:
                 pressure_coefficients_storage = self._get_pressure_coefficients_for_polar_plot()

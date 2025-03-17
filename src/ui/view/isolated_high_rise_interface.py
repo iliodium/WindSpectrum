@@ -122,7 +122,7 @@ class IsolatedHighRiseInterface(Interface):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
+        angle = self._get_angle()
 
         model_id = self.get_model_id(model_name, alpha)
 
