@@ -269,7 +269,7 @@ async def __load_experiments_alpha_by_model_name(
     return experiment
 
 
-# @validate_call
+@validate_call
 async def __load_pressure_coefficients_for_type_and_alpha(
         experiment_id: ExperimentIdType,
         models_type,

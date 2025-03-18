@@ -1,6 +1,8 @@
 # coding:utf-8
+import json
 import os
 from abc import abstractmethod
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import matplotlib
 import numpy as np
@@ -39,6 +41,9 @@ from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
 
+with open(r'config.json', 'r') as file:
+    config_db = json.load(file)
+
 
 class Interface(QWidget):
     """Interface"""
@@ -48,6 +53,10 @@ class Interface(QWidget):
     NUMBER_OF_TIME_COUNTS = None
 
     REPORT_FOLDER_NAME = None
+
+    DB_URL = config_db['db_url']
+    DB_URL_SERVER = config_db['db_url_server']
+    MAX_WORKERS = config_db['max_workers']
 
     def __init__(
             self,
@@ -299,7 +308,7 @@ class Interface(QWidget):
 
         self.ComboBoxChartMenu = ComboBox()
         self.ComboBoxChartMenu.addItems([
-            self.tr(i) for i in ChartType
+            self.tr(i) for i in ChartType if i != ChartType.AERODYNAMIC_COEFFICIENTS
         ])
         self.ComboBoxChartMenu.currentTextChanged.connect(self._switch_stacked_layout_type_chart)
         self.ComboBoxChartMenu.setFixedWidth(225)
@@ -1091,6 +1100,28 @@ class Interface(QWidget):
 
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)
 
+    @staticmethod
+    def _draw_and_save_plot(func, path, fig_name, width, height, dpi, bbox_inches, *args):
+        figs = func(*args)
+        if isinstance(figs, list):
+            for i, fig in enumerate(figs):
+                fig.set_size_inches(width, height)
+                fig.savefig(
+                    os.path.join(path, f'{fig_name} {i}.png'),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+        else:
+            figs.set_size_inches(width, height)
+            figs.savefig(os.path.join(path, f'{fig_name}.png'), dpi=dpi, bbox_inches=bbox_inches)
+            plt.close(figs)
+
+    @staticmethod
+    def _run_future(executor, *args):
+        future = executor.submit(*args)
+        future.add_done_callback(
+            lambda f: print(f"Ошибка в задаче: {f.exception()}") if f.exception() else None)
+
     def draw_and_save_all_plots(
             self,
             pressure_coefficients_storage,
@@ -1105,72 +1136,83 @@ class Interface(QWidget):
             wind_region,
     ):
         # изополя в виде давления и коэффициентов
-        for angle in range(0, angle_border + 5, 5):
-            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
-                fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          size_tpu,
-                                                          count_sensors,
-                                                          parameter,
-                                                          pressure_coefficients_storage[angle],
-                                                          coordinates
-                                                          )
-                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.COEFFICIENT,
-                                 parameter, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            for angle in range(0, angle_border + 5, 5):
+                for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                    fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
+                    path = os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.COEFFICIENT,
+                                        parameter)
+                    args = (model_size,
+                            size_tpu,
+                            count_sensors,
+                            parameter,
+                            pressure_coefficients_storage[angle],
+                            coordinates
+                            )
 
-                fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          size_tpu,
-                                                          count_sensors,
-                                                          parameter,
-                                                          pressure_coefficients_storage[angle],
-                                                          coordinates,
-                                                          area_type,
-                                                          wind_region
-                                                          )
-                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.PRESSURE,
-                                 parameter, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+                    self._run_future(executor, self._draw_and_save_plot,
+                                     PlotBuilding.isofields_coefficients, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                     *args)
 
+                    path = os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.PRESSURE,
+                                        parameter)
+                    args = (model_size,
+                            size_tpu,
+                            count_sensors,
+                            parameter,
+                            pressure_coefficients_storage[angle],
+                            coordinates,
+                            area_type,
+                            wind_region
+                            )
+
+                    self._run_future(executor, self._draw_and_save_plot,
+                                     PlotBuilding.isofields_coefficients, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                     *args)
+
+            executor.shutdown(wait=True)
         # изополя в виде мозаики
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            for angle in range(0, angle_border + 5, 5):
+                for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                    fig_name = f'{model_size_str} {area_type} {parameter} {angle}'
+                    path = os.path.join(path_report, ChartType.DISCRETE_ISOFIELDS, parameter)
+                    args = (model_size,
+                            count_sensors,
+                            parameter,
+                            pressure_coefficients_storage[angle])
+                    self._run_future(executor, self._draw_and_save_plot,
+                                     PlotBuilding.pseudocolor_coefficients, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                     *args)
 
-        for angle in range(0, angle_border + 5, 5):
-            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
-                fig = PlotBuilding.pseudocolor_coefficients(model_size,
-                                                            count_sensors,
-                                                            parameter,
-                                                            pressure_coefficients_storage[angle])
-                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.DISCRETE_ISOFIELDS,
-                                 parameter, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+            executor.shutdown(wait=True)
+
 
         # огибающие
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            for angle in range(0, angle_border + 5, 5):
+                # figs = PlotBuilding.envelopes(pressure_coefficients_storage[angle],
+                #                               (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS,
+                #                                ChartMode.STD))
+                # for i, fig in enumerate(figs):
+                #     fig_name = f'{model_size_str} {area_type} {angle} {i}.png'
+                #     fig.set_size_inches(18.5, 10.5)
+                #     fig.savefig(
+                #         os.path.join(path_report, ChartType.ENVELOPES, fig_name),
+                #         dpi=200,
+                #         bbox_inches='tight')
+                #     plt.close(fig)
 
-        for angle in range(0, angle_border + 5, 5):
-            figs = PlotBuilding.envelopes(pressure_coefficients_storage[angle],
-                                          (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD))
-            for i, fig in enumerate(figs):
-                fig_name = f'{model_size_str} {area_type} {angle} {i}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.ENVELOPES, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+                fig_name = f'{model_size_str} {area_type} {angle}'
+                path = os.path.join(path_report, ChartType.ENVELOPES)
+                args = (pressure_coefficients_storage[angle],
+                        (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS,
+                         ChartMode.STD))
+                self._run_future(executor, self._draw_and_save_plot,
+                                 PlotBuilding.envelopes, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                 *args)
+            executor.shutdown(wait=True)
+
 
         data_to_plot = {}
         data_to_plot_polar = {}
@@ -1259,25 +1301,38 @@ class Interface(QWidget):
         speed_sp = speed_sp_region(height, area_type, wind_region)
 
         # Спектры
-        for angle in range(0, angle_border + 5, 5):
-            for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
-                fig = PlotBuilding.welch_graph({i: data_to_plot[angle][i]}, height, speed_sp,
-                                               sample_frequency=self.SAMPLE_FREQUENCY,
-                                               number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
-                fig_name = f'{model_size_str} {area_type} {angle}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.SPECTRUM, i, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            for angle in range(0, angle_border + 5, 5):
+                for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+                    # fig = PlotBuilding.welch_graph({i: data_to_plot[angle][i]}, height, speed_sp,
+                    #                                sample_frequency=self.SAMPLE_FREQUENCY,
+                    #                                number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
+                    # fig_name = f'{model_size_str} {area_type} {angle}.png'
+                    # fig.set_size_inches(18.5, 10.5)
+                    # fig.savefig(
+                    #     os.path.join(path_report, ChartType.SPECTRUM, i, fig_name),
+                    #     dpi=200,
+                    #     bbox_inches='tight')
+                    # plt.close(fig)
+
+                    fig_name = f'{model_size_str} {area_type} {angle}'
+                    path = os.path.join(path_report, ChartType.SPECTRUM, i)
+                    args = ({i: data_to_plot[angle][i]}, height, speed_sp,
+                            self.SAMPLE_FREQUENCY,
+                            self.NUMBER_OF_TIME_COUNTS)
+                    self._run_future(executor, self._draw_and_save_plot,
+                                     PlotBuilding.welch_graph, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                     *args)
+            executor.shutdown(wait=True)
+
 
         del data_to_plot
 
         # Масштабируем данные для полярной системы координат
         if len(pressure_coefficients_storage) != 72:
             for p in parameters:
-                cx_scale, cy_scale = scaling_data(data_to_plot_polar[ChartMode.CX][p], data_to_plot_polar[ChartMode.CY][p],
+                cx_scale, cy_scale = scaling_data(data_to_plot_polar[ChartMode.CX][p],
+                                                  data_to_plot_polar[ChartMode.CY][p],
                                                   angle_border=angle_border)
                 data_to_plot_polar[ChartMode.CX][p] = cx_scale
                 data_to_plot_polar[ChartMode.CY][p] = cy_scale
@@ -1287,27 +1342,37 @@ class Interface(QWidget):
         else:
             for p in parameters:
                 data_to_plot_polar[ChartMode.CX][p] = np.append(data_to_plot_polar[ChartMode.CX][p],
-                                                          data_to_plot_polar[ChartMode.CX][p][0])
+                                                                data_to_plot_polar[ChartMode.CX][p][0])
 
                 data_to_plot_polar[ChartMode.CY][p] = np.append(data_to_plot_polar[ChartMode.CY][p],
-                                                          data_to_plot_polar[ChartMode.CY][p][0])
+                                                                data_to_plot_polar[ChartMode.CY][p][0])
 
                 data_to_plot_polar[ChartMode.CMZ][p] = np.append(data_to_plot_polar[ChartMode.CMZ][p],
-                                                           data_to_plot_polar[ChartMode.CMZ][p][0])
+                                                                 data_to_plot_polar[ChartMode.CMZ][p][0])
 
         # Отрисовка в полярной системе координат
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+                for p in parameters:
+                    # fig = PlotBuilding.polar_plot({i: {p: data_to_plot_polar[i][p]}})
+                    # fig_name = f'{model_size_str} {area_type} {p}.png'
+                    # fig.set_size_inches(18.5, 10.5)
+                    # fig.savefig(
+                    #     os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                    #                  CoordinateSystem.POLAR, i, fig_name),
+                    #     dpi=200,
+                    #     bbox_inches='tight')
+                    # plt.close(fig)
 
-        for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
-            for p in parameters:
-                fig = PlotBuilding.polar_plot({i: {p: data_to_plot_polar[i][p]}})
-                fig_name = f'{model_size_str} {area_type} {p}.png'
-                fig.set_size_inches(18.5, 10.5)
-                fig.savefig(
-                    os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
-                                 CoordinateSystem.POLAR, i, fig_name),
-                    dpi=200,
-                    bbox_inches='tight')
-                plt.close(fig)
+                    fig_name = f'{model_size_str} {area_type} {p}'
+                    path = os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                                     CoordinateSystem.POLAR, i)
+                    args = ({i: {p: data_to_plot_polar[i][p]}}, )
+                    self._run_future(executor, self._draw_and_save_plot,
+                                     PlotBuilding.polar_plot, path, fig_name, 18.5, 10.5, 200, 'tight',
+                                     *args)
+            executor.shutdown(wait=True)
+
 
         del data_to_plot_polar
 

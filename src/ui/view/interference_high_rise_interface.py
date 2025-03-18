@@ -1,5 +1,6 @@
 # coding:utf-8
 import asyncio
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QVBoxLayout
@@ -7,6 +8,7 @@ from qfluentwidgets import PushButton, LineEdit, StrongBodyLabel
 
 from src.common.annotation import ModelSizeType
 from src.submodules.databasetoolkit.interference import load_pressure_coefficients, find_id_building_by_height
+from src.submodules.databasetoolkit.toolkits.decorator import with_db_connection
 from src.submodules.utils.scaling import get_model_and_scale_factors_interference
 from src.ui.common.Buttons import Buttons
 from src.ui.components.ImageLabel import ImageLabel
@@ -120,14 +122,16 @@ class InterferenceHighRiseInterface(Interface):
     ) -> int:
         return int(self.lineEditPositionInterfering.text())
 
+    @staticmethod
+    @with_db_connection(Interface.DB_URL)
     def _get_pressure_coefficients_for_definition_angle(
-            self,
+            engine,
             position,
             angle,
             id_interfering_building
     ):
         pressure_coefficients = asyncio.run(
-            load_pressure_coefficients(position, angle, id_interfering_building, self.engine))[angle]
+            load_pressure_coefficients(position, angle, id_interfering_building, engine))[angle]
 
         return pressure_coefficients
 
@@ -251,10 +255,24 @@ class InterferenceHighRiseInterface(Interface):
         id_interfering_building = self._get_id_interfering_building()
 
         angle_border = 355
-        for angle in range(0, angle_border + 5, 5):
-            pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(position, angle,
-                                                                                         id_interfering_building)
-            pressure_coefficients_storage[angle] = pressure_coefficients
+
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = {}
+            for angle in range(0, angle_border + 5, 5):
+                future = executor.submit(
+                    self._get_pressure_coefficients_for_definition_angle,
+                    position, angle,
+                    id_interfering_building
+                )
+                futures[future] = angle
+
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    angle = futures[future]
+                    pressure_coefficients_storage[angle] = result
+                except Exception as e:
+                    print(f"Ошибка в задаче: {e}")
 
         return pressure_coefficients_storage
 
