@@ -43,3 +43,7 @@ openpyxl==3.1.5
 # WORK WITH WORD
 
 python-docx==1.1.2
+
+# UML schema
+
+pylint==3.3.5

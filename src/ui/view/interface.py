@@ -1,25 +1,34 @@
 # coding:utf-8
-import asyncio
+import os
 from abc import abstractmethod
 
+import matplotlib
 import numpy as np
-import scipy
 from PySide6 import QtGui, QtCore
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QStackedLayout, QVBoxLayout
+from matplotlib import pyplot as plt
 from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
     StrongBodyLabel, LineEdit
-
+from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Pt, Mm
+from matplotlib import pyplot as plt
+from openpyxl import Workbook
 from compiled_functions import aot_calculations
-from src.common.constants import wind_regions, alpha_standards, Uz_a_0_16_z, Uz_a_0_16_x, Uz_a_0_25_x, Uz_a_0_25_z
-from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, load_positions
+from src.common.annotation import ModelSizeType
+from src.common.constants import wind_regions, alpha_standards
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
-from src.submodules.utils import utils
-from src.submodules.utils.angle import get_angle_border
-from src.submodules.utils.data_features import polar_lambdas
+from src.submodules.report_tools.reportFolder import ReportFolder
+from src.submodules.report_tools.utils import create_directory_to_report
+from src.submodules.report_tools.wordBuilder import WordBuilder
+from src.submodules.utils.data_features import polar_lambdas, lambdas, calculated, warranty_plus, warranty_minus
+from src.submodules.utils.scaling import calculate_kt
 from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.submodules.utils.utils import tpu_size_to_real, converter_coordinates
+from src.ui.common.Buttons import Buttons
 from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
@@ -29,11 +38,16 @@ from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
-from src.common.annotation import ModelSizeType
 
 
 class Interface(QWidget):
     """Interface"""
+
+    SAMPLE_PERIOD = None
+    SAMPLE_FREQUENCY = None
+    NUMBER_OF_TIME_COUNTS = None
+
+    REPORT_FOLDER_NAME = None
 
     def __init__(
             self,
@@ -86,28 +100,23 @@ class Interface(QWidget):
         current_index = self.StackedLayoutMainMenu.currentIndex()
         new_index = 1 if current_index == 0 else 0
         if new_index == 1:
-            self.PushButtonSensorsOverview.setText('Графики')
-            model_size = self._get_model_size()
+            self.PushButtonSensorsOverview.setText(Buttons.PLOTS)
+            coordinates = self._get_coordinates()
+            size_model_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+            breadth_tpu, depth_tpu, height_tpu = size_model_tpu
 
-            if model_size != self.SensorWidget.model_size:
-                self.SensorWidget.model_size = model_size
+            if size_model_tpu != self.SensorWidget.model_size:
+                self.SensorWidget.model_size = size_model_tpu
 
-                breadth, depth, _ = model_size
-                length = 2 * (breadth + depth)
+                length = 2 * (breadth_tpu + depth_tpu)
 
-                lines_pos = [i / length for i in (breadth, breadth + depth, 2 * breadth + depth)]
+                lines_pos = [i / length for i in (breadth_tpu, breadth_tpu + depth_tpu, 2 * breadth_tpu + depth_tpu)]
 
                 self.SensorWidget.lines_pos = lines_pos
                 self.SensorWidget.update_lines()
 
-                alpha = self._get_alpha()
-                model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-                model_name_str = str(model_name)
-                model_id = self.get_model_id(model_name, alpha)
-                coordinates = self.get_coordinates(model_id, alpha)
-
-                length_x = 2 * (int(model_name_str[0]) + int(model_name_str[1])) / 10
-                length_y = int(model_name_str[2]) / 10
+                length_x = 2 * (breadth_tpu + depth_tpu)
+                length_y = height_tpu
 
                 x = [i / length_x for i in coordinates[0]]
                 y = [i / length_y for i in coordinates[1]]
@@ -117,32 +126,44 @@ class Interface(QWidget):
                     b.deleteLater()  # Уничтожаем объект
 
                 self.SensorWidget.buttons = []
+                buttons_pos = [(i, 1 - j) for i, j in zip(x, y)]
+                self.SensorWidget.buttons_pos = buttons_pos
 
-                self.SensorWidget.buttons_pos = [(i, j) for i, j in zip(x, y)]
                 self.SensorWidget.add_buttons()
 
             else:
                 pass
         else:
-            self.PushButtonSensorsOverview.setText('Датчики')
+            self.PushButtonSensorsOverview.setText(Buttons.SENSORS)
 
         self.StackedLayoutMainMenu.setCurrentIndex(new_index)
 
+    @abstractmethod
+    def _get_size_tpu(
+            self
+    ):
+        pass
+
     def sensors_overview_button_action(self, sensor_id):
-        alpha = self._get_alpha()
         model_size = self._get_model_size()
-        model_name, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
 
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients_for_the_sensor(model_id, alpha, angle, str(model_name),
-                                                                              sensor_id)
+        pressure_coefficients = self._get_pressure_coefficients_for_the_sensor(sensor_id)
         type_plot = ChartType(self.ComboBoxSensorsOverview.currentText())
+
+        angle = self._get_angle()
+        alpha_str = self._get_alpha(area_type=True)
+        wind_region = self._get_wind_region()
+        size_tpu = self._get_size_tpu()
+
         match type_plot:
-            case ChartType.SUMMARY_COEFFICIENTS:
+            case ChartType.AERODYNAMIC_COEFFICIENTS:
+                kt = calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle)
+
                 if self.fig_summary_coefficients_sensors_overview is None:
-                    fig = PlotBuilding.summary_coefficients({f"Датчик {sensor_id + 1}": pressure_coefficients})
+                    fig = PlotBuilding.sensor_signal({f"Датчик {sensor_id + 1}": pressure_coefficients},
+                                                     kt=kt,
+                                                     sample_period=self.SAMPLE_PERIOD,
+                                                     number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
                 else:
                     data_to_plot = {f"Датчик {sensor_id + 1}": pressure_coefficients}
                     # Перенос данных из первой фигуры
@@ -151,19 +172,25 @@ class Interface(QWidget):
                             data_to_plot[line.get_label()] = line.get_ydata()
                     self.windows_plot_sensors_overview_summary_coefficients.close()
 
-                    fig = PlotBuilding.summary_coefficients(data_to_plot)
+                    fig = PlotBuilding.sensor_signal(data_to_plot,
+                                                     kt=kt,
+                                                     sample_period=self.SAMPLE_PERIOD,
+                                                     number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
 
                 self.fig_summary_coefficients_sensors_overview = fig
-                self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig, ChartType.SUMMARY_COEFFICIENTS)
+                self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig,
+                                                                                   ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
             case ChartType.SPECTRUM:
                 height = model_size[2]
-                alpha_str = self._get_alpha(string=True)
-                wind_region = self._get_wind_region()
+                z_coordinate = self._get_coordinates()[1][sensor_id]
 
-                speed_sp = speed_sp_region(height, alpha_str, wind_region)
+                height_sensor = tpu_size_to_real(z_coordinate, height, size_tpu[2])
+                speed_sp = speed_sp_region(height_sensor, alpha_str, wind_region)
 
                 if self.fig_spectrum_sensors_overview is None:
-                    fig = PlotBuilding.welch_graph({f"Датчик {sensor_id + 1}": pressure_coefficients}, height, speed_sp)
+                    fig = PlotBuilding.welch_graph({f"Датчик {sensor_id + 1}": pressure_coefficients},
+                                                   height_sensor, speed_sp,
+                                                   self.SAMPLE_FREQUENCY, self.NUMBER_OF_TIME_COUNTS)
                 else:
                     data_to_plot = {f"Датчик {sensor_id + 1}": pressure_coefficients}
                     # Перенос данных из первой фигуры
@@ -171,13 +198,13 @@ class Interface(QWidget):
                         for line in ax.get_lines():
                             label = line.get_label()
                             last_space_index = label.rfind(" ")
-                            sensor_id = int(label[last_space_index+1:])-1
-                            data_to_plot[label] = self.get_pressure_coefficients_for_the_sensor(model_id, alpha, angle,
-                                                                                                str(model_name),
-                                                                              sensor_id)
+                            sensor_id = int(label[last_space_index + 1:]) - 1
+                            data_to_plot[label] = self._get_pressure_coefficients_for_the_sensor(sensor_id)
+
                     self.windows_plot_sensors_overview_summary_coefficients.close()
 
-                    fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp)
+                    fig = PlotBuilding.welch_graph(data_to_plot, height_sensor, speed_sp,
+                                                   self.SAMPLE_FREQUENCY, self.NUMBER_OF_TIME_COUNTS)
 
                 self.fig_spectrum_sensors_overview = fig
                 self.open_plot_in_new_window_sensors_overview_summary_coefficients(fig, ChartType.SPECTRUM)
@@ -185,20 +212,20 @@ class Interface(QWidget):
     def _init_general_information(
             self
     ):
-        container = QWidget()
-        container.setFixedWidth(275)
-        container.setFixedHeight(300)
+        self.generalInformationContainer = QWidget()
+        self.generalInformationContainer.setFixedWidth(275)
+        self.generalInformationContainer.setFixedHeight(300)
 
-        vBoxLayoutGenInf = QVBoxLayout(container)
+        self.vBoxLayoutGenInf = QVBoxLayout(self.generalInformationContainer)
 
         # Add label to grid layout
-        vBoxLayoutGenInf.addWidget(TitleLabel("Общие сведения"))
+        self.vBoxLayoutGenInf.addWidget(TitleLabel(Buttons.GENERAL_INFORMATION))
 
         # Wind regions
         # Create horizontal box layout
         self.hBoxLayoutWindRegions = QHBoxLayout()
         # Add label to horizontal box layout
-        self.hBoxLayoutWindRegions.addWidget(StrongBodyLabel('Ветровой район'))
+        self.hBoxLayoutWindRegions.addWidget(StrongBodyLabel(Buttons.WIND_REGION))
         # Create combo box
         self.ComboBoxWindRegions = ComboBox()
         # Fill the combo box
@@ -209,22 +236,22 @@ class Interface(QWidget):
         self.ComboBoxWindRegions.setFixedWidth(75)
         # Add combo box to horizontal box layout
         self.hBoxLayoutWindRegions.addWidget(self.ComboBoxWindRegions)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindRegions)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindRegions)
 
         # Type of area
         self.hBoxLayoutTypeOfArea = QHBoxLayout(self.view)
-        self.hBoxLayoutTypeOfArea.addWidget(StrongBodyLabel('Тип местности'))
+        self.hBoxLayoutTypeOfArea.addWidget(StrongBodyLabel(Buttons.TYPE_OF_AREA))
         self.ComboBoxTypeOfArea = ComboBox()
         self.ComboBoxTypeOfArea.addItems([
             self.tr(i) for i in [*alpha_standards]
         ])
         self.ComboBoxTypeOfArea.setFixedWidth(75)
         self.hBoxLayoutTypeOfArea.addWidget(self.ComboBoxTypeOfArea)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutTypeOfArea)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutTypeOfArea)
 
         # Wind angle
         self.hBoxLayoutWindAngle = QHBoxLayout(self.view)
-        self.hBoxLayoutWindAngle.addWidget(StrongBodyLabel('Угол атаки ветра'))
+        self.hBoxLayoutWindAngle.addWidget(StrongBodyLabel(Buttons.WIND_ANGLE))
         # Create text input widget
         self.lineEditWindAngle = LineEdit()
         # Set default text
@@ -234,31 +261,31 @@ class Interface(QWidget):
         self.lineEditWindAngle.setFixedWidth(75)
         # Add text input widget to horizontal box layout
         self.hBoxLayoutWindAngle.addWidget(self.lineEditWindAngle)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindAngle)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutWindAngle)
 
         # Building size
-        self.hBoxLayoutBuildingSize = QHBoxLayout(self.view)
-        self.hBoxLayoutBuildingSize.addWidget(StrongBodyLabel('Размеры здания'))
+        self.hBoxLayoutBuildingSizeInterfering = QHBoxLayout(self.view)
+        self.hBoxLayoutBuildingSizeInterfering.addWidget(StrongBodyLabel(Buttons.BUILDING_SIZE))
         self.lineEditBuildingSize = LineEdit()
         self.lineEditBuildingSize.setText(self.tr('10 10 20'))
         self.lineEditBuildingSize.setClearButtonEnabled(True)
         self.lineEditBuildingSize.setFixedWidth(125)
-        self.hBoxLayoutBuildingSize.addWidget(self.lineEditBuildingSize)
-        vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSize)
+        self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSize)
+        self.vBoxLayoutGenInf.addLayout(self.hBoxLayoutBuildingSizeInterfering)
 
-        PushButtonReport = PushButton('Отчет')
+        PushButtonReport = PushButton(Buttons.REPORT)
         PushButtonReport.clicked.connect(self.create_report)
-        vBoxLayoutGenInf.addWidget(PushButtonReport)
+        self.vBoxLayoutGenInf.addWidget(PushButtonReport)
 
-        self.PushButtonSensorsOverview = PushButton("Датчики")
+        self.PushButtonSensorsOverview = PushButton(Buttons.SENSORS)
         self.PushButtonSensorsOverview.clicked.connect(self._switch_stacked_layout_sensors_overview)
-        vBoxLayoutGenInf.addWidget(self.PushButtonSensorsOverview)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonSensorsOverview)
 
-        self.PushButtonFiniteElementMethod = PushButton("МКЭ")
+        self.PushButtonInterferingInformation = PushButton(Buttons.FEA)
         # self.PushButtonFiniteElementMethod.clicked.connect(self._switch_stacked_layout_sensors_overview)
-        vBoxLayoutGenInf.addWidget(self.PushButtonFiniteElementMethod)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonInterferingInformation)
 
-        self.hBoxLayoutMain.addWidget(container)
+        self.hBoxLayoutMain.addWidget(self.generalInformationContainer)
 
     def _init_chart_menu(
             self
@@ -288,7 +315,7 @@ class Interface(QWidget):
 
         hBoxLayoutChartMenu.addLayout(self.StackedLayoutTypeChart)
 
-        PushButtonCreatePlot = PushButton('Построить')
+        PushButtonCreatePlot = PushButton(Buttons.BUILD_PLOT)
         PushButtonCreatePlot.clicked.connect(self.create_plot)
         PushButtonCreatePlot.setFixedWidth(100)
 
@@ -305,9 +332,9 @@ class Interface(QWidget):
         hBoxLayoutChartMenu.setAlignment(Qt.AlignLeft)
         self.ComboBoxSensorsOverview = ComboBox()
         self.ComboBoxSensorsOverview.addItems([
-            self.tr(i) for i in (ChartType.SUMMARY_COEFFICIENTS, ChartType.SPECTRUM)
+            self.tr(i) for i in (ChartType.AERODYNAMIC_COEFFICIENTS, ChartType.SPECTRUM)
         ])
-        self.ComboBoxSensorsOverview.setFixedWidth(350)
+        self.ComboBoxSensorsOverview.setFixedWidth(300)
         hBoxLayoutChartMenu.addWidget(self.ComboBoxSensorsOverview)
         self.vBoxLayoutSensorsOverview.addWidget(container)
 
@@ -361,7 +388,7 @@ class Interface(QWidget):
     ):
         self.WidgetEnvelopes = QWidget()
         self.hBoxLayoutEnvelopes = QHBoxLayout(self.WidgetEnvelopes)
-        self.envelopesParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.envelopesParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.envelopesParameters.addItems([ChartMode.MAX,
                                            ChartMode.MEAN,
                                            ChartMode.MIN,
@@ -402,7 +429,7 @@ class Interface(QWidget):
                                  )
         ])
 
-        self.cartesianParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.cartesianParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.cartesianParameters.addItems([ChartMode.CX,
                                            ChartMode.CY,
                                            ChartMode.CMZ,
@@ -413,12 +440,12 @@ class Interface(QWidget):
         # Polar system
         self.WidgetPolarSummaryCoefficients = QWidget()
         self.hBoxLayoutPolarCoordinateSystem = QHBoxLayout(self.WidgetPolarSummaryCoefficients)
-        self.polarView = MultiSelectComboBox(placeholderText='Вид')
+        self.polarView = MultiSelectComboBox(placeholderText=Buttons.VIEW)
         self.polarView.addItems([ChartMode.CX,
                                  ChartMode.CY,
                                  ChartMode.CMZ,
                                  ])
-        self.polarParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.polarParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.polarParameters.addItems([ChartMode.MAX,
                                        ChartMode.MEAN,
                                        ChartMode.MIN,
@@ -439,7 +466,7 @@ class Interface(QWidget):
     ):
         self.WidgetSpectrum = QWidget()
         self.hBoxLayoutSpectrum = QHBoxLayout(self.WidgetSpectrum)
-        self.spectrumParameters = MultiSelectComboBox(placeholderText='Параметры')
+        self.spectrumParameters = MultiSelectComboBox(placeholderText=Buttons.PARAMETERS)
         self.spectrumParameters.addItems([ChartMode.CX,
                                           ChartMode.CY,
                                           ChartMode.CMZ,
@@ -472,7 +499,7 @@ class Interface(QWidget):
                 self.StackedLayoutTypeChart.setCurrentIndex(0)
             case ChartType.ENVELOPES:
                 self.StackedLayoutTypeChart.setCurrentIndex(1)
-            case ChartType.SUMMARY_COEFFICIENTS:
+            case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                 self.StackedLayoutTypeChart.setCurrentIndex(2)
             case ChartType.SPECTRUM:
                 self.StackedLayoutTypeChart.setCurrentIndex(3)
@@ -496,9 +523,9 @@ class Interface(QWidget):
 
     def _get_alpha(
             self,
-            string=False
+            area_type=False
     ):
-        if string:
+        if area_type:
             return self.ComboBoxTypeOfArea.text()
 
         else:
@@ -513,6 +540,14 @@ class Interface(QWidget):
     ):
 
         return self.ComboBoxWindRegions.text()
+
+    def _get_angle(
+            self
+    ):
+        """получаем угол и возвращаем ближайшее кратное число на 5"""
+        angle = int(self.lineEditWindAngle.text()) % 360
+
+        return 5 * round(angle / 5)
 
     def _icon(
             self,
@@ -566,7 +601,10 @@ class Interface(QWidget):
             self.del_plot()
 
         self.containerPlot = QWidget()
+        self.containerPlot.setStyleSheet("border: 0px;")
         self.vBoxLayoutPlot1 = QVBoxLayout(self.containerPlot)
+
+        fig.patch.set_facecolor('#f7f9fc')
 
         # Create plot widget
         self.plotWidget = MatplotlibWidget(fig, title)
@@ -585,32 +623,29 @@ class Interface(QWidget):
 
         self.plotFlag = True
 
-    def plot_welch_graph(self):
+    def plot_welch_graph(
+            self
+    ):
+
         parameters = [ChartMode(i) for i in self.spectrumParameters.getCurrentOptions()]
         if not parameters:
             return
 
-        alpha = self._get_alpha()
+        data_to_plot = {}
+
+        coordinates = self._get_coordinates()
+        angle = self._get_angle()
+        pressure_coefficients = self._get_pressure_coefficients()
+
+        size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+
         model_size = self._get_model_size()
         height = model_size[2]
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
-
-        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
-                                                               model_name,
-                                                               )
-        data_to_plot = {}
 
         if ChartMode.CX in parameters or ChartMode.CY in parameters:
             cx, cy = aot_calculations.calculate_cx_cy(
                 *count_sensors,
-                *size,
+                *size_tpu,
                 np.array(coordinates[0]),
                 np.array(coordinates[1]),
                 pressure_coefficients
@@ -624,18 +659,19 @@ class Interface(QWidget):
             cmz = aot_calculations.calculate_cmz(
                 *count_sensors,
                 angle,
-                *size,
+                *size_tpu,
                 np.array(coordinates[0]),
                 np.array(coordinates[1]),
                 pressure_coefficients
             )
             data_to_plot[ChartMode.CMZ] = cmz
 
-        alpha_str = self._get_alpha(string=True)
+        alpha_str = self._get_alpha(area_type=True)
         wind_region = self._get_wind_region()
         speed_sp = speed_sp_region(height, alpha_str, wind_region)
 
-        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp)
+        fig = PlotBuilding.welch_graph(data_to_plot, height, speed_sp, sample_frequency=self.SAMPLE_FREQUENCY,
+                                       number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
 
     def open_plot_in_new_window(
@@ -664,7 +700,7 @@ class Interface(QWidget):
 
         def closeEvent(event):
             match self.windows_plot_sensors_overview_summary_coefficients.windowTitle():
-                case ChartType.SUMMARY_COEFFICIENTS:
+                case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                     self.fig_summary_coefficients_sensors_overview = None
                 case ChartType.SPECTRUM:
                     self.fig_spectrum_sensors_overview = None
@@ -691,7 +727,7 @@ class Interface(QWidget):
 
         def closeEvent(event):
             match self.windows_plot_sensors_overview_spectrum.windowTitle():
-                case ChartType.SUMMARY_COEFFICIENTS:
+                case ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS:
                     self.fig_summary_coefficients_sensors_overview = None
                 case ChartType.SPECTRUM:
                     self.fig_spectrum_sensors_overview = None
@@ -707,110 +743,278 @@ class Interface(QWidget):
         layout.addWidget(plotWidget.toolbar)
         layout.addWidget(plotWidget)
         self.windows_plot_sensors_overview_spectrum.show()
+
+    def _plot_envelopes(
+            self,
+            pressure_coefficients,
+            mods
+    ):
+        figs = PlotBuilding.envelopes(pressure_coefficients, mods)
+
+        return figs
+
     def plot_envelopes(
             self
     ):
         mods = [ChartMode(i) for i in self.envelopesParameters.getCurrentOptions()]
+        pressure_coefficients = self._get_pressure_coefficients()
 
-        if not mods:
-            return
-
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-
-        pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine, angle=angle))[
-            angle]
-        figs = PlotBuilding.envelopes(pressure_coefficients, mods)
+        figs = self._plot_envelopes(pressure_coefficients, mods)
 
         for fig in figs:
             self.open_plot_in_new_window(fig, ChartType.ENVELOPES)
 
     @abstractmethod
-    def get_pressure_coefficients(
+    def _get_pressure_coefficients(
             self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str
+            *args,
+            **kwargs
     ):
-        print('Необходимо переопределить')
         pass
 
-    def get_pressure_coefficients_for_the_sensor(
+    def _get_pressure_coefficients_for_the_sensor(
             self,
-            model_id,
-            alpha,
-            angle,
-            model_name: str,
             sensor_id
     ):
-        print('Необходимо переопределить')
-        pass
+        pressure_coefficients = self._get_pressure_coefficients()
+
+        return pressure_coefficients[:, sensor_id]
 
     @abstractmethod
     def get_model_id(self,
                      model_name,
                      alpha
                      ):
-        print('Необходимо переопределить')
         pass
 
     @abstractmethod
-    def get_coordinates(
+    def _get_coordinates(
             self,
-            model_id,
-            alpha
+            *args,
+            **kwargs
     ):
-        print('Необходимо переопределить')
         pass
 
     @abstractmethod
-    def get_face_number(
-            self,
-            model_id,
-            alpha
-    ):
-        print('Необходимо переопределить')
+    def _get_face_number(
+            self
+    ) -> list[int]:
         pass
 
-    def plot_isofields(
+    @abstractmethod
+    def _get_size_and_count_sensors(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
+
+    @abstractmethod
+    def _get_model_name(
             self
     ):
-        alpha = self._get_alpha()
-        model_size = self._get_model_size()
-        model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
+        pass
 
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-        coordinates = self.get_coordinates(model_id, alpha)
-
-        parameter = ChartMode(self.isofieldsParameters.currentText())
-
+    def _plot_isofields(
+            self,
+            model_size,
+            size,
+            count_sensors,
+            parameter,
+            pressure_coefficients,
+            coordinates
+    ):
         match self.ComboBoxTypesIsofields.text():
             case IsofieldsType.PRESSURE:
-                alpha_str = self._get_alpha(string=True)
+                area_type = self._get_alpha(area_type=True)
                 wind_region = self._get_wind_region()
                 fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          model_name,
+                                                          size,
+                                                          count_sensors,
                                                           parameter,
                                                           pressure_coefficients,
                                                           coordinates,
-                                                          alpha_str,
+                                                          area_type,
                                                           wind_region
                                                           )
             case IsofieldsType.COEFFICIENT:
                 fig = PlotBuilding.isofields_coefficients(model_size,
-                                                          model_name,
+                                                          size,
+                                                          count_sensors,
                                                           parameter,
                                                           pressure_coefficients,
                                                           coordinates
                                                           )
 
+        return fig
+
+    def plot_isofields(
+            self
+    ):
+        pressure_coefficients = self._get_pressure_coefficients()
+        coordinates = self._get_coordinates()
+        size, count_sensors = self._get_size_and_count_sensors(pressure_coefficients.shape[1])
+        model_size = self._get_model_size()
+        parameter = ChartMode(self.isofieldsParameters.currentText())
+
+        fig = self._plot_isofields(model_size, size, count_sensors, parameter, pressure_coefficients, coordinates)
+
         self.add_plot_on_screen(fig, ChartType.ISOFIELDS)
+
+    def plot_summary_coefficients_cartesian(
+            self,
+            angle,
+            pressure_coefficients_storage: dict,
+            coordinates,
+            size_tpu,
+            count_sensors,
+            model_size
+    ):
+
+        data_to_plot = {}
+
+        parameters = [ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()]
+        pressure_coefficients = pressure_coefficients_storage[angle]
+
+        if ChartMode.CX in parameters or ChartMode.CY in parameters:
+            cx, cy = aot_calculations.calculate_cx_cy(
+                *count_sensors,
+                *size_tpu,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
+            if ChartMode.CX in parameters:
+                data_to_plot[ChartMode.CX] = cx
+            if ChartMode.CY in parameters:
+                data_to_plot[ChartMode.CY] = cy
+        if ChartMode.CMZ in parameters:
+            cmz = aot_calculations.calculate_cmz(
+                *count_sensors,
+                angle,
+                *size_tpu,
+                np.array(coordinates[0]),
+                np.array(coordinates[1]),
+                pressure_coefficients
+            )
+
+            data_to_plot[ChartMode.CMZ] = cmz
+
+        match CartesianModelSummaryCoefficients(self.cartesianModelSummaryCoefficients.currentText()):
+            case CartesianModelSummaryCoefficients.TPU:
+                kt = 1
+            case CartesianModelSummaryCoefficients.REAL:
+                alpha_str = self._get_alpha(area_type=True)
+                wind_region = self._get_wind_region()
+
+                kt = calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle)
+
+        fig = PlotBuilding.summary_coefficients(data_to_plot,
+                                                kt,
+                                                sample_period=self.SAMPLE_PERIOD,
+                                                number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
+
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
+
+    def plot_summary_coefficients_polar(
+            self,
+            angle_border,
+            pressure_coefficients_storage: dict,
+            coordinates,
+            size_tpu,
+            count_sensors
+    ):
+
+        data_to_plot = {}
+
+        views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
+        parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
+
+        x = np.array(coordinates[0])
+        y = np.array(coordinates[1])
+
+        cx_flag = ChartMode.CX in views
+        cy_flag = ChartMode.CY in views
+        cmz_flag = ChartMode.CMZ in views
+
+        if cx_flag or cy_flag:
+            for v in [ChartMode.CX, ChartMode.CY]:
+                data_to_plot[v] = {}
+                for p in parameters:
+                    data_to_plot[v][p] = []
+
+        if cmz_flag:
+            data_to_plot[ChartMode.CMZ] = {}
+            for p in parameters:
+                data_to_plot[ChartMode.CMZ][p] = []
+
+        for angle in range(0, angle_border + 5, 5):
+            pressure_coefficients = pressure_coefficients_storage[angle]
+
+            if cx_flag or cy_flag:
+                cx, cy = aot_calculations.calculate_cx_cy(
+                    *count_sensors,
+                    *size_tpu,
+                    x,
+                    y,
+                    pressure_coefficients
+                )
+                for p in parameters:
+                    data_to_plot[ChartMode.CX][p].append(polar_lambdas[p](cx))
+                    data_to_plot[ChartMode.CY][p].append(polar_lambdas[p](cy))
+
+            if cmz_flag:
+                cmz = aot_calculations.calculate_cmz(
+                    *count_sensors,
+                    angle,
+                    *size_tpu,
+                    x,
+                    y,
+                    pressure_coefficients
+                )
+                for p in parameters:
+                    data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
+
+        if len(pressure_coefficients_storage) != 72:
+            if cx_flag or cy_flag:
+                for p in parameters:
+                    cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
+                                                      angle_border=angle_border)
+                    data_to_plot[ChartMode.CX][p] = cx_scale
+                    data_to_plot[ChartMode.CY][p] = cy_scale
+
+            if cmz_flag:
+                for p in parameters:
+                    cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
+                    data_to_plot[ChartMode.CMZ][p] = cmz_scale
+        else:
+            if cx_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CX][p] = np.append(data_to_plot[ChartMode.CX][p],
+                                                              data_to_plot[ChartMode.CX][p][0])
+
+            if cy_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CY][p] = np.append(data_to_plot[ChartMode.CY][p],
+                                                              data_to_plot[ChartMode.CY][p][0])
+
+            if cmz_flag:
+                for p in parameters:
+                    data_to_plot[ChartMode.CMZ][p] = np.append(data_to_plot[ChartMode.CMZ][p],
+                                                               data_to_plot[ChartMode.CMZ][p][0])
+
+        if not cx_flag and ChartMode.CX in data_to_plot:
+            del data_to_plot[ChartMode.CX]
+
+        if not cy_flag and ChartMode.CY in data_to_plot:
+            del data_to_plot[ChartMode.CY]
+
+        if not cmz_flag and ChartMode.CMZ in data_to_plot:
+            del data_to_plot[ChartMode.CMZ]
+
+        fig = PlotBuilding.polar_plot(data_to_plot)
+
+        self.add_plot_on_screen(fig, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS)
 
     def plot_summary_coefficients(
             self
@@ -821,174 +1025,612 @@ class Interface(QWidget):
             return
 
         type_plot = CoordinateSystem(self.ComboBoxCoordinateSystemSummaryCoefficients.currentText())
-        alpha = self._get_alpha()
 
-        model_size = self._get_model_size()
-        model_name, scale_factors = get_model_and_scale_factors(*model_size, alpha)
-        angle = int(self.lineEditWindAngle.text())
-        model_id = self.get_model_id(model_name, alpha)
-        coordinates = self.get_coordinates(model_id, alpha)
+        coordinates = self._get_coordinates()
 
-        size, count_sensors = utils.get_size_and_count_sensors(len(coordinates[0]),
-                                                               model_name,
-                                                               )
-        data_to_plot = {}
+        size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+
+        pressure_coefficients_storage = {}
+
         match type_plot:
             case CoordinateSystem.CARTESIAN:
-                parameters = [ChartMode(i) for i in self.cartesianParameters.getCurrentOptions()]
-                pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
+                model_size = self._get_model_size()
+                angle = self._get_angle()
 
-                if ChartMode.CX in parameters or ChartMode.CY in parameters:
-                    cx, cy = aot_calculations.calculate_cx_cy(
-                        *count_sensors,
-                        *size,
-                        np.array(coordinates[0]),
-                        np.array(coordinates[1]),
-                        pressure_coefficients
-                    )
-                    if ChartMode.CX in parameters:
-                        data_to_plot[ChartMode.CX] = cx
-                    if ChartMode.CY in parameters:
-                        data_to_plot[ChartMode.CY] = cy
-                if ChartMode.CMZ in parameters:
-                    cmz = aot_calculations.calculate_cmz(
-                        *count_sensors,
-                        angle,
-                        *size,
-                        np.array(coordinates[0]),
-                        np.array(coordinates[1]),
-                        pressure_coefficients
-                    )
+                pressure_coefficients = self._get_pressure_coefficients()
+                pressure_coefficients_storage[angle] = pressure_coefficients
 
-                    data_to_plot[ChartMode.CMZ] = cmz
-
-                match CartesianModelSummaryCoefficients(self.cartesianModelSummaryCoefficients.currentText()):
-                    case CartesianModelSummaryCoefficients.TPU:
-                        kt = 1
-                    case CartesianModelSummaryCoefficients.REAL:
-                        breadth, depth, height = model_size
-                        breadth_tpu, depth_tpu, height_tpu = [int(i) / 10 for i in str(model_name)]
-                        alpha_str = self._get_alpha(string=True)
-                        wind_region = self._get_wind_region()
-
-                        kz = height / height_tpu
-
-                        match alpha_str:
-                            case 'A':
-                                Uz_a_x = Uz_a_0_16_x
-                                Uz_a_z = np.array(Uz_a_0_16_z)
-                            case 'C':
-                                Uz_a_x = Uz_a_0_25_x
-                                Uz_a_z = np.array(Uz_a_0_25_z)
-
-                        Uz_a_z_scaled = Uz_a_z * kz
-                        speed_tpu_function = scipy.interpolate.interp1d(Uz_a_z_scaled, Uz_a_x)
-                        speed_tpu = speed_tpu_function(height)
-
-                        speed_sp = speed_sp_region(height, alpha_str, wind_region)
-
-                        l_m = aot_calculations.calculate_projection_on_the_axis(breadth, depth, angle)
-                        l_tpu = aot_calculations.calculate_projection_on_the_axis(breadth_tpu, depth_tpu, angle)
-
-                        kv = speed_sp / speed_tpu
-                        km = l_m / l_tpu
-
-                        kt = km / kv
-
-                fig = PlotBuilding.summary_coefficients(data_to_plot, kt)
+                self.plot_summary_coefficients_cartesian(angle, pressure_coefficients_storage, coordinates, size_tpu,
+                                                         count_sensors, model_size)
 
             case CoordinateSystem.POLAR:
-                views = [ChartMode(i) for i in self.polarView.getCurrentOptions()]
-                parameters = [ChartMode(i) for i in self.polarParameters.getCurrentOptions()]
+                pressure_coefficients_storage = self._get_pressure_coefficients_storage()
+                angle_border = self._get_angle_border()
+                self.plot_summary_coefficients_polar(angle_border, pressure_coefficients_storage, coordinates,
+                                                     size_tpu, count_sensors)
 
-                angle_border = get_angle_border(str(model_name))
+    @abstractmethod
+    def _get_pressure_coefficients_storage(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
 
-                x = np.array(coordinates[0])
-                y = np.array(coordinates[1])
+    @abstractmethod
+    def _get_angle_border(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
 
-                cx_flag = ChartMode.CX in views
-                cy_flag = ChartMode.CY in views
-                cmz_flag = ChartMode.CMZ in views
+    def _plot_pseudocolor_coefficients(
+            self,
+            model_size,
+            count_sensors,
+            parameter,
+            pressure_coefficients
+    ):
+        fig = PlotBuilding.pseudocolor_coefficients(model_size,
+                                                    count_sensors,
+                                                    parameter,
+                                                    pressure_coefficients)
 
-                if cx_flag or cy_flag:
-                    for v in [ChartMode.CX, ChartMode.CY]:
-                        data_to_plot[v] = {}
-                        for p in parameters:
-                            data_to_plot[v][p] = []
-
-                if cmz_flag:
-                    data_to_plot[ChartMode.CMZ] = {}
-                    for p in parameters:
-                        data_to_plot[ChartMode.CMZ][p] = []
-
-                for angle in range(0, angle_border + 5, 5):
-                    pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
-                                                                                   angle=angle))[angle]
-
-                    if cx_flag or cy_flag:
-                        cx, cy = aot_calculations.calculate_cx_cy(
-                            *count_sensors,
-                            *size,
-                            x,
-                            y,
-                            pressure_coefficients
-                        )
-                        for p in parameters:
-                            data_to_plot[ChartMode.CX][p].append(polar_lambdas[p](cx))
-                            data_to_plot[ChartMode.CY][p].append(polar_lambdas[p](cy))
-
-                    if cmz_flag:
-                        cmz = aot_calculations.calculate_cmz(
-                            *count_sensors,
-                            angle,
-                            *size,
-                            x,
-                            y,
-                            pressure_coefficients
-                        )
-                        for p in parameters:
-                            data_to_plot[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
-
-                if cx_flag or cy_flag:
-                    for p in parameters:
-                        cx_scale, cy_scale = scaling_data(data_to_plot[ChartMode.CX][p], data_to_plot[ChartMode.CY][p],
-                                                          angle_border=angle_border)
-                        data_to_plot[ChartMode.CX][p] = cx_scale
-                        data_to_plot[ChartMode.CY][p] = cy_scale
-
-                if cmz_flag:
-                    for p in parameters:
-                        cmz_scale = scaling_data(data_to_plot[ChartMode.CMZ][p], angle_border=angle_border)
-                        data_to_plot[ChartMode.CMZ][p] = cmz_scale
-
-                if not cx_flag and ChartMode.CX in data_to_plot:
-                    del data_to_plot[ChartMode.CX]
-
-                if not cy_flag and ChartMode.CY in data_to_plot:
-                    del data_to_plot[ChartMode.CY]
-
-                if not cmz_flag and ChartMode.CMZ in data_to_plot:
-                    del data_to_plot[ChartMode.CMZ]
-
-                fig = PlotBuilding.polar_plot(data_to_plot)
-
-        self.add_plot_on_screen(fig, ChartType.SUMMARY_COEFFICIENTS)
+        return fig
 
     def plot_pseudocolor_coefficients(
             self
     ):
-        alpha = self._get_alpha()
-        model_name, _ = get_model_and_scale_factors(*self._get_model_size(), alpha)
-        angle = int(self.lineEditWindAngle.text())
-
-        model_id = self.get_model_id(model_name, alpha)
-        pressure_coefficients = self.get_pressure_coefficients(model_id, alpha, angle, str(model_name))
-
+        pressure_coefficients = self._get_pressure_coefficients()
+        size, count_sensors = self._get_size_and_count_sensors(pressure_coefficients.shape[1])
         model_size = self._get_model_size()
         parameter = ChartMode(self.discreteIsofieldsParameters.currentText())
 
-        fig = PlotBuilding.pseudocolor_coefficients(model_size,
-                                                    model_name,
-                                                    parameter,
-                                                    pressure_coefficients)
+        fig = self._plot_pseudocolor_coefficients(model_size, count_sensors, parameter, pressure_coefficients)
+
         self.add_plot_on_screen(fig, ChartType.DISCRETE_ISOFIELDS)
+
+    def draw_and_save_all_plots(
+            self,
+            pressure_coefficients_storage,
+            area_type,
+            coordinates,
+            angle_border,
+            path_report,
+            model_size,
+            model_size_str,
+            size_tpu,
+            count_sensors,
+            wind_region,
+    ):
+        # изополя в виде давления и коэффициентов
+        for angle in range(0, angle_border + 5, 5):
+            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                fig = PlotBuilding.isofields_coefficients(model_size,
+                                                          size_tpu,
+                                                          count_sensors,
+                                                          parameter,
+                                                          pressure_coefficients_storage[angle],
+                                                          coordinates
+                                                          )
+                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.COEFFICIENT,
+                                 parameter, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+                fig = PlotBuilding.isofields_coefficients(model_size,
+                                                          size_tpu,
+                                                          count_sensors,
+                                                          parameter,
+                                                          pressure_coefficients_storage[angle],
+                                                          coordinates,
+                                                          area_type,
+                                                          wind_region
+                                                          )
+                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.PRESSURE,
+                                 parameter, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        # изополя в виде мозаики
+
+        for angle in range(0, angle_border + 5, 5):
+            for parameter in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+                fig = PlotBuilding.pseudocolor_coefficients(model_size,
+                                                            count_sensors,
+                                                            parameter,
+                                                            pressure_coefficients_storage[angle])
+                fig_name = f'{model_size_str} {area_type} {parameter} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.DISCRETE_ISOFIELDS,
+                                 parameter, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        # огибающие
+
+        for angle in range(0, angle_border + 5, 5):
+            figs = PlotBuilding.envelopes(pressure_coefficients_storage[angle],
+                                          (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD))
+            for i, fig in enumerate(figs):
+                fig_name = f'{model_size_str} {area_type} {angle} {i}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.ENVELOPES, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        data_to_plot = {}
+        data_to_plot_polar = {}
+
+        parameters = [
+            ChartMode.MAX,
+            ChartMode.MEAN,
+            ChartMode.MIN,
+            ChartMode.RMS,
+            ChartMode.STD,
+            ChartMode.CALCULATED,
+            ChartMode.WARRANTY_PLUS,
+            ChartMode.WARRANTY_MINUS,
+        ]
+
+        for v in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+            data_to_plot_polar[v] = {}
+            for p in parameters:
+                data_to_plot_polar[v][p] = []
+
+        x = np.array(coordinates[0])
+        y = np.array(coordinates[1])
+
+        # получаем Cx Cy CMz для всех параметров
+
+        for angle in range(0, angle_border + 5, 5):
+            kt = calculate_kt(model_size, size_tpu, area_type, wind_region, angle)
+
+            data_to_plot[angle] = {}
+            cx, cy = aot_calculations.calculate_cx_cy(
+                *count_sensors,
+                *size_tpu,
+                x,
+                y,
+                pressure_coefficients_storage[angle]
+            )
+
+            cmz = aot_calculations.calculate_cmz(
+                *count_sensors,
+                angle,
+                *size_tpu,
+                x,
+                y,
+                pressure_coefficients_storage[angle]
+            )
+
+            for p in parameters:
+                data_to_plot_polar[ChartMode.CX][p].append(polar_lambdas[p](cx))
+                data_to_plot_polar[ChartMode.CY][p].append(polar_lambdas[p](cy))
+                data_to_plot_polar[ChartMode.CMZ][p].append(polar_lambdas[p](cmz))
+
+            data_to_plot[angle][ChartMode.CX] = cx
+            data_to_plot[angle][ChartMode.CY] = cy
+            data_to_plot[angle][ChartMode.CMZ] = cmz
+            # отрисовка CMz
+
+            fig = PlotBuilding.summary_coefficients({ChartMode.CMZ: data_to_plot[angle][ChartMode.CMZ]},
+                                                    kt,
+                                                    self.SAMPLE_PERIOD,
+                                                    self.NUMBER_OF_TIME_COUNTS)
+            fig_name = f'{model_size_str} {area_type} {angle} {ChartMode.CMZ}.png'
+            fig.set_size_inches(18.5, 10.5)
+            fig.savefig(
+                os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                             CoordinateSystem.CARTESIAN, fig_name),
+                dpi=200,
+                bbox_inches='tight')
+            plt.close(fig)
+            # отрисовка Cx Cy
+
+            fig = PlotBuilding.summary_coefficients({ChartMode.CX: data_to_plot[angle][ChartMode.CX],
+                                                     ChartMode.CY: data_to_plot[angle][ChartMode.CY]},
+                                                    kt,
+                                                    self.SAMPLE_PERIOD,
+                                                    self.NUMBER_OF_TIME_COUNTS)
+            fig_name = f'{model_size_str} {area_type} {angle} {ChartMode.CX} {ChartMode.CY}.png'
+            fig.set_size_inches(18.5, 10.5)
+            fig.savefig(
+                os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                             CoordinateSystem.CARTESIAN, fig_name),
+                dpi=200,
+                bbox_inches='tight')
+            plt.close(fig)
+
+        height = model_size[2]
+        speed_sp = speed_sp_region(height, area_type, wind_region)
+
+        # Спектры
+        for angle in range(0, angle_border + 5, 5):
+            for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+                fig = PlotBuilding.welch_graph({i: data_to_plot[angle][i]}, height, speed_sp,
+                                               sample_frequency=self.SAMPLE_FREQUENCY,
+                                               number_of_time_counts=self.NUMBER_OF_TIME_COUNTS)
+                fig_name = f'{model_size_str} {area_type} {angle}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.SPECTRUM, i, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        del data_to_plot
+
+        # Масштабируем данные для полярной системы координат
+        if len(pressure_coefficients_storage) != 72:
+            for p in parameters:
+                cx_scale, cy_scale = scaling_data(data_to_plot_polar[ChartMode.CX][p], data_to_plot_polar[ChartMode.CY][p],
+                                                  angle_border=angle_border)
+                data_to_plot_polar[ChartMode.CX][p] = cx_scale
+                data_to_plot_polar[ChartMode.CY][p] = cy_scale
+
+                cmz_scale = scaling_data(data_to_plot_polar[ChartMode.CMZ][p], angle_border=angle_border)
+                data_to_plot_polar[ChartMode.CMZ][p] = cmz_scale
+        else:
+            for p in parameters:
+                data_to_plot_polar[ChartMode.CX][p] = np.append(data_to_plot_polar[ChartMode.CX][p],
+                                                          data_to_plot_polar[ChartMode.CX][p][0])
+
+                data_to_plot_polar[ChartMode.CY][p] = np.append(data_to_plot_polar[ChartMode.CY][p],
+                                                          data_to_plot_polar[ChartMode.CY][p][0])
+
+                data_to_plot_polar[ChartMode.CMZ][p] = np.append(data_to_plot_polar[ChartMode.CMZ][p],
+                                                           data_to_plot_polar[ChartMode.CMZ][p][0])
+
+        # Отрисовка в полярной системе координат
+
+        for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
+            for p in parameters:
+                fig = PlotBuilding.polar_plot({i: {p: data_to_plot_polar[i][p]}})
+                fig_name = f'{model_size_str} {area_type} {p}.png'
+                fig.set_size_inches(18.5, 10.5)
+                fig.savefig(
+                    os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                                 CoordinateSystem.POLAR, i, fig_name),
+                    dpi=200,
+                    bbox_inches='tight')
+                plt.close(fig)
+
+        del data_to_plot_polar
+
+    def create_word_report(
+            self,
+            model_size,
+            wind_region,
+            alpha_str,
+            path_report,
+            report_name
+
+    ):
+        breadth, depth, height = model_size
+        breadth = int(breadth) if breadth.is_integer() else f'{round(breadth, 2):.2f}'
+        depth = int(depth) if depth.is_integer() else f'{round(depth, 2):.2f}'
+        height = int(height) if height.is_integer() else f'{round(height, 2):.2f}'
+
+        # Работа с word файлом
+        doc = Document()
+        style = doc.styles['Normal']
+        style.font.size = Pt(14)
+        style.font.name = 'Times New Roman'
+        section = doc.sections[0]
+        section.left_margin = Mm(30)
+        section.right_margin = Mm(15)
+        section.top_margin = Mm(20)
+        section.bottom_margin = Mm(20)
+        # ширина A4 210 мм высота 297 мм
+        fig_width = Mm(165)
+        fig_height = Mm(297 / 2 - 55)
+
+        # Шрифт заголовков разного уровня
+        head_lvl2 = 16
+        head_lvl3 = 16
+
+        counter_plots = 1  # Счетчик графиков для нумерации
+        counter_head_lvl1 = 1  # Счетчик заголовков
+
+        WordBuilder.add_heading(doc,
+                                head_name=f'Отчет по зданию {breadth}x{depth}x{height}',
+                                font_size=24,
+                                bold=True)
+
+        for i in ('Параметры ветрового районирования:',
+                  f'Ветровой район: {wind_region}',
+                  f'Тип местности: {alpha_str}'
+                  ):
+            doc.add_paragraph().add_run(i)
+        WordBuilder.add_heading(doc,
+                                head_name=f'{counter_head_lvl1}. Геометрические размеры здания',
+                                bold=True)
+
+        counter_head_lvl1 += 1
+
+        table = [
+            ['Геометрический размер', 'Значение, м'],
+            ['Ширина:', breadth],
+            ['Глубина:', depth],
+            ['Высота:', height],
+        ]
+        WordBuilder.add_table(doc, table)
+
+        # Создание содержания
+        WordBuilder.add_heading(doc, head_name='Содержание', bold=True, page_break=True)
+
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+        fldChar = OxmlElement('w:fldChar')  # creates a new element
+        fldChar.set(qn('w:fldCharType'), 'begin')  # sets attribute on element
+        instrText = OxmlElement('w:instrText')
+        instrText.set(qn('xml:space'), 'preserve')  # sets attribute on element
+        instrText.text = 'TOC \\o "1-3" \\h \\z \\u'  # change 1-3 depending on heading levels you need
+
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'separate')
+        fldChar3 = OxmlElement('w:t')
+        fldChar3.text = "Right-click to update field."
+        fldChar2.append(fldChar3)
+
+        fldChar4 = OxmlElement('w:fldChar')
+        fldChar4.set(qn('w:fldCharType'), 'end')
+
+        r_element = run._r
+        r_element.append(fldChar)
+        r_element.append(instrText)
+        r_element.append(fldChar2)
+        r_element.append(fldChar4)
+
+        # огибающие
+
+        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.ENVELOPES}', page_break=True)
+        counter_head_lvl1 += 1
+
+        counter_plots = WordBuilder.fill_chapter_with_pictures(
+            doc,
+            folder_path=os.path.join(path_report, ChartType.ENVELOPES),
+            counter_pictures=counter_plots,
+            picture_height=fig_height
+        )
+
+        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.ISOFIELDS}', page_break=True)
+
+        counter_head_lvl2 = 1
+
+        WordBuilder.add_heading(doc,
+                                head_name=f'{counter_head_lvl1}. {ChartType.ISOFIELDS} {IsofieldsType.COEFFICIENT.lower()}',
+                                head_level=2,
+                                font_size=head_lvl2)
+
+        counter_head_lvl3 = 1
+
+        path_temp = os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.COEFFICIENT)
+        for mode in os.listdir(path_temp):
+            WordBuilder.add_heading(doc,
+                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}.{counter_head_lvl3}. {ChartType.ISOFIELDS} {IsofieldsType.COEFFICIENT.lower()} {mode}',
+                                    head_level=3,
+                                    font_size=head_lvl3)
+
+            counter_head_lvl3 += 1
+
+            counter_plots = WordBuilder.fill_chapter_with_pictures(
+                doc,
+                folder_path=os.path.join(path_temp, mode),
+                counter_pictures=counter_plots,
+                picture_height=fig_height - Mm(10)
+            )
+
+        counter_head_lvl2 += 1
+
+        WordBuilder.add_heading(doc,
+                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.ISOFIELDS} {IsofieldsType.PRESSURE.lower()}',
+                                head_level=2,
+                                font_size=head_lvl2)
+
+        counter_head_lvl3 = 1
+
+        path_temp = os.path.join(path_report, ChartType.ISOFIELDS, IsofieldsType.PRESSURE)
+        for mode in os.listdir(path_temp):
+            WordBuilder.add_heading(doc,
+                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}.{counter_head_lvl3}. {ChartType.ISOFIELDS} {IsofieldsType.PRESSURE.lower()} {mode}',
+                                    head_level=3,
+                                    font_size=head_lvl3)
+            counter_head_lvl3 += 1
+
+            counter_plots = WordBuilder.fill_chapter_with_pictures(
+                doc,
+                folder_path=os.path.join(path_temp, mode),
+                counter_pictures=counter_plots,
+                picture_height=fig_height - Mm(10)
+            )
+
+        counter_head_lvl1 += 1
+        counter_head_lvl2 = 1
+
+        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS}',
+                                page_break=True)
+
+        WordBuilder.add_heading(doc,
+                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.CARTESIAN.lower()}',
+                                head_level=2,
+                                font_size=head_lvl2)
+
+        counter_head_lvl2 += 1
+
+        counter_plots = WordBuilder.fill_chapter_with_pictures(
+            doc,
+            folder_path=os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS,
+                                     CoordinateSystem.CARTESIAN),
+            counter_pictures=counter_plots,
+            picture_height=fig_height - Mm(10)
+        )
+
+        WordBuilder.add_heading(doc,
+                                head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.POLAR.lower()}',
+                                head_level=2,
+                                font_size=head_lvl2)
+
+        counter_head_lvl3 = 1
+
+        path_temp = os.path.join(path_report, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, CoordinateSystem.POLAR)
+        for mode in os.listdir(path_temp):
+            WordBuilder.add_heading(doc,
+                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}.{counter_head_lvl3}. {ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS} {CoordinateSystem.POLAR.lower()} {mode}',
+                                    head_level=3,
+                                    font_size=head_lvl3)
+
+            counter_head_lvl3 += 1
+
+            counter_plots = WordBuilder.fill_chapter_with_pictures(
+                doc,
+                folder_path=os.path.join(path_temp, mode),
+                counter_pictures=counter_plots,
+                picture_height=fig_height - Mm(10)
+            )
+
+        counter_head_lvl1 += 1
+        counter_head_lvl2 = 1
+
+        WordBuilder.add_heading(doc, head_name=f'{counter_head_lvl1}. {ChartType.SPECTRUM}', page_break=True)
+
+        path_temp = os.path.join(path_report, ChartType.SPECTRUM)
+        for mode in os.listdir(path_temp):
+            WordBuilder.add_heading(doc,
+                                    head_name=f'{counter_head_lvl1}.{counter_head_lvl2}. {ChartType.SPECTRUM} {mode}',
+                                    head_level=2,
+                                    font_size=head_lvl2)
+
+            counter_head_lvl2 += 1
+
+            counter_plots = WordBuilder.fill_chapter_with_pictures(
+                doc,
+                folder_path=os.path.join(path_temp, mode),
+                counter_pictures=counter_plots,
+                picture_height=fig_height - Mm(10)
+            )
+
+        doc.save(os.path.join(path_report, f'{report_name}.docx'))
+
+    def create_report(
+            self
+    ):
+        # need to switch backend to Agg to avoid memory leak
+        matplotlib.use('Agg')
+
+        model_size = self._get_model_size()
+        alpha_str = self._get_alpha(area_type=True)
+        wind_region = self._get_wind_region()
+
+        coordinates = self._get_coordinates()
+        face_number = self._get_face_number()
+
+        model_size_str = " ".join(list(map(str, model_size)))
+        report_name = f'{model_size_str} {alpha_str} {wind_region}'
+        path_report = os.path.join(ReportFolder.WORD_REPORT, self.REPORT_FOLDER_NAME, report_name)
+
+        create_directory_to_report(path_report)
+        angle_border = self._get_angle_border()
+        size_model_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
+
+        # Получаем коэффициенты сразу для всех углов
+        pressure_coefficients_storage = self._get_pressure_coefficients_storage()
+
+        self.create_report_sensor_statistics(coordinates, pressure_coefficients_storage, count_sensors[0],
+                                             face_number,
+                                             angle_border,
+                                             size_model_tpu,
+                                             model_size,
+                                             path_report)
+
+        self.draw_and_save_all_plots(pressure_coefficients_storage, alpha_str, coordinates, angle_border, path_report,
+                                     model_size, model_size_str, size_model_tpu, count_sensors, wind_region)
+
+        del pressure_coefficients_storage
+
+        self.create_word_report(model_size, wind_region, alpha_str, path_report, report_name)
+        # return default backend
+        matplotlib.use('qtagg')
+
+    def create_report_sensor_statistics(
+            self,
+            coordinates,
+            pressure_coefficients_storage: dict,
+            count_sensors,
+            face_number,
+            angle_border,
+            size_model_tpu,
+            model_size,
+            path_report
+
+    ):
+        breadth_tpu, depth_tpu, height_tpu = size_model_tpu
+        breadth_real, depth_real, height_real = model_size
+        x, z = coordinates
+
+        x_new, y_new = converter_coordinates(x, breadth_tpu, depth_tpu, face_number, count_sensors, accuracy=5)
+
+        headers = (
+            'ДАТЧИК',
+            'X(м)',
+            'Y(м)',
+            'Z(м)',
+            'Номер грани',
+            ChartMode.MEAN,
+            ChartMode.RMS,
+            ChartMode.STD,
+            ChartMode.MAX,
+            ChartMode.MIN,
+            ChartMode.CALCULATED,
+            ChartMode.WARRANTY_PLUS,
+            ChartMode.WARRANTY_MINUS
+        )
+        x_new = [tpu_size_to_real(x_new[sensor], breadth_real, breadth_tpu) for sensor in range(count_sensors)]
+        y_new = [tpu_size_to_real(y_new[sensor], depth_real, depth_tpu) for sensor in range(count_sensors)]
+        z_real = [tpu_size_to_real(z[sensor], height_real, height_tpu) for sensor in range(count_sensors)]
+
+        wb = Workbook()
+
+        # Удаляем лист по умолчанию, если он не нужен
+        default_sheet = wb.active
+        wb.remove(default_sheet)
+
+        for angle in range(0, angle_border + 5, 5):
+            sheet = wb.create_sheet(f"Угол {angle}")
+            sheet.append(headers)
+            pressure_coefficients = pressure_coefficients_storage[angle]
+
+            statistics_of_angle = [[i for i in range(1, count_sensors + 1)]]
+
+            statistics_of_angle.append(x_new)
+            statistics_of_angle.append(y_new)
+            statistics_of_angle.append(z_real)
+            statistics_of_angle.append(face_number)
+
+            for k in lambdas:
+                statistics_of_angle.append(lambdas[k](pressure_coefficients))
+
+            statistics_of_angle.append(calculated(pressure_coefficients, axis=0))
+            statistics_of_angle.append(warranty_plus(pressure_coefficients, axis=0))
+            statistics_of_angle.append(warranty_minus(pressure_coefficients, axis=0))
+
+            statistics_of_angle = np.array(statistics_of_angle).T
+
+            for row in statistics_of_angle:
+                sheet.append(row.tolist())
+
+        wb.save(f'{os.path.join(path_report, ReportFolder.FILE_NAME_SENSOR_STATISTICS)}.xlsx')

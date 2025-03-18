@@ -1,0 +1,250 @@
+@startuml packages
+set namespaceSeparator none
+package "src" as src {
+}
+package "src.common" as src.common {
+}
+package "src.common.DbType" as src.common.DbType {
+}
+package "src.common.FaceType" as src.common.FaceType {
+}
+package "src.common.PermutationView" as src.common.PermutationView {
+}
+package "src.common.TypeOfBasement" as src.common.TypeOfBasement {
+}
+package "src.common.annotation" as src.common.annotation {
+}
+package "src.common.constants" as src.common.constants {
+}
+package "src.submodules" as src.submodules {
+}
+package "src.submodules.FEM" as src.submodules.FEM {
+}
+package "src.submodules.FEM.FEMExecution" as src.submodules.FEM.FEMExecution {
+}
+package "src.submodules.databasetoolkit" as src.submodules.databasetoolkit {
+}
+package "src.submodules.databasetoolkit.interference" as src.submodules.databasetoolkit.interference {
+}
+package "src.submodules.databasetoolkit.isolated" as src.submodules.databasetoolkit.isolated {
+}
+package "src.submodules.databasetoolkit.orm" as src.submodules.databasetoolkit.orm {
+}
+package "src.submodules.databasetoolkit.orm.models" as src.submodules.databasetoolkit.orm.models {
+}
+package "src.submodules.databasetoolkit.toolkits" as src.submodules.databasetoolkit.toolkits {
+}
+package "src.submodules.databasetoolkit.toolkits.IsolatedToolkit" as src.submodules.databasetoolkit.toolkits.IsolatedToolkit {
+}
+package "src.submodules.inner" as src.submodules.inner {
+}
+package "src.submodules.inner.cache" as src.submodules.inner.cache {
+}
+package "src.submodules.inner.interpreted_data" as src.submodules.inner.interpreted_data {
+}
+package "src.submodules.inner.speed" as src.submodules.inner.speed {
+}
+package "src.submodules.plot" as src.submodules.plot {
+}
+package "src.submodules.plot.PlotLabel" as src.submodules.plot.PlotLabel {
+}
+package "src.submodules.plot.plot" as src.submodules.plot.plot {
+}
+package "src.submodules.plot.plotBuilding" as src.submodules.plot.plotBuilding {
+}
+package "src.submodules.plot.plotRoof" as src.submodules.plot.plotRoof {
+}
+package "src.submodules.plot.utils" as src.submodules.plot.utils {
+}
+package "src.submodules.report_tools" as src.submodules.report_tools {
+}
+package "src.submodules.report_tools.csvReport" as src.submodules.report_tools.csvReport {
+}
+package "src.submodules.report_tools.reportFolder" as src.submodules.report_tools.reportFolder {
+}
+package "src.submodules.report_tools.utils" as src.submodules.report_tools.utils {
+}
+package "src.submodules.report_tools.wordBuilder" as src.submodules.report_tools.wordBuilder {
+}
+package "src.submodules.science" as src.submodules.science {
+}
+package "src.submodules.science.height_integration" as src.submodules.science.height_integration {
+}
+package "src.submodules.utils" as src.submodules.utils {
+}
+package "src.submodules.utils.angle" as src.submodules.utils.angle {
+}
+package "src.submodules.utils.data_features" as src.submodules.utils.data_features {
+}
+package "src.submodules.utils.permutations" as src.submodules.utils.permutations {
+}
+package "src.submodules.utils.scaling" as src.submodules.utils.scaling {
+}
+package "src.submodules.utils.speed_sp" as src.submodules.utils.speed_sp {
+}
+package "src.submodules.utils.utils" as src.submodules.utils.utils {
+}
+package "src.ui" as src.ui {
+}
+package "src.ui.app" as src.ui.app {
+}
+package "src.ui.common" as src.ui.common {
+}
+package "src.ui.common.Buttons" as src.ui.common.Buttons {
+}
+package "src.ui.common.CartesianModelSummaryCoefficients" as src.ui.common.CartesianModelSummaryCoefficients {
+}
+package "src.ui.common.ChartMode" as src.ui.common.ChartMode {
+}
+package "src.ui.common.ChartType" as src.ui.common.ChartType {
+}
+package "src.ui.common.CoordinateSystem" as src.ui.common.CoordinateSystem {
+}
+package "src.ui.common.IsofieldsType" as src.ui.common.IsofieldsType {
+}
+package "src.ui.common.SignalBus" as src.ui.common.SignalBus {
+}
+package "src.ui.common.StyleSheet" as src.ui.common.StyleSheet {
+}
+package "src.ui.components" as src.ui.components {
+}
+package "src.ui.components.ImageLabel" as src.ui.components.ImageLabel {
+}
+package "src.ui.components.LinkCard" as src.ui.components.LinkCard {
+}
+package "src.ui.components.MultiSelectComboBox" as src.ui.components.MultiSelectComboBox {
+}
+package "src.ui.components.MultiSelectionComboBox" as src.ui.components.MultiSelectionComboBox {
+}
+package "src.ui.components.SampleCard" as src.ui.components.SampleCard {
+}
+package "src.ui.config" as src.ui.config {
+}
+package "src.ui.config.config" as src.ui.config.config {
+}
+package "src.ui.view" as src.ui.view {
+}
+package "src.ui.view.interface" as src.ui.view.interface {
+}
+package "src.ui.view.interference_high_rise_interface" as src.ui.view.interference_high_rise_interface {
+}
+package "src.ui.view.isolated_high_rise_interface" as src.ui.view.isolated_high_rise_interface {
+}
+package "src.ui.view.main_interface" as src.ui.view.main_interface {
+}
+package "src.ui.view.widgets" as src.ui.view.widgets {
+}
+package "src.ui.view.widgets.MatplotlibWidget" as src.ui.view.widgets.MatplotlibWidget {
+}
+package "src.ui.view.widgets.SensorWidget" as src.ui.view.widgets.SensorWidget {
+}
+src.common.annotation --> src.common.FaceType
+src.common.annotation --> src.common.constants
+src.common.annotation --> src.ui.common.ChartMode
+src.submodules.databasetoolkit.interference --> src.common.annotation
+src.submodules.databasetoolkit.interference --> src.submodules.databasetoolkit.orm.models
+src.submodules.databasetoolkit.isolated --> src.common.annotation
+src.submodules.databasetoolkit.isolated --> src.submodules.databasetoolkit.orm.models
+src.submodules.databasetoolkit.toolkits.IsolatedToolkit --> src.common.annotation
+src.submodules.databasetoolkit.toolkits.IsolatedToolkit --> src.submodules.databasetoolkit.isolated
+src.submodules.plot.plotBuilding --> src.common.annotation
+src.submodules.plot.plotBuilding --> src.submodules.databasetoolkit.isolated
+src.submodules.plot.plotBuilding --> src.submodules.plot.plot
+src.submodules.plot.plotBuilding --> src.submodules.plot.utils
+src.submodules.plot.plotBuilding --> src.submodules.utils.data_features
+src.submodules.plot.plotBuilding --> src.submodules.utils.speed_sp
+src.submodules.plot.plotBuilding --> src.submodules.utils.utils
+src.submodules.plot.plotBuilding --> src.ui.common.ChartMode
+src.submodules.plot.plotRoof --> src.submodules.plot.plot
+src.submodules.plot.utils --> src.submodules.plot.plot
+src.submodules.plot.utils --> src.ui.common.ChartMode
+src.submodules.report_tools.utils --> src.submodules.report_tools.reportFolder
+src.submodules.report_tools.utils --> src.ui.common.ChartMode
+src.submodules.report_tools.utils --> src.ui.common.ChartType
+src.submodules.report_tools.utils --> src.ui.common.CoordinateSystem
+src.submodules.report_tools.utils --> src.ui.common.IsofieldsType
+src.submodules.science.height_integration --> src.common
+src.submodules.science.height_integration --> src.common.DbType
+src.submodules.science.height_integration --> src.common.annotation
+src.submodules.science.height_integration --> src.submodules.databasetoolkit.isolated
+src.submodules.science.height_integration --> src.submodules.databasetoolkit.orm.models
+src.submodules.science.height_integration --> src.submodules.inner.interpreted_data
+src.submodules.science.height_integration --> src.submodules.utils
+src.submodules.science.height_integration --> src.submodules.utils.scaling
+src.submodules.science.height_integration --> src.submodules.utils.utils
+src.submodules.utils.angle --> src.common.PermutationView
+src.submodules.utils.angle --> src.common.TypeOfBasement
+src.submodules.utils.angle --> src.common.annotation
+src.submodules.utils.angle --> src.submodules.databasetoolkit.isolated
+src.submodules.utils.data_features --> src.ui.common.ChartMode
+src.submodules.utils.permutations --> src.common.PermutationView
+src.submodules.utils.permutations --> src.common.TypeOfBasement
+src.submodules.utils.permutations --> src.common.annotation
+src.submodules.utils.scaling --> src.common.annotation
+src.submodules.utils.scaling --> src.common.constants
+src.submodules.utils.scaling --> src.submodules.databasetoolkit.orm.models
+src.submodules.utils.scaling --> src.submodules.utils.speed_sp
+src.submodules.utils.speed_sp --> src.common.annotation
+src.submodules.utils.speed_sp --> src.common.constants
+src.submodules.utils.utils --> src.common.DbType
+src.submodules.utils.utils --> src.common.annotation
+src.ui.app --> src.ui.config.config
+src.ui.app --> src.ui.view.interference_high_rise_interface
+src.ui.app --> src.ui.view.isolated_high_rise_interface
+src.ui.app --> src.ui.view.main_interface
+src.ui.components.LinkCard --> src.ui.common.StyleSheet
+src.ui.components.MultiSelectComboBox --> src.ui.common.StyleSheet
+src.ui.components.MultiSelectionComboBox --> src.ui.common.StyleSheet
+src.ui.components.SampleCard --> src.ui.common.SignalBus
+src.ui.components.SampleCard --> src.ui.common.StyleSheet
+src.ui.view.interface --> src.common.annotation
+src.ui.view.interface --> src.common.constants
+src.ui.view.interface --> src.submodules.plot.plotBuilding
+src.ui.view.interface --> src.submodules.plot.utils
+src.ui.view.interface --> src.submodules.report_tools.reportFolder
+src.ui.view.interface --> src.submodules.report_tools.utils
+src.ui.view.interface --> src.submodules.report_tools.wordBuilder
+src.ui.view.interface --> src.submodules.utils.data_features
+src.ui.view.interface --> src.submodules.utils.scaling
+src.ui.view.interface --> src.submodules.utils.speed_sp
+src.ui.view.interface --> src.submodules.utils.utils
+src.ui.view.interface --> src.ui.common.Buttons
+src.ui.view.interface --> src.ui.common.CartesianModelSummaryCoefficients
+src.ui.view.interface --> src.ui.common.ChartMode
+src.ui.view.interface --> src.ui.common.ChartType
+src.ui.view.interface --> src.ui.common.CoordinateSystem
+src.ui.view.interface --> src.ui.common.IsofieldsType
+src.ui.view.interface --> src.ui.common.StyleSheet
+src.ui.view.interface --> src.ui.components.MultiSelectComboBox
+src.ui.view.interface --> src.ui.view.widgets.MatplotlibWidget
+src.ui.view.interface --> src.ui.view.widgets.SensorWidget
+src.ui.view.interference_high_rise_interface --> src.common.annotation
+src.ui.view.interference_high_rise_interface --> src.submodules.databasetoolkit.interference
+src.ui.view.interference_high_rise_interface --> src.submodules.utils.scaling
+src.ui.view.interference_high_rise_interface --> src.ui.common.Buttons
+src.ui.view.interference_high_rise_interface --> src.ui.components.ImageLabel
+src.ui.view.interference_high_rise_interface --> src.ui.view.interface
+src.ui.view.isolated_high_rise_interface --> src.common.PermutationView
+src.ui.view.isolated_high_rise_interface --> src.common.TypeOfBasement
+src.ui.view.isolated_high_rise_interface --> src.common.constants
+src.ui.view.isolated_high_rise_interface --> src.submodules.databasetoolkit.isolated
+src.ui.view.isolated_high_rise_interface --> src.submodules.plot.plotBuilding
+src.ui.view.isolated_high_rise_interface --> src.submodules.plot.utils
+src.ui.view.isolated_high_rise_interface --> src.submodules.report_tools.reportFolder
+src.ui.view.isolated_high_rise_interface --> src.submodules.report_tools.utils
+src.ui.view.isolated_high_rise_interface --> src.submodules.report_tools.wordBuilder
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.angle
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.data_features
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.permutations
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.scaling
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.speed_sp
+src.ui.view.isolated_high_rise_interface --> src.submodules.utils.utils
+src.ui.view.isolated_high_rise_interface --> src.ui.common.ChartMode
+src.ui.view.isolated_high_rise_interface --> src.ui.common.ChartType
+src.ui.view.isolated_high_rise_interface --> src.ui.common.CoordinateSystem
+src.ui.view.isolated_high_rise_interface --> src.ui.common.IsofieldsType
+src.ui.view.isolated_high_rise_interface --> src.ui.view.interface
+src.ui.view.main_interface --> src.ui.common.StyleSheet
+src.ui.view.main_interface --> src.ui.components.LinkCard
+src.ui.view.main_interface --> src.ui.config.config
+@enduml

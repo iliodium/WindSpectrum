@@ -86,7 +86,6 @@ class SensorWidget(QWidget):
             self.buttons.append(proxy_button)
             proxy_button.setPos(scene_width * x, scene_height * y)
 
-
         # Обновляем позиции кнопок
         self.update_buttons()
 

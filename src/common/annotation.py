@@ -18,6 +18,8 @@ type ExperimentIdType = Annotated[int, Field(gt=0, le=13)]
 type AngleType = Annotated[int, Field(ge=0, lt=360)]
 type AngleOrNoneType = Union[AngleType | None]
 
+type PositionType = Annotated[int, Field(ge=0, le=37)]
+
 type PositionXType = float
 type PositionXOrNoneType = Union[PositionXType, None]
 

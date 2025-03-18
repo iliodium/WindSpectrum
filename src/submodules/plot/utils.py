@@ -105,18 +105,10 @@ def calculate_levels(
         pressure_coefficients,
         pressure=False
 ):
-    min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 1)
-    max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 1)
+    min_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.min, 2)
+    max_value = calculate_function_from_pressure_coefficients(pressure_coefficients, np.max, 2)
     if pressure:
-        match parameter:
-            case ChartMode.MAX | ChartMode.MIN:
-                step = 50
-            case _:
-                step = 25
-
-        decimals = 0
-        levels = np.round(np.linspace(min_value - 1, max_value + 1, 10), decimals)
-        levels = sorted(list(set(levels)))
+        levels = np.linspace(min_value - 1, max_value + 1, 10).astype(int)
 
     else:
         match parameter:
@@ -135,6 +127,9 @@ def calculate_levels(
 
         levels = np.round(np.arange(min_value - step, max_value + step, step), decimals)
 
+    # используем set тк числа могут повторяться из-за округления
+    levels = sorted(list(set(levels)))
+
     return levels
 
 
@@ -143,12 +138,14 @@ def set_colorbar(
         levels,
         data_colorbar,
         ax,
-        cmap
+        cmap,
+        label
 ):
     lbot = levels[0:: 2]
     ltop = levels[1:: 2]
     cbar = fig.colorbar(data_colorbar, ax=ax, location='bottom', cmap=cmap, ticks=lbot)
     cbar.ax.tick_params(labelsize=Plot.COLORBAR_FONTSIZE)
+    cbar.set_label(label, fontsize=Plot.COLORBAR_LABELSIZE)
     vmin = cbar.norm.vmin
     vmax = cbar.norm.vmax
 

@@ -283,7 +283,8 @@ async def __load_pressure_coefficients_for_type_and_alpha(
         local_db: bool = False
 
 ) -> dict[int, numpy.ndarray] | None:
-    stmt = select(models_type).where(models_type.c.model_id == experiment_id, models_type.c.angle == angle)
+    stmt = select(models_type).where(models_type.c.model_id == experiment_id,
+                                     models_type.c.angle == angle)
 
     with Session(_engine) as session:
         result = session.execute(stmt).fetchall()
@@ -292,7 +293,6 @@ async def __load_pressure_coefficients_for_type_and_alpha(
         return None
 
     _mapper = __identity
-
     if face_number is not None or position_x is not None or position_y is not None:
         _mapper = __FilterPressureCoefficients(experiment_id, _engine, alpha, face_number, position_x, position_y)
 
@@ -309,7 +309,7 @@ async def __load_pressure_coefficients_for_type_and_alpha(
     return fc_result
 
 
-# @validate_call
+@validate_call
 async def load_pressure_coefficients(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,

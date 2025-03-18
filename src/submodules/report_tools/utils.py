@@ -8,12 +8,14 @@ from src.ui.common.IsofieldsType import IsofieldsType
 
 
 def create_directory_to_report(
-        name
+        folder
 ):
-    folder = os.path.join(os.getcwd(), ReportFolder.WORD_REPORT, name)
+    folder = os.path.join(os.getcwd(), folder)
 
     # folders for all types of plots
     for i in ChartType:
+        if i == ChartType.AERODYNAMIC_COEFFICIENTS:
+            continue
         os.makedirs(os.path.join(folder, i), exist_ok=True)
 
     # folders for isofields
@@ -27,11 +29,12 @@ def create_directory_to_report(
 
     # folders for summary coefficients
     for i in CoordinateSystem:
-        os.makedirs(os.path.join(folder, ChartType.SUMMARY_COEFFICIENTS, i), exist_ok=True)
+        os.makedirs(os.path.join(folder, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, i), exist_ok=True)
 
     # folders for polar summary coefficients
     for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
-        os.makedirs(os.path.join(folder, ChartType.SUMMARY_COEFFICIENTS, CoordinateSystem.POLAR, i), exist_ok=True)
+        os.makedirs(os.path.join(folder, ChartType.SUMMARY_AERODYNAMIC_COEFFICIENTS, CoordinateSystem.POLAR, i),
+                    exist_ok=True)
 
     # folders for spectrum
     for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
