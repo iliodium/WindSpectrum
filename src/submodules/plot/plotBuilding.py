@@ -18,6 +18,7 @@ from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
 from src.submodules.utils.utils import get_size_tpu_and_count_sensors, tpu_size_to_real
 from src.ui.common.ChartMode import ChartMode
+from compiled_functions import aot_calculations
 
 
 class PlotBuilding(Plot):
@@ -271,7 +272,7 @@ class PlotBuilding(Plot):
     @validate_call
     def isofields_coefficients(
             model_size: ModelSizeType,
-            size,
+            size_tpu,
             count_sensors,
             parameter: ChartMode,
             pressure_coefficients,
@@ -302,7 +303,7 @@ class PlotBuilding(Plot):
         # флаг чтобы понимать что мы рисуем, коэффициенты или давление
         flag_pressure = area_type is not None and wind_region is not None
 
-        breadth, depth, height = size
+        breadth, depth, height = size_tpu
         count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
 
         pressure_coefficients = lambdas[parameter](pressure_coefficients)
@@ -376,6 +377,7 @@ class PlotBuilding(Plot):
         count_ticks = 5
 
         if flag_pressure:
+            colorbar_label = 'Давление, Па'
             # tpu_height_to_real_func = tpu_height_to_real(z, model_size[2], height)
             # масштабируем высоту датчика, как если бы он был на реальном здание
             vectorized_function_z = np.vectorize(tpu_size_to_real, otypes=[object])
@@ -394,6 +396,8 @@ class PlotBuilding(Plot):
             levels = calculate_levels(parameter, pressure_coefficients, flag_pressure)
 
         else:
+            colorbar_label = 'Коэффициенты'
+
             levels = calculate_levels(parameter, pressure_coefficients)
 
             for i in range(4):
@@ -430,7 +434,7 @@ class PlotBuilding(Plot):
             ax[i].set_yticklabels(np.linspace(0, model_size[2], count_ticks).round(2),
                                   fontsize=Plot.YTICKS_FONTSIZE)
 
-        set_colorbar(fig, levels, data_colorbar, ax, cmap)
+        set_colorbar(fig, levels, data_colorbar, ax, cmap, label=colorbar_label)
 
         return fig
 
@@ -512,7 +516,7 @@ class PlotBuilding(Plot):
             ax[i].set_yticks(yticks)
             ax[i].set_yticklabels(yticklabels, fontsize=Plot.YTICKS_FONTSIZE)
 
-        set_colorbar(fig, levels, data_colorbar, ax, cmap)
+        set_colorbar(fig, levels, data_colorbar, ax, cmap, label='Коэффициенты')
 
         return fig
 

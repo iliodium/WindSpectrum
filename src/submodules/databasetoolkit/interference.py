@@ -23,10 +23,13 @@ from src.submodules.databasetoolkit.orm.models import Buildings, Interference
 
 __SENSOR_VALUES_DISCARD = 1000
 
-# with open(r'config.json', 'r') as file:
-#     config_db = json.load(file)
-#
-__DB_URL_SERVER = r'postgresql://postgres:1234@localhost/postgres'
+with open(r'config.json', 'r') as file:
+    config_db = json.load(file)
+
+__DB_URL_SERVER = config_db['db_url_server']
+
+
+# __DB_URL_SERVER = r'postgresql://postgres:1234@localhost/postgres'
 
 
 async def __load_building_by_height(
@@ -96,10 +99,9 @@ async def __load_pressure_coefficients_by_id_building_instance_angle(
 
     fc_result = dict()
 
-
     if local_db:
         fc_result[result.angle] = np.frombuffer(result.pressure_coefficients, dtype=int).reshape(5858,
-                                                                                           -1) / __SENSOR_VALUES_DISCARD
+                                                                                                 -1) / __SENSOR_VALUES_DISCARD
     else:
         fc_result[result.angle] = numpy.array(result.pressure_coefficients, dtype=float) / __SENSOR_VALUES_DISCARD
 

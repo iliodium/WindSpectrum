@@ -31,6 +31,8 @@ class InterferenceHighRiseInterface(Interface):
     SAMPLE_FREQUENCY = 781
     NUMBER_OF_TIME_COUNTS = 5858
 
+    REPORT_FOLDER_NAME = "Интерференция высокоэтажных зданий"
+
     def __init__(
             self,
             parent=None,
@@ -241,7 +243,7 @@ class InterferenceHighRiseInterface(Interface):
 
         return id_interfering_building
 
-    def _get_pressure_coefficients_for_polar_plot(
+    def _get_pressure_coefficients_storage(
             self
     ):
         pressure_coefficients_storage = {}
