@@ -214,6 +214,7 @@ class IsolatedHighRiseInterface(Interface):
                     pressure_coefficients_storage[angle] = result
                 except Exception as e:
                     print(f"Ошибка в задаче: {e}")
+            executor.shutdown(wait=True)
 
         return pressure_coefficients_storage
 

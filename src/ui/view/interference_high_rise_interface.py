@@ -231,6 +231,7 @@ class InterferenceHighRiseInterface(Interface):
         angle = self._get_angle()
         position = self._get_position_interfering()
         id_interfering_building = self._get_id_interfering_building()
+        id_principle_building = self._get_id_interfering_building()
 
         pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(position, angle,
                                                                                      id_interfering_building)
@@ -255,7 +256,6 @@ class InterferenceHighRiseInterface(Interface):
         id_interfering_building = self._get_id_interfering_building()
 
         angle_border = 355
-
         with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
             futures = {}
             for angle in range(0, angle_border + 5, 5):
