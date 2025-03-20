@@ -8,7 +8,10 @@ import sys
 import uuid
 
 import numpy as np
-from sqlalchemy import Connection, Row, create_engine, text
+from sqlalchemy import (Connection,
+                        Row,
+                        create_engine,
+                        text,)
 
 PATH_TO_DATABASE = "localhost:15432"
 DB_NAME = "postgres"
