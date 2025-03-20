@@ -44,9 +44,9 @@ class ClickablePoint(QGraphicsEllipseItem):
         y = scene_height * self.relative_y - radius / 2
         self.setPos(x, y)
 
-        self.label.setPos(-radius, radius / 2)
+        self.label.setPos(-radius * 0.5, radius / 2)
 
-        new_size = int(radius * 1.2)
+        new_size = int(radius)
         self.label.setFont(QFont(self.label.font().family(), new_size))
 
 
