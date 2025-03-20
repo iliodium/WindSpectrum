@@ -2,6 +2,4 @@ pyreverse -o puml src
 
 --windows-console-mode=disable
 
-isort .\src\. --settings-file .github/workflows/import_linter/.isort.cfg
-
-python -m nuitka --standalone --enable-plugin=pyside6 --assume-yes-for-downloads --include-data-files=venv312\Lib\site-packages\docx\templates\default.docx=docx\templates\default.docx --include-data-files=db_schema/dump_schema.sql=db_schema/dump_schema.sql --include-data-files=config.json=config.json --include-data-dir=src/ui/resource=src/ui/resource --noinclude-unittest-mode=nofollow --output-dir=windspectrum --windows-icon-from-ico=src/ui/resource/images/mini_logo.ico --output-filename=windspectrum.exe --jobs=8 main.py
+python -m nuitka --standalone --enable-plugin=pyside6 --assume-yes-for-downloads --include-data-files=required_files_to_exe\default.docx=docx\templates\default.docx --include-data-files=db_schema/dump_schema.sql=db_schema/dump_schema.sql --include-data-files=config.json=config.json --include-data-dir=src/ui/resource=src/ui/resource --noinclude-unittest-mode=nofollow --output-dir=windspectrum --windows-icon-from-ico=src/ui/resource/images/mini_logo.ico --output-filename=windspectrum.exe --jobs=8 main.py

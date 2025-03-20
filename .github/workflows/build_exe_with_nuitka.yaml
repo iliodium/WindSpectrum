@@ -1,0 +1,39 @@
+name: build_exe_with_nuitka
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: windows-latest  # Используем Windows, так как собираем exe-файл
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .\requirements.txt
+
+      - name: Build EXE with Nuitka
+        run: |
+          python -m nuitka --standalone --enable-plugin=pyside6 --assume-yes-for-downloads --include-data-files=required_files_to_exe\default.docx=docx\templates\default.docx --include-data-files=db_schema/dump_schema.sql=db_schema/dump_schema.sql --include-data-files=config.json=config.json --include-data-dir=src/ui/resource=src/ui/resource --noinclude-unittest-mode=nofollow --output-dir=windspectrum --windows-icon-from-ico=src/ui/resource/images/mini_logo.ico --output-filename=windspectrum.exe --jobs=8 main.py
+
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive -Path windspectrum/main.dist -DestinationPath windspectrum.zip
+
+      - name: Upload to Releases
+        uses: softprops/action-gh-release@v2.2.1
+        with:
+          files: windspectrum.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
