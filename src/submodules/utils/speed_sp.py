@@ -3,6 +3,7 @@
 """
 
 from pydantic import validate_call
+
 from src.common.annotation import (AlphaStandardsOrKs10Type,
                                    WindRegionsType,)
 from src.common.constants import (alpha_standards,

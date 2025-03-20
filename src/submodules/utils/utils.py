@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 from pydantic import validate_call
+
 from src.common.annotation import ModelNameIsolatedType
 from src.common.DbType import DbType
 

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QApplication,
                                QWidget,)
 from qfluentwidgets import (FluentIcon,
                             ListWidget,)
+
 from src.ui.common.StyleSheet import StyleSheet
 
 

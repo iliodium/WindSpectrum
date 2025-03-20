@@ -2,6 +2,7 @@ import asyncio
 import io
 
 import numpy as np
+
 from compiled_functions import aot_calculations
 from src.common import DbType
 from src.common.annotation import (AlphaType,
@@ -128,6 +129,7 @@ if __name__ == "__main__":
     from sqlalchemy import (create_engine,
                             select,)
     from sqlalchemy.orm import Session
+
     from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                            ExperimentsAlpha6,)
 

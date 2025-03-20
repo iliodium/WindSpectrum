@@ -11,6 +11,7 @@ from qfluentwidgets import (FluentIcon,
                             IconWidget,
                             SingleDirectionScrollArea,
                             TextWrap,)
+
 from src.ui.common.StyleSheet import StyleSheet
 
 

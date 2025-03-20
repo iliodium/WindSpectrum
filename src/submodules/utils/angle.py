@@ -3,6 +3,7 @@ from typing import (List,
 
 import numpy as np
 from pydantic import validate_call
+
 from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
@@ -112,6 +113,7 @@ if __name__ == "__main__":
     import asyncio
 
     from sqlalchemy import create_engine
+
     from src.submodules.databasetoolkit.isolated import (
         load_pressure_coefficients,)
 

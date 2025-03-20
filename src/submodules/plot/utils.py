@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+
 from src.submodules.plot.plot import Plot
 from src.ui.common.ChartMode import ChartMode
 

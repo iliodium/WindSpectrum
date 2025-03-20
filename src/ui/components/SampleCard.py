@@ -8,6 +8,7 @@ from qfluentwidgets import (CardWidget,
                             FlowLayout,
                             IconWidget,
                             TextWrap,)
+
 from src.ui.common.SignalBus import signalBus
 from src.ui.common.StyleSheet import StyleSheet
 

@@ -5,6 +5,7 @@ from sqlalchemy import (create_engine,
                         insert,
                         select,)
 from sqlalchemy.orm import Session
+
 from src.common.annotation import (AngleType,
                                    PositionType,
                                    check_type_engine,)

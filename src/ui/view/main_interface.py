@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QLabel,
 from qfluentwidgets import (FluentIcon,
                             ScrollArea,
                             isDarkTheme,)
+
 from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.LinkCard import LinkCardView
 from src.ui.config.config import REPO_URL
