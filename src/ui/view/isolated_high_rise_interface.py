@@ -1,42 +1,24 @@
 # coding:utf-8
 import asyncio
 import os
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-import matplotlib
-import numpy as np
-import scipy
-from docx import Document
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.shared import Pt, Mm
-from matplotlib import pyplot as plt
-from openpyxl import Workbook
+from sqlalchemy import create_engine
 
-from compiled_functions import aot_calculations
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
-from src.common.constants import Uz_a_0_16_x, Uz_a_0_16_z, Uz_a_0_25_x, Uz_a_0_25_z
 from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
     load_positions, load_face_number
-from src.submodules.plot.plotBuilding import PlotBuilding
-from src.submodules.plot.utils import scaling_data
-from src.submodules.report_tools.reportFolder import ReportFolder
-from src.submodules.report_tools.utils import create_directory_to_report
-from src.submodules.report_tools.wordBuilder import WordBuilder
+from src.submodules.databasetoolkit.toolkits.decorator import with_db_connection
 from src.submodules.utils.angle import get_angle_border, get_base_angle, changer_sequence_coefficients
-from src.submodules.utils.data_features import lambdas, calculated, warranty_plus, warranty_minus, polar_lambdas
 from src.submodules.utils.permutations import get_view_permutation_data, get_sequence_permutation_data
-from src.submodules.utils.scaling import get_model_and_scale_factors, calculate_kt
-from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import converter_coordinates, get_size_tpu_and_count_sensors, tpu_size_to_real
-from src.ui.common.ChartMode import ChartMode
-from src.ui.common.ChartType import ChartType
-from src.ui.common.CoordinateSystem import CoordinateSystem
-from src.ui.common.IsofieldsType import IsofieldsType
-from src.ui.view.interface import Interface
+from src.submodules.utils.scaling import get_model_and_scale_factors
+from src.submodules.utils.utils import get_size_tpu_and_count_sensors
+from src.ui.view.interfaceBuildings import InterfaceBuildings
 
 
-class IsolatedHighRiseInterface(Interface):
+class IsolatedHighRiseInterfaceBuildings(InterfaceBuildings):
     """Isolated High Rise Interface
 
     constants :
@@ -55,14 +37,27 @@ class IsolatedHighRiseInterface(Interface):
     def __init__(
             self,
             parent=None,
-            engine=None
+            config=None
     ):
 
-        super().__init__(parent=parent, engine=engine)
+        super().__init__(parent=parent, config=config)
         self.setObjectName('IsolatedHighRiseInterface')
 
+    @staticmethod
+    def _get_pressure_coefficients_for_definition_angle_future(
+            url,
+            db_url_server,
+            *args
+    ):
+        engine = create_engine(url)
+
+        return IsolatedHighRiseInterfaceBuildings._get_pressure_coefficients_for_definition_angle(
+            engine, db_url_server, *args)
+
+    @staticmethod
     def _get_pressure_coefficients_for_definition_angle(
-            self,
+            engine,
+            db_url_server,
             model_name,
             angle,
             model_id,
@@ -89,13 +84,13 @@ class IsolatedHighRiseInterface(Interface):
             base_angle = get_base_angle(int(angle), permutation_view, type_base)
             sequence_permutation = get_sequence_permutation_data(type_base, permutation_view, int(angle))
 
-            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
+            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, engine, db_url_server,
                                                                            angle=base_angle))[base_angle]
 
             pressure_coefficients = changer_sequence_coefficients(pressure_coefficients, permutation_view,
                                                                   model_name, sequence_permutation)
         else:
-            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, self.engine,
+            pressure_coefficients = asyncio.run(load_pressure_coefficients(model_id, alpha, engine, db_url_server,
                                                                            angle=angle))[angle]
 
         # Поворот модели
@@ -119,7 +114,12 @@ class IsolatedHighRiseInterface(Interface):
 
         model_name = str(model_name)
 
-        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(model_name, angle, model_id, alpha)
+        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(self.engine,
+                                                                                     self.DB_URL_SERVER,
+                                                                                     model_name,
+                                                                                     angle,
+                                                                                     model_id,
+                                                                                     alpha)
 
         return pressure_coefficients
 
@@ -132,7 +132,8 @@ class IsolatedHighRiseInterface(Interface):
         if model_name_str[1] in ['2', '3']:
             model_name = int(model_name_str[1] + model_name_str[0] + model_name_str[2])
 
-        model_id = asyncio.run(find_experiment_by_model_name(model_name, alpha, self.engine)).model_id
+        model_id = asyncio.run(
+            find_experiment_by_model_name(model_name, alpha, self.engine, self.DB_URL_SERVER)).model_id
 
         return model_id
 
@@ -145,7 +146,7 @@ class IsolatedHighRiseInterface(Interface):
 
         model_id = self.get_model_id(model_name, alpha)
 
-        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine))
+        coordinates = asyncio.run(load_positions(model_id, alpha, self.engine, self.DB_URL_SERVER))
 
         return coordinates
 
@@ -157,11 +158,9 @@ class IsolatedHighRiseInterface(Interface):
         model_name = self._get_model_name()
         model_id = self.get_model_id(model_name, alpha)
 
-        face_number = asyncio.run(load_face_number(model_id, alpha, self.engine))
+        face_number = asyncio.run(load_face_number(model_id, alpha, self.engine, self.DB_URL_SERVER))
 
         return face_number
-
-
 
     def _get_size_tpu(
             self
@@ -211,14 +210,33 @@ class IsolatedHighRiseInterface(Interface):
         alpha = self._get_alpha()
         model_size = self._get_model_size()
         model_name, _ = get_model_and_scale_factors(*model_size, alpha)
+        model_name_str = str(model_name)
 
         model_id = self.get_model_id(model_name, alpha)
 
         angle_border = self._get_angle_border()
-        for angle in range(0, angle_border + 5, 5):
-            pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(str(model_name), angle,
-                                                                                         model_id, alpha)
-            pressure_coefficients_storage[angle] = pressure_coefficients
+
+        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = {}
+            for angle in range(0, angle_border + 5, 5):
+                args = (model_name_str, angle, model_id, alpha)
+
+                future = self._run_future(executor,
+                                          self._get_pressure_coefficients_for_definition_angle_future,
+                                          self.DB_URL_LOCAL, self.DB_URL_SERVER,
+                                          *args)
+
+                futures[future] = angle
+
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    angle = futures[future]
+                    pressure_coefficients_storage[angle] = result
+                except Exception as e:
+                    print(f"Ошибка в задаче: {e}")
+
+            executor.shutdown(wait=True)
 
         return pressure_coefficients_storage
 
@@ -229,5 +247,3 @@ class IsolatedHighRiseInterface(Interface):
         angle_border = get_angle_border(str(model_name))
 
         return angle_border
-
-

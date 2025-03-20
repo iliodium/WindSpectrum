@@ -26,21 +26,17 @@ from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
 
 __SENSOR_VALUES_DISCARD = 1000
 
-with open(r'config.json', 'r') as file:
-    config_db = json.load(file)
-
-__DB_URL_SERVER = config_db['db_url_server']
-
 
 @validate_call
 async def find_experiment_by_model_name(
         model_name: ModelNameIsolatedType,
         alpha: AlphaType,
-        _engine
+        _engine,
+        _db_url_server
 ) -> ExperimentsAlpha4 | ExperimentsAlpha6 | None:
     check_type_engine(_engine)
 
-    experiment = await __load_experiments_alpha_by_model_name(model_name, alpha, _engine)
+    experiment = await __load_experiments_alpha_by_model_name(model_name, alpha, _engine, _db_url_server)
 
     return experiment
 
@@ -173,6 +169,7 @@ async def load_positions(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,
         _engine,
+        _db_url_server,
         *,
         load_x: bool = True,
         load_y: bool = True,
@@ -182,7 +179,7 @@ async def load_positions(
     if not (load_x or load_y):
         raise ValueError("load_x or load_y must be True")
 
-    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, local_db=True)
+    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, _db_url_server, local_db=True)
 
     if load_x and load_y:
         return experiment.x_coordinates, experiment.z_coordinates
@@ -198,6 +195,7 @@ def __load_experiments_alpha(
         experiment_id: ExperimentIdType,
         alpha,
         _engine,
+        _db_url_server,
         local_db: bool = False
 
 ):
@@ -213,7 +211,7 @@ def __load_experiments_alpha(
         experiment = session.scalars(stmt).first()
 
     if experiment is None:
-        server_engine = create_engine(__DB_URL_SERVER)
+        server_engine = create_engine(_db_url_server)
         with Session(server_engine) as session:
             experiment = session.scalars(stmt).first()
         server_engine.dispose()
@@ -236,6 +234,7 @@ async def __load_experiments_alpha_by_model_name(
         model_name: ModelNameIsolatedType,
         alpha,
         _engine,
+        _db_url_server,
         local_db: bool = False
 
 ):
@@ -250,7 +249,7 @@ async def __load_experiments_alpha_by_model_name(
         experiment = session.scalars(stmt).first()
 
     if experiment is None:
-        server_engine = create_engine(__DB_URL_SERVER)
+        server_engine = create_engine(_db_url_server)
         with Session(server_engine) as session:
             experiment = session.scalars(stmt).first()
         server_engine.dispose()
@@ -269,7 +268,7 @@ async def __load_experiments_alpha_by_model_name(
     return experiment
 
 
-# @validate_call
+@validate_call
 async def __load_pressure_coefficients_for_type_and_alpha(
         experiment_id: ExperimentIdType,
         models_type,
@@ -314,6 +313,7 @@ async def load_pressure_coefficients(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,
         _engine,
+        _db_url_server,
         *,
         angle: AngleType = None,
         face_number: FaceOrNoneType = None,
@@ -341,7 +341,7 @@ async def load_pressure_coefficients(
     )
 
     if result is None:
-        server_engine = create_engine(__DB_URL_SERVER)
+        server_engine = create_engine(_db_url_server)
         result = await __load_pressure_coefficients_for_type_and_alpha(
             experiment_id,
             models_alpha,
@@ -400,11 +400,12 @@ async def load_face_number(
         experiment_id: ExperimentIdType,
         alpha: AlphaType,
         _engine,
+        db_url_server
 
 ):
     check_type_engine(_engine)
 
-    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, local_db=True)
+    experiment = __load_experiments_alpha(experiment_id, alpha, _engine, db_url_server, local_db=True)
 
     return experiment.face_number
 
@@ -415,7 +416,7 @@ if __name__ == "__main__":
     from sqlalchemy import create_engine
 
     local_engine = create_engine('sqlite:///windspectrum.db')
-    server_engine = create_engine(__DB_URL_SERVER)
+    # server_engine = create_engine(_db_url_server)
     # for angle in range(0,50, 5):
     #     res = asyncio.run(load_pressure_coefficients(1, 4, local_engine, angle=angle))
     #     print(res)

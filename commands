@@ -1,3 +1,3 @@
 pyreverse -o puml src
 
-python -m nuitka --standalone --enable-plugin=pyside6 --assume-yes-for-downloads --windows-console-mode=disable --include-data-files=cdb_schema/dump_schema.sql=db_schema/dump_schema.sql --include-data-files=config.json=config.json --include-data-dir=src/ui/resource=src/ui/resource --noinclude-unittest-mode=nofollow --output-dir=windspectrum --windows-icon-from-ico=src/ui/resource/images/mini_logo.ico --output-filename=windspectrum.exe --jobs=8 main.py
+python -m nuitka --standalone --enable-plugin=pyside6 --assume-yes-for-downloads --windows-console-mode=disable --include-data-files=db_schema/dump_schema.sql=db_schema/dump_schema.sql --include-data-files=config.json=config.json --include-data-dir=src/ui/resource=src/ui/resource --noinclude-unittest-mode=nofollow --output-dir=windspectrum --windows-icon-from-ico=src/ui/resource/images/mini_logo.ico --output-filename=windspectrum.exe --jobs=8 main.py
