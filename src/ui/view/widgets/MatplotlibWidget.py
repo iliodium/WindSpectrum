@@ -1,6 +1,7 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from PySide6.QtWidgets import (QVBoxLayout,
+                               QWidget,)
 from qfluentwidgets import ScrollArea
 
 

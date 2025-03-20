@@ -1,39 +1,51 @@
 # coding:utf-8
-import json
 import os
 from abc import abstractmethod
 from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import Manager
 
 import matplotlib
 import numpy as np
-from PySide6 import QtGui, QtCore
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QStackedLayout, QVBoxLayout
+from compiled_functions import aot_calculations
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Pt, Mm
+from docx.shared import (Mm,
+                         Pt,)
 from matplotlib import pyplot as plt
 from openpyxl import Workbook
-from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
-    StrongBodyLabel, LineEdit
+from PySide6 import (QtCore,
+                     QtGui,)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QHBoxLayout,
+                               QStackedLayout,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (ComboBox,
+                            LineEdit,
+                            PushButton,
+                            StrongBodyLabel,
+                            TitleLabel,)
 from sqlalchemy import create_engine
-
-from compiled_functions import aot_calculations
 from src.common.annotation import ModelSizeType
-from src.common.constants import wind_regions, alpha_standards
+from src.common.constants import (alpha_standards,
+                                  wind_regions,)
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
 from src.submodules.report_tools.reportFolder import ReportFolder
 from src.submodules.report_tools.utils import create_directory_to_report
 from src.submodules.report_tools.wordBuilder import WordBuilder
-from src.submodules.utils.data_features import polar_lambdas, lambdas, calculated, warranty_plus, warranty_minus
+from src.submodules.utils.data_features import (calculated,
+                                                lambdas,
+                                                polar_lambdas,
+                                                warranty_minus,
+                                                warranty_plus,)
 from src.submodules.utils.scaling import calculate_kt
 from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import tpu_size_to_real, converter_coordinates
+from src.submodules.utils.utils import (converter_coordinates,
+                                        tpu_size_to_real,)
 from src.ui.common.Buttons import Buttons
-from src.ui.common.CartesianModelSummaryCoefficients import CartesianModelSummaryCoefficients
+from src.ui.common.CartesianModelSummaryCoefficients import (
+    CartesianModelSummaryCoefficients,)
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
 from src.ui.common.CoordinateSystem import CoordinateSystem

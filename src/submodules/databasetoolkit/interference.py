@@ -1,11 +1,15 @@
 import numpy
 import numpy as np
-from pydantic import (validate_call, )
-from sqlalchemy import select, insert, create_engine
+from pydantic import validate_call
+from sqlalchemy import (create_engine,
+                        insert,
+                        select,)
 from sqlalchemy.orm import Session
-
-from src.common.annotation import (check_type_engine, AngleType, PositionType, )
-from src.submodules.databasetoolkit.orm.models import Buildings, Interference
+from src.common.annotation import (AngleType,
+                                   PositionType,
+                                   check_type_engine,)
+from src.submodules.databasetoolkit.orm.models import (Buildings,
+                                                       Interference,)
 
 __SENSOR_VALUES_DISCARD = 1000
 

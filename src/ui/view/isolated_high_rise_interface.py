@@ -1,18 +1,21 @@
 # coding:utf-8
 import asyncio
-import os
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import (ProcessPoolExecutor,
+                                as_completed, )
 
 from sqlalchemy import create_engine
 
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement
-from src.submodules.databasetoolkit.isolated import load_pressure_coefficients, find_experiment_by_model_name, \
-    load_positions, load_face_number
-from src.submodules.databasetoolkit.toolkits.decorator import with_db_connection
-from src.submodules.utils.angle import get_angle_border, get_base_angle, changer_sequence_coefficients
-from src.submodules.utils.permutations import get_view_permutation_data, get_sequence_permutation_data
+from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
+                                                     load_face_number,
+                                                     load_positions,
+                                                     load_pressure_coefficients, )
+from src.submodules.utils.angle import (changer_sequence_coefficients,
+                                        get_angle_border,
+                                        get_base_angle, )
+from src.submodules.utils.permutations import (get_sequence_permutation_data,
+                                               get_view_permutation_data, )
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.submodules.utils.utils import get_size_tpu_and_count_sensors
 from src.ui.view.interfaceBuildings import InterfaceBuildings

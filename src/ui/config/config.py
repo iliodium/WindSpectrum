@@ -3,9 +3,16 @@ import sys
 from enum import Enum
 
 from PySide6.QtCore import QLocale
-from qfluentwidgets import (qconfig, QConfig, ConfigItem, OptionsConfigItem, BoolValidator,
-                            OptionsValidator, RangeConfigItem, RangeValidator,
-                            Theme, ConfigSerializer)
+from qfluentwidgets import (BoolValidator,
+                            ConfigItem,
+                            ConfigSerializer,
+                            OptionsConfigItem,
+                            OptionsValidator,
+                            QConfig,
+                            RangeConfigItem,
+                            RangeValidator,
+                            Theme,
+                            qconfig,)
 
 
 class Language(Enum):

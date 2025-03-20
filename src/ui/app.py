@@ -17,10 +17,10 @@ from qfluentwidgets import (FluentIcon,
                             isDarkTheme,
                             setFont,)
 from src.ui.config.config import cfg
-from src.ui.view.isolated_high_rise_interface import (
-    IsolatedHighRiseInterfaceBuildings as _IsolatedHighRiseInterface,)
 from src.ui.view.interference_high_rise_interface import (
     InterferenceHighRiseInterfaceBuildings as _InterferenceHighRiseInterface,)
+from src.ui.view.isolated_high_rise_interface import (
+    IsolatedHighRiseInterfaceBuildings as _IsolatedHighRiseInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 

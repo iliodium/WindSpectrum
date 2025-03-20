@@ -1,7 +1,21 @@
-from typing import List, Optional
+from typing import (List,
+                    Optional,)
 
-from sqlalchemy import ARRAY, Column, Float, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Sequence, SmallInteger, String, Table, UniqueConstraint
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
+from sqlalchemy import (ARRAY,
+                        Column,
+                        Float,
+                        ForeignKeyConstraint,
+                        Integer,
+                        PrimaryKeyConstraint,
+                        Sequence,
+                        SmallInteger,
+                        String,
+                        Table,
+                        UniqueConstraint,)
+from sqlalchemy.orm import (Mapped,
+                            declarative_base,
+                            mapped_column,
+                            relationship,)
 from sqlalchemy.orm.base import Mapped
 
 Base = declarative_base()

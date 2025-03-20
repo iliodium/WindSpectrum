@@ -2,17 +2,16 @@ import asyncio
 
 from pydantic import validate_call
 from sqlalchemy import Engine
-
 from src.common.annotation import (AlphaType,
                                    AngleOrNoneType,
                                    ExperimentIdType,
                                    FaceOrNoneType,
                                    PositionXOrNoneType,
                                    PositionYOrNoneType,
-                                   check_type_engine, )
+                                   check_type_engine,)
 from src.submodules.databasetoolkit.isolated import (list_experiments,
                                                      load_positions,
-                                                     load_pressure_coefficients, )
+                                                     load_pressure_coefficients,)
 
 
 class IsolatedToolkit:

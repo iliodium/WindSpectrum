@@ -3,22 +3,28 @@ from typing import Any
 import matplotlib
 import matplotlib.tri as mtri
 import numpy as np
+from compiled_functions import aot_calculations
 from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MultipleLocator, ScalarFormatter
+from matplotlib.ticker import (MultipleLocator,
+                               ScalarFormatter,)
 from pydantic import validate_call
 from scipy.signal import welch
-
-from src.common.annotation import CoordinatesType, ChartModeType, ModelNameIsolatedType, ModelSizeType, \
-    WindRegionsOrNoneType, AlphaStandardsOrKs10orNoneType
+from src.common.annotation import (AlphaStandardsOrKs10orNoneType,
+                                   ChartModeType,
+                                   CoordinatesType,
+                                   ModelNameIsolatedType,
+                                   ModelSizeType,
+                                   WindRegionsOrNoneType,)
 from src.submodules.plot.plot import Plot
-from src.submodules.plot.utils import calculate_levels, set_colorbar
+from src.submodules.plot.utils import calculate_levels
 from src.submodules.plot.utils import interpolator as intp
+from src.submodules.plot.utils import set_colorbar
 from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.speed_sp import speed_sp_region
-from src.submodules.utils.utils import get_size_tpu_and_count_sensors, tpu_size_to_real
+from src.submodules.utils.utils import (get_size_tpu_and_count_sensors,
+                                        tpu_size_to_real,)
 from src.ui.common.ChartMode import ChartMode
-from compiled_functions import aot_calculations
 
 
 class PlotBuilding(Plot):
@@ -525,10 +531,11 @@ if __name__ == "__main__":
     import asyncio
 
     import matplotlib.pyplot as plt
-    from sqlalchemy import create_engine
-    from src.submodules.databasetoolkit.isolated import (load_positions,
-                                                         load_pressure_coefficients, find_experiment_by_model_name, )
     from compiled_functions import aot_calculations
+    from sqlalchemy import create_engine
+    from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
+                                                         load_positions,
+                                                         load_pressure_coefficients,)
 
     # engine = create_engine("postgresql://postgres:password@localhost:15432/postgres")
     # engine = create_engine("postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db")

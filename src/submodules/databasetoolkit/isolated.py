@@ -1,28 +1,30 @@
 import json
 from typing import (Any,
-                    Sequence, )
+                    Sequence,)
 
 import numpy
 import numpy as np
 from pydantic import (BaseModel,
                       ConfigDict,
-                      validate_call, )
+                      validate_call,)
 from pydantic.dataclasses import dataclass
-from sqlalchemy import select, insert, create_engine
+from sqlalchemy import (create_engine,
+                        insert,
+                        select,)
 from sqlalchemy.orm import Session
-
 from src.common.annotation import (AlphaType,
+                                   AngleType,
                                    CoordinatesType,
                                    ExperimentIdType,
                                    FaceOrNoneType,
                                    ModelNameIsolatedType,
                                    PositionXOrNoneType,
                                    PositionYOrNoneType,
-                                   check_type_engine, AngleType, )
+                                   check_type_engine,)
 from src.submodules.databasetoolkit.orm.models import (ExperimentsAlpha4,
                                                        ExperimentsAlpha6,
                                                        t_models_alpha_4,
-                                                       t_models_alpha_6, )
+                                                       t_models_alpha_6,)
 
 __SENSOR_VALUES_DISCARD = 1000
 

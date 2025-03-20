@@ -1,7 +1,16 @@
-from PySide6.QtCore import Qt, QRectF, QLineF
-from PySide6.QtGui import QColor, QPen, QBrush, QFont
-from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget, QGraphicsEllipseItem, \
-    QGraphicsTextItem
+from PySide6.QtCore import (QLineF,
+                            QRectF,
+                            Qt,)
+from PySide6.QtGui import (QBrush,
+                           QColor,
+                           QFont,
+                           QPen,)
+from PySide6.QtWidgets import (QGraphicsEllipseItem,
+                               QGraphicsScene,
+                               QGraphicsTextItem,
+                               QGraphicsView,
+                               QSizePolicy,
+                               QWidget,)
 
 
 class ClickablePoint(QGraphicsEllipseItem):

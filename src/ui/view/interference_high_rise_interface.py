@@ -1,15 +1,21 @@
 # coding:utf-8
 import asyncio
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import (ProcessPoolExecutor,
+                                as_completed,)
 
 import numpy as np
-from PySide6.QtWidgets import QHBoxLayout, QWidget, QVBoxLayout
-from qfluentwidgets import PushButton, LineEdit, StrongBodyLabel
+from PySide6.QtWidgets import (QHBoxLayout,
+                               QVBoxLayout,
+                               QWidget,)
+from qfluentwidgets import (LineEdit,
+                            PushButton,
+                            StrongBodyLabel,)
 from sqlalchemy import create_engine
-
 from src.common.annotation import ModelSizeType
-from src.submodules.databasetoolkit.interference import load_pressure_coefficients, find_id_building_by_height
-from src.submodules.utils.scaling import get_model_and_scale_factors_interference
+from src.submodules.databasetoolkit.interference import (find_id_building_by_height,
+                                                         load_pressure_coefficients,)
+from src.submodules.utils.scaling import (
+    get_model_and_scale_factors_interference,)
 from src.ui.common.Buttons import Buttons
 from src.ui.components.ImageLabel import ImageLabel
 from src.ui.view.interfaceBuildings import InterfaceBuildings
