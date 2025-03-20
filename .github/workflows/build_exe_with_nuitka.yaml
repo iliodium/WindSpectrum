@@ -1,10 +1,10 @@
 name: build_exe_with_nuitka
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+#on:
+#  push:
+#    branches: [ main ]
+#  pull_request:
+#    branches: [ main ]
 jobs:
   build:
     runs-on: windows-latest  # Используем Windows, так как собираем exe-файл

@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/PyCQA/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort
+        entry: isort
+        args: [--settings-file=./.github/workflows/import_linter/.isort.cfg]
+        language: python
+        types: [python]
