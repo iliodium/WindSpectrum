@@ -1,7 +1,9 @@
 import os
 import sys
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import (QSize,
+                            Qt,
+                            QTimer,)
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QApplication,
                                QFrame,
