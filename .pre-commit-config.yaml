@@ -1,8 +1,13 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer  # Убеждается, что каждый файл заканчивается пустой строкой
+      - id: trailing-whitespace  # Удаляет лишние пробелы в конце строк
   - repo: https://github.com/pycqa/isort
     rev: 6.0.1
     hooks:
       - id: isort
-        args: ['--settings-file=', './.github/workflows/import_linter/.isort.cfg']
+        args: [ '--settings-file=', './.github/workflows/import_linter/.isort.cfg' ]
 #        language: python
 #        types: [python]
