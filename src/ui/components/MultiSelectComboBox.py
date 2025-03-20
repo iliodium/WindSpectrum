@@ -5,7 +5,6 @@ from PySide6.QtGui import (QFontMetrics,
                            QStandardItem,)
 from PySide6.QtWidgets import (QComboBox,
                                QStyledItemDelegate,)
-
 from src.ui.common.StyleSheet import StyleSheet
 
 

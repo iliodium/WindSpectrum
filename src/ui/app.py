@@ -1,9 +1,13 @@
 import os
 import sys
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import (QSize,
+                            Qt,
+                            QTimer,)
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout
+from PySide6.QtWidgets import (QApplication,
+                               QFrame,
+                               QHBoxLayout,)
 from qfluentwidgets import (FluentIcon,
                             FluentWindow,
                             NavigationItemPosition,
@@ -12,7 +16,6 @@ from qfluentwidgets import (FluentIcon,
                             SystemThemeListener,
                             isDarkTheme,
                             setFont,)
-
 from src.ui.config.config import cfg
 from src.ui.view.interference_high_rise_interface import (
     InterferenceHighRiseInterfaceBuildings as _InterferenceHighRiseInterface,)

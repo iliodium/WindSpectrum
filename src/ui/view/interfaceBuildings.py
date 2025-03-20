@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import matplotlib
 import numpy as np
+from compiled_functions import aot_calculations
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -25,8 +26,6 @@ from qfluentwidgets import (ComboBox,
                             StrongBodyLabel,
                             TitleLabel,)
 from sqlalchemy import create_engine
-
-from compiled_functions import aot_calculations
 from src.common.annotation import ModelSizeType
 from src.common.constants import (alpha_standards,
                                   wind_regions,)

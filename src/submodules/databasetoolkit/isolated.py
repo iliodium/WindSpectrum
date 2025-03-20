@@ -12,7 +12,6 @@ from sqlalchemy import (create_engine,
                         insert,
                         select,)
 from sqlalchemy.orm import Session
-
 from src.common.annotation import (AlphaType,
                                    AngleType,
                                    CoordinatesType,

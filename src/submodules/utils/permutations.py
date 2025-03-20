@@ -1,5 +1,4 @@
 from pydantic import validate_call
-
 from src.common.annotation import AngleType
 from src.common.PermutationView import PermutationView
 from src.common.TypeOfBasement import TypeOfBasement

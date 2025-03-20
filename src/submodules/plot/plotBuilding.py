@@ -3,14 +3,13 @@ from typing import Any
 import matplotlib
 import matplotlib.tri as mtri
 import numpy as np
+from compiled_functions import aot_calculations
 from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import (MultipleLocator,
                                ScalarFormatter,)
 from pydantic import validate_call
 from scipy.signal import welch
-
-from compiled_functions import aot_calculations
 from src.common.annotation import (AlphaStandardsOrKs10orNoneType,
                                    ChartModeType,
                                    CoordinatesType,
@@ -532,9 +531,8 @@ if __name__ == "__main__":
     import asyncio
 
     import matplotlib.pyplot as plt
-    from sqlalchemy import create_engine
-
     from compiled_functions import aot_calculations
+    from sqlalchemy import create_engine
     from src.submodules.databasetoolkit.isolated import (find_experiment_by_model_name,
                                                          load_positions,
                                                          load_pressure_coefficients,)

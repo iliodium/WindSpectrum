@@ -1,8 +1,7 @@
 import numpy as np
 import scipy
-from pydantic import validate_call
-
 from compiled_functions import aot_calculations
+from pydantic import validate_call
 from src.common.annotation import (AlphaType,
                                    BuildingSizeType,)
 from src.common.constants import (Uz_a_0_16_x,
