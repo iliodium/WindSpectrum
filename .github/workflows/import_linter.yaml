@@ -23,4 +23,4 @@ jobs:
         pip install -r requirements_dev.txt
     - name: Run isort
       run:
-        isort src/ --settings-file .github/workflows/import_linter/.isort.cfg
+        isort src/ --settings-file .isort_import_linter.cfg
