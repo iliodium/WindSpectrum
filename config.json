@@ -1,5 +1,5 @@
 {
-  "db_url": "sqlite:///windspectrum.db",
-  "db_url_server": "postgresql://postgres:1234@localhost/postgres",
-  "max_workers": 12
+  "DB_URL_LOCAL": "sqlite:///windspectrum.db",
+  "DB_URL_SERVER": "postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db1",
+  "MAX_WORKERS": 12
 }

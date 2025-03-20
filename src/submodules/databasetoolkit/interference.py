@@ -1,20 +1,13 @@
-import json
-
 import numpy
 import numpy as np
 from pydantic import (validate_call, )
-from sqlalchemy import select, insert
+from sqlalchemy import select, insert, create_engine
 from sqlalchemy.orm import Session
 
 from src.common.annotation import (check_type_engine, AngleType, PositionType, )
 from src.submodules.databasetoolkit.orm.models import Buildings, Interference
 
 __SENSOR_VALUES_DISCARD = 1000
-
-with open(r'config.json', 'r') as file:
-    config_db = json.load(file)
-
-__DB_URL_SERVER = config_db['db_url_server']
 
 
 async def __load_building_by_height(
@@ -32,13 +25,14 @@ async def __load_building_by_height(
 @validate_call
 async def find_id_building_by_height(
         height: int,
-        _engine
+        _engine,
+        _db_url_server
 ) -> Buildings.id_building | None:
     check_type_engine(_engine)
 
     building = await __load_building_by_height(height, _engine)
     if building is None:
-        server_engine = create_engine(__DB_URL_SERVER)
+        server_engine = create_engine(_db_url_server)
         building = await __load_building_by_height(height, server_engine)
         server_engine.dispose()
         if building is None:
@@ -115,7 +109,8 @@ async def load_pressure_coefficients(
         position: PositionType,
         angle: AngleType,
         id_building: int,
-        _engine
+        _engine,
+        _db_url_server
 ):
     check_type_engine(_engine)
 
@@ -124,7 +119,7 @@ async def load_pressure_coefficients(
                                                                               _engine,
                                                                               local_db=True)
     if result is None:
-        server_engine = create_engine(__DB_URL_SERVER)
+        server_engine = create_engine(_db_url_server)
         result = await __load_pressure_coefficients_by_id_building_instance_angle(position,
                                                                                   angle,
                                                                                   id_building,

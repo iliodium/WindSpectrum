@@ -5,17 +5,17 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QVBoxLayout
 from qfluentwidgets import PushButton, LineEdit, StrongBodyLabel
+from sqlalchemy import create_engine
 
 from src.common.annotation import ModelSizeType
 from src.submodules.databasetoolkit.interference import load_pressure_coefficients, find_id_building_by_height
-from src.submodules.databasetoolkit.toolkits.decorator import with_db_connection
 from src.submodules.utils.scaling import get_model_and_scale_factors_interference
 from src.ui.common.Buttons import Buttons
 from src.ui.components.ImageLabel import ImageLabel
-from src.ui.view.interface import Interface
+from src.ui.view.interfaceBuildings import InterfaceBuildings
 
 
-class InterferenceHighRiseInterface(Interface):
+class InterferenceHighRiseInterfaceBuildings(InterfaceBuildings):
     """Interference High Rise Interface
 
     constants :
@@ -38,10 +38,10 @@ class InterferenceHighRiseInterface(Interface):
     def __init__(
             self,
             parent=None,
-            engine=None
+            config=None
     ):
 
-        super().__init__(parent=parent, engine=engine)
+        super().__init__(parent=parent, config=config)
         self.setObjectName('InterferenceHighRiseInterface')
 
         WidgetInterferingInformation = QWidget()
@@ -123,15 +123,26 @@ class InterferenceHighRiseInterface(Interface):
         return int(self.lineEditPositionInterfering.text())
 
     @staticmethod
-    @with_db_connection(Interface.DB_URL)
+    def _get_pressure_coefficients_for_definition_angle_future(
+            url,
+            db_url_server,
+            *args
+    ):
+        engine = create_engine(url)
+
+        return InterferenceHighRiseInterfaceBuildings._get_pressure_coefficients_for_definition_angle(
+            engine, db_url_server, *args)
+
+    @staticmethod
     def _get_pressure_coefficients_for_definition_angle(
             engine,
+            db_url_server,
             position,
             angle,
             id_interfering_building
     ):
         pressure_coefficients = asyncio.run(
-            load_pressure_coefficients(position, angle, id_interfering_building, engine))[angle]
+            load_pressure_coefficients(position, angle, id_interfering_building, engine, db_url_server))[angle]
 
         return pressure_coefficients
 
@@ -231,9 +242,11 @@ class InterferenceHighRiseInterface(Interface):
         angle = self._get_angle()
         position = self._get_position_interfering()
         id_interfering_building = self._get_id_interfering_building()
-        id_principle_building = self._get_id_interfering_building()
 
-        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(position, angle,
+        pressure_coefficients = self._get_pressure_coefficients_for_definition_angle(self.engine,
+                                                                                     self.DB_URL_SERVER,
+                                                                                     position,
+                                                                                     angle,
                                                                                      id_interfering_building)
 
         return pressure_coefficients
@@ -244,7 +257,7 @@ class InterferenceHighRiseInterface(Interface):
         model_size_interfering = self._get_model_size_interfering()
         position = self._get_position_interfering()
         height = get_model_and_scale_factors_interference(*model_size_interfering, position)
-        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine))
+        id_interfering_building = asyncio.run(find_id_building_by_height(height, self.engine, self.DB_URL_SERVER))
 
         return id_interfering_building
 
@@ -259,10 +272,11 @@ class InterferenceHighRiseInterface(Interface):
         with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
             futures = {}
             for angle in range(0, angle_border + 5, 5):
+                args = (position, angle, id_interfering_building)
                 future = executor.submit(
-                    self._get_pressure_coefficients_for_definition_angle,
-                    position, angle,
-                    id_interfering_building
+                    self._get_pressure_coefficients_for_definition_angle_future,
+                    self.DB_URL_LOCAL, self.DB_URL_SERVER,
+                    *args
                 )
                 futures[future] = angle
 
@@ -275,8 +289,3 @@ class InterferenceHighRiseInterface(Interface):
                     print(f"Ошибка в задаче: {e}")
 
         return pressure_coefficients_storage
-
-    def _get_model_name(
-            self
-    ):
-        pass

@@ -1,8 +1,6 @@
 import json
 import os.path
 
-from sqlalchemy import create_engine
-
 from db_schema.create_sqlite_db import load_dump
 
 if __name__ == "__main__":
@@ -14,13 +12,13 @@ if __name__ == "__main__":
         load_dump(dump_file, db_file)
 
     with open('config.json', 'r') as file:
-        config_db = json.load(file)
-
-    engine = create_engine(config_db['db_url'])
+        config = json.load(file)
 
     {
         "db_url": "sqlite:///windspectrum.db",
-        "db_url_server": "postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db"
+        "db_url_server": "postgresql://postgres:dSJJNjkn42384*$(#@92.246.143.110:5432/windspectrum_db1",
+        "DB_URL_SERVER": "postgresql://postgres:1234@localhost/postgres",
+
     }
 
-    main(engine)
+    main(config)

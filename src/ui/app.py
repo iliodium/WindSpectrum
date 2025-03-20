@@ -18,9 +18,9 @@ from qfluentwidgets import (FluentIcon,
                             setFont,)
 from src.ui.config.config import cfg
 from src.ui.view.isolated_high_rise_interface import (
-    IsolatedHighRiseInterface as _IsolatedHighRiseInterface,)
+    IsolatedHighRiseInterfaceBuildings as _IsolatedHighRiseInterface,)
 from src.ui.view.interference_high_rise_interface import (
-    InterferenceHighRiseInterface as _InterferenceHighRiseInterface,)
+    InterferenceHighRiseInterfaceBuildings as _InterferenceHighRiseInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 
@@ -48,7 +48,7 @@ class MainWindow(FluentWindow):
 
     def __init__(
             self,
-            engine
+            config
     ):
         super().__init__()
         self.initWindow()
@@ -58,8 +58,8 @@ class MainWindow(FluentWindow):
 
         # create sub interface
         self.MainInterface = _MainInterface(self)
-        self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self, engine)
-        self.InterferenceHighRiseInterface = _InterferenceHighRiseInterface(self, engine)
+        self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self, config)
+        self.InterferenceHighRiseInterface = _InterferenceHighRiseInterface(self, config)
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
@@ -172,7 +172,7 @@ class MainWindow(FluentWindow):
             QTimer.singleShot(100, lambda: self.windowEffect.setMicaEffect(self.winId(), isDarkTheme()))
 
 
-def main(engine):
+def main(config):
     # enable dpi scale
     if cfg.get(cfg.dpiScale) != "Auto":
         os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
@@ -183,7 +183,7 @@ def main(engine):
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
 
     # create main window
-    w = MainWindow(engine)
+    w = MainWindow(config)
     w.show()
 
     app.exec()

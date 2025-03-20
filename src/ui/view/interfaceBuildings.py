@@ -18,6 +18,7 @@ from matplotlib import pyplot as plt
 from openpyxl import Workbook
 from qfluentwidgets import PushButton, TitleLabel, ComboBox, \
     StrongBodyLabel, LineEdit
+from sqlalchemy import create_engine
 
 from compiled_functions import aot_calculations
 from src.common.annotation import ModelSizeType
@@ -42,11 +43,8 @@ from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
 
-with open(r'config.json', 'r') as file:
-    config_db = json.load(file)
 
-
-class Interface(QWidget):
+class InterfaceBuildings(QWidget):
     """Interface"""
 
     SAMPLE_PERIOD = None
@@ -54,18 +52,20 @@ class Interface(QWidget):
     NUMBER_OF_TIME_COUNTS = None
 
     REPORT_FOLDER_NAME = None
-
-    DB_URL = config_db['db_url']
-    DB_URL_SERVER = config_db['db_url_server']
-    MAX_WORKERS = config_db['max_workers']
+    # config
+    DB_URL_LOCAL = None
+    DB_URL_SERVER = None
+    MAX_WORKERS = None
 
     def __init__(
             self,
             parent=None,
-            engine=None
+            config=None
     ):
+        for key, value in config.items():
+            setattr(self, key, value)
         super().__init__(parent=parent)
-        self.engine = engine
+        self.engine = create_engine(self.DB_URL_LOCAL)
         self.view = self
         self.plotFlag = False
 
@@ -104,6 +104,39 @@ class Interface(QWidget):
         self.fig_spectrum_sensors_overview = None
         self.fig_summary_coefficients_sensors_overview = None
 
+    def _draw_sensors_overview(
+            self,
+            size_model_tpu,
+            coordinates
+    ):
+
+        breadth_tpu, depth_tpu, height_tpu = size_model_tpu
+
+        self.SensorWidget.model_size = size_model_tpu
+
+        length = 2 * (breadth_tpu + depth_tpu)
+
+        lines_pos = [i / length for i in (breadth_tpu, breadth_tpu + depth_tpu, 2 * breadth_tpu + depth_tpu)]
+
+        self.SensorWidget.lines_pos = lines_pos
+        self.SensorWidget.update_lines()
+
+        length_x = 2 * (breadth_tpu + depth_tpu)
+        length_y = height_tpu
+
+        x = [i / length_x for i in coordinates[0]]
+        y = [i / length_y for i in coordinates[1]]
+
+        for b in self.SensorWidget.buttons:
+            self.SensorWidget.scene.removeItem(b)
+            b.deleteLater()  # Уничтожаем объект
+
+        self.SensorWidget.buttons = []
+        buttons_pos = [(i*0.98, 1 - j) for i, j in zip(x, y)]
+        self.SensorWidget.buttons_pos = buttons_pos
+
+        self.SensorWidget.add_buttons()
+
     def _switch_stacked_layout_sensors_overview(
             self
     ):
@@ -113,33 +146,8 @@ class Interface(QWidget):
             self.PushButtonSensorsOverview.setText(Buttons.PLOTS)
             coordinates = self._get_coordinates()
             size_model_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
-            breadth_tpu, depth_tpu, height_tpu = size_model_tpu
-
             if size_model_tpu != self.SensorWidget.model_size:
-                self.SensorWidget.model_size = size_model_tpu
-
-                length = 2 * (breadth_tpu + depth_tpu)
-
-                lines_pos = [i / length for i in (breadth_tpu, breadth_tpu + depth_tpu, 2 * breadth_tpu + depth_tpu)]
-
-                self.SensorWidget.lines_pos = lines_pos
-                self.SensorWidget.update_lines()
-
-                length_x = 2 * (breadth_tpu + depth_tpu)
-                length_y = height_tpu
-
-                x = [i / length_x for i in coordinates[0]]
-                y = [i / length_y for i in coordinates[1]]
-
-                for b in self.SensorWidget.buttons:
-                    self.SensorWidget.scene.removeItem(b)
-                    b.deleteLater()  # Уничтожаем объект
-
-                self.SensorWidget.buttons = []
-                buttons_pos = [(i, 1 - j) for i, j in zip(x, y)]
-                self.SensorWidget.buttons_pos = buttons_pos
-
-                self.SensorWidget.add_buttons()
+                self._draw_sensors_overview(size_model_tpu, coordinates)
 
             else:
                 pass
@@ -812,6 +820,24 @@ class Interface(QWidget):
         pass
 
     @abstractmethod
+    def _get_pressure_coefficients_for_definition_angle_future(
+            self,
+            *args,
+            **kwargs
+    ):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def _get_pressure_coefficients_for_definition_angle(
+            engine,
+            db_url_server,
+            *args,
+            **kwargs
+    ):
+        pass
+
+    @abstractmethod
     def _get_size_and_count_sensors(
             self,
             *args,
@@ -1134,6 +1160,8 @@ class Interface(QWidget):
         future = executor.submit(*args)
         future.add_done_callback(
             lambda f: print(f"Ошибка в задаче: {f.exception()}") if f.exception() else None)
+
+        return future
 
     def draw_and_save_all_plots(
             self,
@@ -1596,6 +1624,8 @@ class Interface(QWidget):
                                              model_size,
                                              path_report)
 
+        self.draw_and_save_all_plots(pressure_coefficients_storage, alpha_str, coordinates, angle_border, path_report,
+                                     model_size, model_size_str, size_model_tpu, count_sensors, wind_region)
 
         del pressure_coefficients_storage
 
