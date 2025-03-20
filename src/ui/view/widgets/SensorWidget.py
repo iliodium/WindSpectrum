@@ -1,7 +1,53 @@
 from PySide6.QtCore import Qt, QRectF, QLineF
-from PySide6.QtGui import QColor, QPen
-from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget
-from qfluentwidgets import setFont, TransparentPushButton
+from PySide6.QtGui import QColor, QPen, QBrush, QFont
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget, QGraphicsEllipseItem, \
+    QGraphicsTextItem
+
+
+class ClickablePoint(QGraphicsEllipseItem):
+    def __init__(self, x, y, index, parent=None):
+        super().__init__(0, 0, 0, 0, parent)  # Начальный размер будет обновлён
+        self.index = index  # Индекс точки для идентификации
+
+        # Создаем точку
+        self.relative_x = x  # Относительная позиция по X (от 0 до 1)
+        self.relative_y = y  # Относительная позиция по Y (от 0 до 1)
+        self.relative_radius = 10  # Относительный радиус (например, 0.05 = 5% от ширины сцены)
+        self.setAcceptHoverEvents(True)
+        self.setBrush(QBrush(Qt.black))  # Устанавливаем цвет точки
+
+        # Создаем подпись
+        self.label = QGraphicsTextItem(str(self.index + 1), self)  # +1 для удобства (начинаем с 1)
+        self.label.setDefaultTextColor(Qt.black)  # Цвет текста
+        self.label.setFont('Segoe UI')
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.on_click(self.index)
+
+    def set_on_click(self, callback):
+        """Метод для установки внешнего обработчика клика"""
+        self.on_click = callback
+
+    def updatePositionAndRadius(self, scene_width, scene_height):
+        """Обновляет позицию и радиус точки при изменении размера сцены"""
+        # Пересчитываем радиус
+        scale = min(
+            scene_width / self.relative_radius,
+            scene_height / self.relative_radius
+        ) * 0.2
+
+        radius = scale
+        self.setRect(0, 0, radius, radius)  # Устанавливаем новый размер
+        # Пересчитываем позицию
+        x = scene_width * self.relative_x - radius / 2
+        y = scene_height * self.relative_y - radius / 2
+        self.setPos(x, y)
+
+        self.label.setPos(-radius, radius / 2)
+
+        new_size = int(radius * 1.2)
+        self.label.setFont(QFont(self.label.font().family(), new_size))
 
 
 class SensorWidget(QWidget):
@@ -10,8 +56,8 @@ class SensorWidget(QWidget):
         self.lines_pos = [0.25, 0.5, 0.75]
         self.lines = []
 
-        self.buttons_pos = []
-        self.buttons = []
+        self.points_pos = []
+        self.points = []
 
         self.action_button = action_button
 
@@ -35,7 +81,7 @@ class SensorWidget(QWidget):
 
         # Добавляем линии на сцену
         self.add_lines()
-        self.add_buttons()
+        self.add_points()
 
     def resize_scene(self, event):
         """Изменяет размер сцены и обновляет линии при изменении размеров окна."""
@@ -45,7 +91,7 @@ class SensorWidget(QWidget):
         self.scene.setSceneRect(QRectF(0, 0, new_size.width(), new_size.height()))
         # Обновляем линии
         self.update_lines()
-        self.update_buttons()
+        self.update_points()
 
         # Вызываем родительский метод resizeEvent
         super().resizeEvent(event)
@@ -70,30 +116,24 @@ class SensorWidget(QWidget):
                 scene_width * pos, scene_height  # Конечная точка (x, y)
             )
 
-    def add_buttons(self):
+    def add_points(self):
         """Добавляет кнопки на сцену."""
+        for i, pos in enumerate(self.points_pos):
+            x, y = pos
+            point = ClickablePoint(x, y, i)  # x, y, радиус, индекс
+            point.set_on_click(self.action_button)
+
+            self.scene.addItem(point)
+            self.points.append(point)
+
+        # Обновляем позиции кнопок
+        self.update_points()
+
+    def update_points(self):
+        """Обновляет позиции кнопок на основе текущего размера сцены."""
         scene_width = self.scene.width()
         scene_height = self.scene.height()
 
-        for i, pos in enumerate(self.buttons_pos, start=1):
-            x, y = pos
-            button = TransparentPushButton(str(i))
-            button.setFixedSize(50, 30)
-            setFont(button, 15)
-            button.clicked.connect(lambda checked, idx=i: self.action_button(idx - 1))
-
-            proxy_button = self.scene.addWidget(button)
-            self.buttons.append(proxy_button)
-            proxy_button.setPos(scene_width * x, scene_height * y)
-
-        # Обновляем позиции кнопок
-        self.update_buttons()
-
-    def update_buttons(self):
-        """Обновляет позиции кнопок на основе текущего размера сцены."""
-        scene_width = self.scene.width() * 0.98
-        scene_height = self.scene.height() * 0.98
-        for pos, button in zip(self.buttons_pos, self.buttons):
+        for point in self.points:
             # Устанавливаем позицию кнопки (смещение по x, y)
-            x, y = pos
-            button.setPos(scene_width * x, scene_height * y)
+            point.updatePositionAndRadius(scene_width, scene_height)

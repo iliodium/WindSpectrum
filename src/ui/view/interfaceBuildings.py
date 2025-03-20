@@ -104,6 +104,7 @@ class InterfaceBuildings(QWidget):
         self.fig_spectrum_sensors_overview = None
         self.fig_summary_coefficients_sensors_overview = None
 
+
     def _draw_sensors_overview(
             self,
             size_model_tpu,
@@ -127,15 +128,15 @@ class InterfaceBuildings(QWidget):
         x = [i / length_x for i in coordinates[0]]
         y = [i / length_y for i in coordinates[1]]
 
-        for b in self.SensorWidget.buttons:
+        for b in self.SensorWidget.points:
             self.SensorWidget.scene.removeItem(b)
             b.deleteLater()  # Уничтожаем объект
 
-        self.SensorWidget.buttons = []
-        buttons_pos = [(i*0.98, 1 - j) for i, j in zip(x, y)]
-        self.SensorWidget.buttons_pos = buttons_pos
+        self.SensorWidget.points = []
+        buttons_pos = [(i, 1 - j) for i, j in zip(x, y)]
+        self.SensorWidget.points_pos = buttons_pos
 
-        self.SensorWidget.add_buttons()
+        self.SensorWidget.add_points()
 
     def _switch_stacked_layout_sensors_overview(
             self
