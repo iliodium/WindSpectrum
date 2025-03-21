@@ -9,5 +9,3 @@ repos:
     hooks:
       - id: isort
         args: [ '--settings-file=', './.github/workflows/import_linter/.isort.cfg' ]
-#        language: python
-#        types: [python]
