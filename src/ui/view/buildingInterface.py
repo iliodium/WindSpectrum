@@ -32,7 +32,8 @@ from src.common.constants import (alpha_standards,
 from src.submodules.plot.plotBuilding import PlotBuilding
 from src.submodules.plot.utils import scaling_data
 from src.submodules.report_tools.reportFolder import ReportFolder
-from src.submodules.report_tools.utils import create_directory_to_report
+from src.submodules.report_tools.utils import (
+    create_directory_to_report_building,)
 from src.submodules.report_tools.wordBuilder import WordBuilder
 from src.submodules.utils.data_features import (calculated,
                                                 lambdas,
@@ -56,8 +57,8 @@ from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
 
 
-class InterfaceBuildings(QWidget):
-    """Interface"""
+class BuildingInterface(QWidget):
+    """Building Interface"""
 
     SAMPLE_PERIOD = None
     SAMPLE_FREQUENCY = None
@@ -77,6 +78,7 @@ class InterfaceBuildings(QWidget):
         for key, value in config.items():
             setattr(self, key, value)
         super().__init__(parent=parent)
+        self.setObjectName(self.__class__.__name__)
         self.engine = create_engine(self.DB_URL_LOCAL)
         self.view = self
         self.plotFlag = False
@@ -1623,7 +1625,7 @@ class InterfaceBuildings(QWidget):
         report_name = f'{model_size_str} {alpha_str} {wind_region}'
         path_report = os.path.join(ReportFolder.WORD_REPORT, self.REPORT_FOLDER_NAME, report_name)
 
-        create_directory_to_report(path_report)
+        create_directory_to_report_building(path_report)
         angle_border = self._get_angle_border()
         size_model_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
 

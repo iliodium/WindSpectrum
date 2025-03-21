@@ -17,10 +17,10 @@ from src.submodules.utils.permutations import (get_sequence_permutation_data,
                                                get_view_permutation_data,)
 from src.submodules.utils.scaling import get_model_and_scale_factors
 from src.submodules.utils.utils import get_size_tpu_and_count_sensors
-from src.ui.view.interfaceBuildings import InterfaceBuildings
+from src.ui.view.buildingInterface import BuildingInterface
 
 
-class IsolatedHighRiseInterfaceBuildings(InterfaceBuildings):
+class IsolatedHighRiseBuildingInterface(BuildingInterface):
     """Isolated High Rise Interface
 
     constants :
@@ -36,15 +36,6 @@ class IsolatedHighRiseInterfaceBuildings(InterfaceBuildings):
 
     REPORT_FOLDER_NAME = "Изолированные высокоэтажные здания"
 
-    def __init__(
-            self,
-            parent=None,
-            config=None
-    ):
-
-        super().__init__(parent=parent, config=config)
-        self.setObjectName('IsolatedHighRiseInterface')
-
     @staticmethod
     def _get_pressure_coefficients_for_definition_angle_future(
             url,
@@ -53,7 +44,7 @@ class IsolatedHighRiseInterfaceBuildings(InterfaceBuildings):
     ):
         engine = create_engine(url)
 
-        return IsolatedHighRiseInterfaceBuildings._get_pressure_coefficients_for_definition_angle(
+        return IsolatedHighRiseBuildingInterface._get_pressure_coefficients_for_definition_angle(
             engine, db_url_server, *args)
 
     @staticmethod

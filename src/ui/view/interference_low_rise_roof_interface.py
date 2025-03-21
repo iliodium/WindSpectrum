@@ -21,9 +21,8 @@ from src.ui.components.ImageLabel import ImageLabel
 from src.ui.view.buildingInterface import BuildingInterface
 
 
-class InterferenceHighRiseBuildingInterface(BuildingInterface):
-    """Interference High Rise Interface
-
+class InterferenceLowRiseRoofInterface(BuildingInterface):
+    """
     constants :
 
     number of time counts 5 858
@@ -39,13 +38,14 @@ class InterferenceHighRiseBuildingInterface(BuildingInterface):
     SAMPLE_FREQUENCY = 781
     NUMBER_OF_TIME_COUNTS = 5858
 
-    REPORT_FOLDER_NAME = "Интерференция высокоэтажных зданий"
+    REPORT_FOLDER_NAME = "Интерференция кровли низкоэтажного зданий"
 
     def __init__(
             self,
             parent=None,
             config=None
     ):
+
         super().__init__(parent=parent, config=config)
 
         WidgetInterferingInformation = QWidget()
@@ -134,7 +134,7 @@ class InterferenceHighRiseBuildingInterface(BuildingInterface):
     ):
         engine = create_engine(url)
 
-        return InterferenceHighRiseBuildingInterface._get_pressure_coefficients_for_definition_angle(
+        return InterferenceHighRiseInterfaceBuildings._get_pressure_coefficients_for_definition_angle(
             engine, db_url_server, *args)
 
     @staticmethod

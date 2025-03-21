@@ -7,7 +7,7 @@ from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 
 
-def create_directory_to_report(
+def create_directory_to_report_building(
         folder
 ):
     folder = os.path.join(os.getcwd(), folder)
@@ -39,3 +39,18 @@ def create_directory_to_report(
     # folders for spectrum
     for i in (ChartMode.CX, ChartMode.CY, ChartMode.CMZ):
         os.makedirs(os.path.join(folder, ChartType.SPECTRUM, i), exist_ok=True)
+
+
+def create_directory_to_report_roof(
+        folder
+):
+    folder = os.path.join(os.getcwd(), folder)
+
+    # folders for all types of plots
+    for i in (ChartType.ISOFIELDS,):
+        os.makedirs(os.path.join(folder, i), exist_ok=True)
+
+    # folders for isofields
+    for i in IsofieldsType:
+        for j in (ChartMode.MAX, ChartMode.MEAN, ChartMode.MIN, ChartMode.RMS, ChartMode.STD):
+            os.makedirs(os.path.join(folder, ChartType.ISOFIELDS, i, j), exist_ok=True)

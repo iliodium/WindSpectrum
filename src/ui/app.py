@@ -18,9 +18,11 @@ from qfluentwidgets import (FluentIcon,
                             setFont,)
 from src.ui.config.config import cfg
 from src.ui.view.interference_high_rise_interface import (
-    InterferenceHighRiseInterfaceBuildings as _InterferenceHighRiseInterface,)
+    InterferenceHighRiseBuildingInterface,)
+from src.ui.view.interference_low_rise_roof_interface import (
+    InterferenceLowRiseRoofInterface,)
 from src.ui.view.isolated_high_rise_interface import (
-    IsolatedHighRiseInterfaceBuildings as _IsolatedHighRiseInterface,)
+    IsolatedHighRiseBuildingInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 
@@ -58,8 +60,9 @@ class MainWindow(FluentWindow):
 
         # create sub interface
         self.MainInterface = _MainInterface(self)
-        self.IsolatedHighRiseInterface = _IsolatedHighRiseInterface(self, config)
-        self.InterferenceHighRiseInterface = _InterferenceHighRiseInterface(self, config)
+        self.IsolatedHighRiseBuildingInterface = IsolatedHighRiseBuildingInterface(self, config)
+        self.InterferenceHighRiseBuildingInterface = InterferenceHighRiseBuildingInterface(self, config)
+        self.InterferenceLowRiseRoofInterface = InterferenceLowRiseRoofInterface(self, config)
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
@@ -91,7 +94,7 @@ class MainWindow(FluentWindow):
                              FluentIcon.EDUCATION,
                              self.tr('Изолированные здания'),
                              NavigationItemPosition.SCROLL)
-        self.addSubInterface(self.IsolatedHighRiseInterface,
+        self.addSubInterface(self.IsolatedHighRiseBuildingInterface,
                              '',
                              self.tr('Высотные здания'),
                              parent=self.IsolatedInterface)
@@ -108,11 +111,11 @@ class MainWindow(FluentWindow):
                              FluentIcon.EDUCATION,
                              self.tr('Аэродинамическая интерференция'),
                              NavigationItemPosition.SCROLL)
-        self.addSubInterface(self.InterferenceHighRiseInterface,
+        self.addSubInterface(self.InterferenceHighRiseBuildingInterface,
                              '',
                              self.tr('Высотные здания'),
                              parent=self.AerodynamicInterferenceInterface)
-        self.addSubInterface(self.AerodynamicInterferenceOfLowRiseInterface,
+        self.addSubInterface(self.InterferenceLowRiseRoofInterface,
                              '',
                              self.tr('Низкоэтажные здания'),
                              parent=self.AerodynamicInterferenceInterface)
