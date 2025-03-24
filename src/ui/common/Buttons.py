@@ -18,3 +18,7 @@ class Buttons(enum.StrEnum):
 
     PARAMETERS = "Параметры"
     VIEW = "Вид"
+    ROOF_TYPE = "Тип кровли"
+    ARRANGEMENT_TYPE_OF_INTERFERING_BUILDINGS = "Расположение застройки"
+    INTERFERING_BUILDINGS_DENSITY = "Плотность застройки"
+    ROOF_ANGLE = "Угол кровли"

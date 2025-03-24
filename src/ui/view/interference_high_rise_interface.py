@@ -18,10 +18,11 @@ from src.submodules.utils.scaling import (
     get_model_and_scale_factors_interference,)
 from src.ui.common.Buttons import Buttons
 from src.ui.components.ImageLabel import ImageLabel
-from src.ui.view.buildingInterface import BuildingInterface
+from src.ui.view.building_Interface import BuildingInterface
+from src.ui.view.interference_interface import InterferenceInterface
 
 
-class InterferenceHighRiseBuildingInterface(BuildingInterface):
+class InterferenceHighRiseBuildingInterface(InterferenceInterface):
     """Interference High Rise Interface
 
     constants :
@@ -63,14 +64,7 @@ class InterferenceHighRiseBuildingInterface(BuildingInterface):
     ):
         super()._init_general_information()
         # Building size Interfering
-        self.hBoxLayoutBuildingSizeInterfering = QHBoxLayout(self.view)
-        self.hBoxLayoutBuildingSizeInterfering.addWidget(StrongBodyLabel(Buttons.INTERFERING_SIZE))
-        self.lineEditBuildingSizeInterfering = LineEdit()
-        self.lineEditBuildingSizeInterfering.setText(self.tr('10 10 20'))
-        self.lineEditBuildingSizeInterfering.setClearButtonEnabled(True)
-        self.lineEditBuildingSizeInterfering.setFixedWidth(125)
-        self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSizeInterfering)
-        self.vBoxLayoutGenInf.insertLayout(5, self.hBoxLayoutBuildingSizeInterfering)
+
 
         self.hBoxLayoutPositionInterfering = QHBoxLayout(self.view)
         self.hBoxLayoutPositionInterfering.addWidget(StrongBodyLabel(Buttons.INTERFERING_POSITION))

@@ -53,13 +53,12 @@ from src.ui.common.CoordinateSystem import CoordinateSystem
 from src.ui.common.IsofieldsType import IsofieldsType
 from src.ui.common.StyleSheet import StyleSheet
 from src.ui.components.MultiSelectComboBox import MultiSelectComboBox
+from src.ui.view.Interface import Interface
 from src.ui.view.widgets.MatplotlibWidget import MatplotlibWidget
 from src.ui.view.widgets.SensorWidget import SensorWidget
 
 
-class BuildingInterface(QWidget):
-    """Building Interface"""
-
+class RoofInterface(Interface):
     SAMPLE_PERIOD = None
     SAMPLE_FREQUENCY = None
     NUMBER_OF_TIME_COUNTS = None
@@ -75,9 +74,7 @@ class BuildingInterface(QWidget):
             parent=None,
             config=None
     ):
-        for key, value in config.items():
-            setattr(self, key, value)
-        super().__init__(parent=parent)
+        super().__init__(parent=parent, config=config)
         self.setObjectName(self.__class__.__name__)
         self.engine = create_engine(self.DB_URL_LOCAL)
         self.view = self
@@ -118,39 +115,13 @@ class BuildingInterface(QWidget):
         self.fig_spectrum_sensors_overview = None
         self.fig_summary_coefficients_sensors_overview = None
 
-
+    @abstractmethod
     def _draw_sensors_overview(
             self,
-            size_model_tpu,
-            coordinates
+            *args,
+            **kwargs
     ):
-
-        breadth_tpu, depth_tpu, height_tpu = size_model_tpu
-
-        self.SensorWidget.model_size = size_model_tpu
-
-        length = 2 * (breadth_tpu + depth_tpu)
-
-        lines_pos = [i / length for i in (breadth_tpu, breadth_tpu + depth_tpu, 2 * breadth_tpu + depth_tpu)]
-
-        self.SensorWidget.lines_pos = lines_pos
-        self.SensorWidget.update_lines()
-
-        length_x = 2 * (breadth_tpu + depth_tpu)
-        length_y = height_tpu
-
-        x = [i / length_x for i in coordinates[0]]
-        y = [i / length_y for i in coordinates[1]]
-
-        for b in self.SensorWidget.points:
-            self.SensorWidget.scene.removeItem(b)
-            b.deleteLater()  # Уничтожаем объект
-
-        self.SensorWidget.points = []
-        buttons_pos = [(i, 1 - j) for i, j in zip(x, y)]
-        self.SensorWidget.points_pos = buttons_pos
-
-        self.SensorWidget.add_points()
+        pass
 
     def _switch_stacked_layout_sensors_overview(
             self

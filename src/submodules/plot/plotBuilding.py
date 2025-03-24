@@ -3,6 +3,7 @@ from typing import Any
 import matplotlib
 import matplotlib.tri as mtri
 import numpy as np
+import scipy
 from compiled_functions import aot_calculations
 from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm
@@ -16,6 +17,8 @@ from src.common.annotation import (AlphaStandardsOrKs10orNoneType,
                                    ModelNameIsolatedType,
                                    ModelSizeType,
                                    WindRegionsOrNoneType,)
+from src.common.constants import (Uz_a_0_16_x,
+                                  Uz_a_0_16_z,)
 from src.submodules.plot.plot import Plot
 from src.submodules.plot.utils import calculate_levels
 from src.submodules.plot.utils import interpolator as intp
@@ -273,6 +276,15 @@ class PlotBuilding(Plot):
         ax.legend(loc='upper right', fontsize=Plot.LEGEND_FONTSIZE)
 
         return fig
+    @staticmethod
+    def test(array1, array2):
+        percentage_diff = np.abs((array2 - array1) / array1) * 100
+
+        # Среднее процентное изменение
+        average_percentage_diff = np.mean(percentage_diff)
+
+        print(f"Процентное изменение для каждого элемента: {percentage_diff}")
+        print(f"Среднее процентное изменение: {average_percentage_diff:.2f}%")
 
     @staticmethod
     @validate_call
@@ -397,7 +409,31 @@ class PlotBuilding(Plot):
                 coefficient_for_region = vectorized_function_coefficient(z_sensors,
                                                                          area_type=area_type,
                                                                          wind_region=wind_region)
-                pressure_coefficients[i] = pressure_coefficients[i].reshape(-1) * coefficient_for_region
+                coefficient_for_regionA = vectorized_function_coefficient(z_sensors,
+                                                                         area_type='A',
+                                                                         wind_region=wind_region)
+                coefficient_for_regionB = vectorized_function_coefficient(z_sensors,
+                                                                          area_type='B',
+                                                                          wind_region=wind_region)
+                coefficient_for_regionC = vectorized_function_coefficient(z_sensors,
+                                                                          area_type='C',
+                                                                          wind_region=wind_region)
+                # print(PlotBuilding.test(coefficient_for_region, coefficient_for_regionA))
+                # print(PlotBuilding.test(coefficient_for_region, coefficient_for_regionB))
+                # print(PlotBuilding.test(coefficient_for_region, coefficient_for_regionC))
+                coefficient_for_region_new = np.array(coefficient_for_regionA)/np.array(coefficient_for_regionC)
+                # ijk = 122
+                # print(z_sensors[ijk])
+                # print(coefficient_for_regionA[0])
+                # print(coefficient_for_regionC[0])
+                # print(pressure_coefficients[i].reshape(-1)[0])
+                # # print(coefficient_for_region_new)
+                # print('======================')
+
+                # pressure_coefficients[i] = pressure_coefficients[i].reshape(-1) * coefficient_for_region_new
+                t = pressure_coefficients[i].reshape(-1) * coefficient_for_region_new
+                pressure_coefficients[i] = pressure_coefficients[i].reshape(-1) * coefficient_for_region_new
+                # print(PlotBuilding.test(pressure_coefficients[i], t))
 
             levels = calculate_levels(parameter, pressure_coefficients, flag_pressure)
 

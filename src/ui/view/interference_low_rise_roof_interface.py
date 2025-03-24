@@ -18,22 +18,11 @@ from src.submodules.utils.scaling import (
     get_model_and_scale_factors_interference,)
 from src.ui.common.Buttons import Buttons
 from src.ui.components.ImageLabel import ImageLabel
-from src.ui.view.buildingInterface import BuildingInterface
+from src.ui.view.building_Interface import BuildingInterface
+from src.ui.view.roof_Interface import RoofInterface
 
 
-class InterferenceLowRiseRoofInterface(BuildingInterface):
-    """
-    constants :
-
-    number of time counts 5 858
-    sample_frequency 781
-    sample_period 7.5
-    turbulence_intensity 20
-    mean_wind_speed 8.2
-    principal_building (мм) 70 70 280
-
-    """
-
+class InterferenceLowRiseRoofInterface(RoofInterface):
     SAMPLE_PERIOD = 7.5
     SAMPLE_FREQUENCY = 781
     NUMBER_OF_TIME_COUNTS = 5858
@@ -72,18 +61,19 @@ class InterferenceLowRiseRoofInterface(BuildingInterface):
         self.hBoxLayoutBuildingSizeInterfering.addWidget(self.lineEditBuildingSizeInterfering)
         self.vBoxLayoutGenInf.insertLayout(5, self.hBoxLayoutBuildingSizeInterfering)
 
-        self.hBoxLayoutPositionInterfering = QHBoxLayout(self.view)
-        self.hBoxLayoutPositionInterfering.addWidget(StrongBodyLabel(Buttons.INTERFERING_POSITION))
-        self.lineEditPositionInterfering = LineEdit()
-        self.lineEditPositionInterfering.setText(self.tr('15'))
-        self.lineEditPositionInterfering.setClearButtonEnabled(True)
-        self.lineEditPositionInterfering.setFixedWidth(75)
-        self.hBoxLayoutPositionInterfering.addWidget(self.lineEditPositionInterfering)
-        self.vBoxLayoutGenInf.insertLayout(6, self.hBoxLayoutPositionInterfering)
+        # self.PushButtonInterferingInformation.clicked.connect(self._switch_stacked_layout_interfering_information)
 
-        self.PushButtonInterferingInformation = PushButton(Buttons.INTERFERING_INFORMATION)
-        self.PushButtonInterferingInformation.clicked.connect(self._switch_stacked_layout_interfering_information)
-        self.vBoxLayoutGenInf.addWidget(self.PushButtonInterferingInformation)
+        self.PushButtonRoofTypeInformation = PushButton(Buttons.ROOF_TYPE)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonRoofTypeInformation)
+
+        self.PushButtonArrangementTypeOfInterferingBuildingsInformation = PushButton(Buttons.ARRANGEMENT_TYPE_OF_INTERFERING_BUILDINGS)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonArrangementTypeOfInterferingBuildingsInformation)
+
+        self.PushButtonInterferingBuildingsDensityInformation = PushButton(Buttons.INTERFERING_BUILDINGS_DENSITY)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonInterferingBuildingsDensityInformation)
+
+        self.PushButtonRoofAngleInformation = PushButton(Buttons.ROOF_ANGLE)
+        self.vBoxLayoutGenInf.addWidget(self.PushButtonRoofAngleInformation)
 
         self.generalInformationContainer.setFixedHeight(400)
 
