@@ -116,6 +116,27 @@ class Interface(QWidget):
         self.fig_spectrum_sensors_overview = None
         self.fig_summary_coefficients_sensors_overview = None
 
+    @staticmethod
+    def _remove_layout_from_layout(parent_layout, child_layout):
+        # 1. Удаляем все виджеты из дочернего layout
+        while child_layout.count():
+            item = child_layout.takeAt(0)  # Берем первый элемент
+
+            if item.widget():
+                # Если элемент - виджет, удаляем его
+                widget = item.widget()
+                widget.setParent(None)  # Важно для полного удаления
+                widget.deleteLater()
+            elif item.layout():
+                # Если элемент - другой layout, рекурсивно очищаем его
+                Interface._remove_layout_from_layout(child_layout, item.layout())
+
+        # 2. Удаляем сам layout из родительского layout
+        parent_layout.removeItem(child_layout)
+
+        # 3. Удаляем ссылку на layout (опционально)
+        child_layout.setParent(None)
+
     @abstractmethod
     def _draw_sensors_overview(
             self,
@@ -285,8 +306,6 @@ class Interface(QWidget):
         self.PushButtonSensorsOverview = PushButton(Buttons.SENSORS)
         self.PushButtonSensorsOverview.clicked.connect(self._switch_stacked_layout_sensors_overview)
         self.vBoxLayoutGenInf.addWidget(self.PushButtonSensorsOverview)
-
-
 
         self.hBoxLayoutMain.addWidget(self.generalInformationContainer)
 

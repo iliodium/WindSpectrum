@@ -116,62 +116,9 @@ class IsolatedHighRiseBuildingInterface(BuildingInterface):
                                                                                      angle,
                                                                                      model_id,
                                                                                      alpha)
-        #
-        # pressure_coefficients = lambdas[ChartMode.MEAN](pressure_coefficients)
-        # from compiled_functions import aot_calculations
-        # coordinates = self._get_coordinates()
-        #
-        # size_tpu, count_sensors = self._get_size_and_count_sensors(len(coordinates[0]))
-        # count_sensors_on_model, count_sensors_on_middle_row, count_sensors_on_side_row = count_sensors
-        #
-        # pressure_coefficients = list(aot_calculations.split_1d_array(
-        #     count_sensors_on_model,
-        #     count_sensors_on_middle_row,
-        #     count_sensors_on_side_row,
-        #     pressure_coefficients
-        # ))
-        #
-        # print(alpha, model_name)
-        # alpha = 6
-        # model_size = self._get_model_size()
-        # model_name, _ = get_model_and_scale_factors(*model_size, alpha)
-        # angle = self._get_angle()
-        #
-        # model_id = self.get_model_id(model_name, alpha)
-        #
-        # model_name = str(model_name)
-        #
-        # pressure_coefficients1 = self._get_pressure_coefficients_for_definition_angle(self.engine,
-        #                                                                              self.DB_URL_SERVER,
-        #                                                                              model_name,
-        #                                                                              angle,
-        #                                                                              model_id,
-        #                                                                              alpha)
-        # pressure_coefficients1 = lambdas[ChartMode.MEAN](pressure_coefficients1)
-        #
-        # pressure_coefficients1 = list(aot_calculations.split_1d_array(
-        #     count_sensors_on_model,
-        #     count_sensors_on_middle_row,
-        #     count_sensors_on_side_row,
-        #     pressure_coefficients1
-        # ))
-        # print(alpha, model_name)
-        # print(self.test(pressure_coefficients[0], pressure_coefficients1[0]))
-        # print(self.test(pressure_coefficients[1], pressure_coefficients1[1]))
-        # print(self.test(pressure_coefficients[2], pressure_coefficients1[2]))
-        # print(self.test(pressure_coefficients[3], pressure_coefficients1[3]))
 
         return pressure_coefficients
 
-    @staticmethod
-    def test(array1, array2):
-        percentage_diff = np.abs((array2 - array1) / array1) * 100
-
-        # Среднее процентное изменение
-        average_percentage_diff = np.mean(percentage_diff)
-
-        print(f"Процентное изменение для каждого элемента: {percentage_diff}")
-        print(f"Среднее процентное изменение: {average_percentage_diff:.2f}%")
     def get_model_id(
             self,
             model_name,

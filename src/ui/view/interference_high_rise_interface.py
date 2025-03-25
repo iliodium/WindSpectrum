@@ -22,7 +22,7 @@ from src.ui.view.building_Interface import BuildingInterface
 from src.ui.view.interference_interface import InterferenceInterface
 
 
-class InterferenceHighRiseBuildingInterface(InterferenceInterface):
+class InterferenceHighRiseBuildingInterface(InterferenceInterface, BuildingInterface):
     """Interference High Rise Interface
 
     constants :
@@ -49,6 +49,13 @@ class InterferenceHighRiseBuildingInterface(InterferenceInterface):
     ):
         super().__init__(parent=parent, config=config)
 
+        self._init_interfering_position_overview()
+
+        self.previousScreenFlag = False
+
+    def _init_interfering_position_overview(
+            self
+    ):
         WidgetInterferingInformation = QWidget()
         self.vBoxLayoutSensorsOverview = QVBoxLayout(WidgetInterferingInformation)
 
@@ -57,15 +64,10 @@ class InterferenceHighRiseBuildingInterface(InterferenceInterface):
 
         self.StackedLayoutMainMenu.addWidget(WidgetInterferingInformation)
 
-        self.previousScreenFlag = False
-
     def _init_general_information(
             self
     ):
         super()._init_general_information()
-        # Building size Interfering
-
-
         self.hBoxLayoutPositionInterfering = QHBoxLayout(self.view)
         self.hBoxLayoutPositionInterfering.addWidget(StrongBodyLabel(Buttons.INTERFERING_POSITION))
         self.lineEditPositionInterfering = LineEdit()

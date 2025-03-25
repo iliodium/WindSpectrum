@@ -5,6 +5,7 @@ __all__ = [
     "ChartType",
     "CoordinateSystem",
     "IsofieldsType",
+    "RoofType",
     "SignalBus",
     "StyleSheet",
 ]

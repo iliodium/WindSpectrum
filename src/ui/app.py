@@ -23,6 +23,10 @@ from src.ui.view.interference_low_rise_roof_interface import (
     InterferenceLowRiseRoofInterface,)
 from src.ui.view.isolated_high_rise_interface import (
     IsolatedHighRiseBuildingInterface,)
+from src.ui.view.isolated_low_rise_roof_gable_interface import (
+    IsolatedLowRiseRoofGableInterface,)
+from src.ui.view.isolated_low_rise_roof_interface import (
+    IsolatedLowRiseRoofInterface,)
 from src.ui.view.main_interface import MainInterface as _MainInterface
 
 
@@ -62,7 +66,9 @@ class MainWindow(FluentWindow):
         self.MainInterface = _MainInterface(self)
         self.IsolatedHighRiseBuildingInterface = IsolatedHighRiseBuildingInterface(self, config)
         self.InterferenceHighRiseBuildingInterface = InterferenceHighRiseBuildingInterface(self, config)
-        self.InterferenceLowRiseRoofInterface = InterferenceLowRiseRoofInterface(self, config)
+        # self.InterferenceLowRiseRoofInterface = InterferenceLowRiseRoofInterface(self, config)
+        self.IsolatedLowRiseRoofInterface = IsolatedLowRiseRoofInterface(self, config)
+        self.IsolatedLowRiseRoofGableInterface = IsolatedLowRiseRoofGableInterface(self, config)
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
@@ -98,13 +104,13 @@ class MainWindow(FluentWindow):
                              '',
                              self.tr('Высотные здания'),
                              parent=self.IsolatedInterface)
-        self.addSubInterface(self.IsolatedLowRiseBuildingsWithoutInterface,
+        self.addSubInterface(self.IsolatedLowRiseRoofInterface,
                              '',
-                             self.tr('Низкоэтажные без карниза'),
+                             self.tr('Низкоэтажные крыши'),
                              parent=self.IsolatedInterface)
-        self.addSubInterface(self.IsolatedLowRiseBuildingsWithInterface,
+        self.addSubInterface(self.IsolatedLowRiseRoofGableInterface,
                              '',
-                             self.tr('Низкоэтажные с карнизом'),
+                             self.tr('Низкоэтажная двухскатная крыши'),
                              parent=self.IsolatedInterface)
 
         self.addSubInterface(self.AerodynamicInterferenceInterface,
@@ -115,10 +121,10 @@ class MainWindow(FluentWindow):
                              '',
                              self.tr('Высотные здания'),
                              parent=self.AerodynamicInterferenceInterface)
-        self.addSubInterface(self.InterferenceLowRiseRoofInterface,
-                             '',
-                             self.tr('Низкоэтажные здания'),
-                             parent=self.AerodynamicInterferenceInterface)
+        # self.addSubInterface(self.InterferenceLowRiseRoofInterface,
+        #                      '',
+        #                      self.tr('Низкоэтажные здания'),
+        #                      parent=self.AerodynamicInterferenceInterface)
 
         self.navigationInterface.addSeparator()
 

@@ -5,9 +5,10 @@ from qfluentwidgets import (LineEdit,
                             StrongBodyLabel,)
 from src.ui.common.Buttons import Buttons
 from src.ui.view.building_Interface import BuildingInterface
+from src.ui.view.Interface import Interface
 
 
-class InterferenceInterface(BuildingInterface):
+class InterferenceInterface(Interface):
     def _init_general_information(
             self
     ):
