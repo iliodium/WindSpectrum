@@ -208,13 +208,13 @@ def calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle):
 
     return kt
 
-
+# 30 40 183
 if __name__ == "__main__":
     print(
-        get_model_and_scale_factors_interference(
-            10,
-            10,
-            60,
-            33
+        get_model_and_scale_factors(
+            30,
+            40,
+            183,
+            4
         )
     )
