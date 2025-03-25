@@ -3,7 +3,6 @@ from qfluentwidgets import (ComboBox,
                             LineEdit,
                             PushButton,
                             StrongBodyLabel,)
-from src.ui.common import RoofType
 from src.ui.common.Buttons import Buttons
 from src.ui.view.Interface import Interface
 
@@ -69,3 +68,8 @@ class RoofInterface(Interface):
             self
     ):
         pass
+
+    def _get_angle(
+            self
+    ):
+        return int(self.ComboBoxTypeOfArea.text())

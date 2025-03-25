@@ -209,12 +209,28 @@ def calculate_kt(model_size, size_tpu, alpha_str, wind_region, angle):
     return kt
 
 
+def get_model_isolated_low_rise_roof_gable(
+        depth,
+        height
+):
+    y_scale = depth / 6
+    z = height / y_scale
+
+    # TODO selects from db if we will extend it
+    z_from_db = np.array([1, 2, 3])
+
+    # Расчет коэффициента для X
+    difference_x = np.absolute(z_from_db - z)
+    index_x = difference_x.argmin()
+    x_nearest = z_from_db[index_x]
+
+    return 16, 24, int(x_nearest * 6)
+
+
 if __name__ == "__main__":
     print(
-        get_model_and_scale_factors_interference(
+        get_model_isolated_low_rise_roof_gable(
             10,
-            10,
-            60,
-            33
+            50,
         )
     )

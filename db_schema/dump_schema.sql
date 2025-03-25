@@ -15,6 +15,7 @@ CREATE TABLE arrange_orders (
 
 
 CREATE TABLE building_with_eaves (
+    id_building_with_eaves int,
     breadth smallint,
     depth smallint,
     height smallint,
@@ -187,7 +188,7 @@ CREATE TABLE surrounding_heights (
 
 CREATE TABLE wind_azimuths (
     id_wind_azimuth smallint NOT NULL,
-    wind_azimuth real
+    wind_azimuth integer
 );
 
 

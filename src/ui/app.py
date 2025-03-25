@@ -16,6 +16,7 @@ from qfluentwidgets import (FluentIcon,
                             SystemThemeListener,
                             isDarkTheme,
                             setFont,)
+from src.ui.common.ProgramPage import ProgramPage
 from src.ui.config.config import cfg
 from src.ui.view.interference_high_rise_interface import (
     InterferenceHighRiseBuildingInterface,)
@@ -110,7 +111,7 @@ class MainWindow(FluentWindow):
                              parent=self.IsolatedInterface)
         self.addSubInterface(self.IsolatedLowRiseRoofGableInterface,
                              '',
-                             self.tr('Низкоэтажная двухскатная крыши'),
+                             self.tr(ProgramPage.IsolatedLowRiseRoofGableInterface),
                              parent=self.IsolatedInterface)
 
         self.addSubInterface(self.AerodynamicInterferenceInterface,
