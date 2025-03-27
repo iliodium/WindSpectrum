@@ -72,4 +72,4 @@ class RoofInterface(Interface):
     def _get_angle(
             self
     ):
-        return int(self.ComboBoxTypeOfArea.text())
+        return int(self.ComboBoxWindAngle.text())

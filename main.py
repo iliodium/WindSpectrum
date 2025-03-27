@@ -6,6 +6,9 @@ from db_schema.create_sqlite_db import load_dump
 if __name__ == "__main__":
     from src.ui.app import main
 
+    if os.path.exists('windspectrum.db'):
+        os.remove('windspectrum.db')
+
     if not os.path.exists('windspectrum.db'):
         dump_file = os.path.join('db_schema', 'dump_schema.sql')
         db_file = 'windspectrum.db'  # Укажите имя выходного файла базы данных
