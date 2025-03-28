@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import scipy
 from compiled_functions import aot_calculations
@@ -227,10 +229,40 @@ def get_model_isolated_low_rise_roof_gable(
     return 16, 24, int(x_nearest * 6)
 
 
+def get_model_isolated_low_rise_roof(
+        input_triplet,
+        triplets
+):
+    """building_without_eaves"""
+    closest = None
+    min_distance = float('inf')
+    input_sum = sum(input_triplet)
+    input_normalized = [x / input_sum for x in input_triplet]
+
+    for triplet in triplets:
+        # Нормализуем текущий триплет
+        triplet_sum = sum(triplet)
+        triplet_normalized = [x / triplet_sum for x in triplet]
+
+        # Считаем евклидово расстояние между нормализованными векторами
+        distance = math.sqrt(
+            (triplet_normalized[0] - input_normalized[0]) ** 2 +
+            (triplet_normalized[1] - input_normalized[1]) ** 2 +
+            (triplet_normalized[2] - input_normalized[2]) ** 2
+        )
+
+        if distance < min_distance:
+            min_distance = distance
+            closest = triplet
+
+    return closest
+
+
 if __name__ == "__main__":
     print(
-        get_model_isolated_low_rise_roof_gable(
+        get_model_isolated_low_rise_roof(
             10,
-            50,
+            10,
+            8
         )
     )

@@ -34,6 +34,7 @@ CREATE TABLE building_with_eaves (
 
 
 CREATE TABLE building_without_eaves (
+    id_building_without_eaves int,
     breadth smallint,
     depth smallint,
     height smallint,

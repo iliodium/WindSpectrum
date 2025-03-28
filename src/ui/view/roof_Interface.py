@@ -25,15 +25,14 @@ class RoofInterface(Interface):
         # Roof angle
         self.hBoxLayoutRoofAngle = QHBoxLayout(self.view)
         self.hBoxLayoutRoofAngle.addWidget(StrongBodyLabel(Buttons.ROOF_ANGLE))
-        # Create text input widget
-        self.lineEditRoofAngle = LineEdit()
-        # Set default text
-        self.lineEditRoofAngle.setText(self.tr('0'))
-        # Set clear button
-        self.lineEditRoofAngle.setClearButtonEnabled(True)
-        self.lineEditRoofAngle.setFixedWidth(75)
+        self.ComboBoxRoofAngle = ComboBox()
+        self.ComboBoxRoofAngle.addItems([
+            self.tr(str(i)) for i in [27, 45]
+        ])
+        self.ComboBoxRoofAngle.setFixedWidth(75)
+
         # Add text input widget to horizontal box layout
-        self.hBoxLayoutRoofAngle.addWidget(self.lineEditRoofAngle)
+        self.hBoxLayoutRoofAngle.addWidget(self.ComboBoxRoofAngle)
         self.vBoxLayoutGenInf.insertLayout(5, self.hBoxLayoutRoofAngle)
 
         hBoxLayoutRoofType = QHBoxLayout(self.view)
