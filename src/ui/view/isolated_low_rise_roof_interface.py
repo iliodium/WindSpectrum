@@ -11,6 +11,7 @@ from src.submodules.databasetoolkit.isolated_low_rise_roof import (load_coordina
                                                                    load_pressure_coefficients,
                                                                    load_triplets,)
 from src.submodules.plot.plotRoof import PlotRoof
+from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.scaling import get_model_isolated_low_rise_roof
 from src.ui.common.Buttons import Buttons
 from src.ui.common.ChartMode import ChartMode
@@ -169,7 +170,7 @@ class IsolatedLowRiseRoofInterface(RoofInterface):
         x = [[]]
         z = [[]]
         pressure_coefficients = [[]]
-        _pressure_coefficients = np.mean(_pressure_coefficients, axis=0)
+        _pressure_coefficients = lambdas[parameter](_pressure_coefficients)
 
         for _ in range(len(set(face_number))):
             x.append([])

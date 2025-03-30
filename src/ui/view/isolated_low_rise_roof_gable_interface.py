@@ -9,6 +9,7 @@ from src.submodules.databasetoolkit.isolated_low_rise_roof_gable import (load_co
                                                                          load_id_wind_azimuth,
                                                                          load_pressure_coefficients,)
 from src.submodules.plot.plotRoof import PlotRoof
+from src.submodules.utils.data_features import lambdas
 from src.submodules.utils.scaling import get_model_isolated_low_rise_roof_gable
 from src.ui.common.ChartMode import ChartMode
 from src.ui.common.ChartType import ChartType
@@ -148,7 +149,8 @@ class IsolatedLowRiseRoofGableInterface(RoofInterface):
         x = [[]]
         z = [[]]
         pressure_coefficients = [[]]
-        _pressure_coefficients = np.mean(_pressure_coefficients, axis=0)
+        _pressure_coefficients = lambdas[parameter](_pressure_coefficients)
+
 
         for _ in range(len(set(face_number))):
             x.append([])

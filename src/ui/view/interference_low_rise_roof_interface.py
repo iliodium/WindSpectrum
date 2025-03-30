@@ -1,25 +1,8 @@
 # coding:utf-8
-import asyncio
-from concurrent.futures import (ProcessPoolExecutor,
-                                as_completed,)
 
-import numpy as np
-from PySide6.QtWidgets import (QHBoxLayout,
-                               QVBoxLayout,
-                               QWidget,)
-from qfluentwidgets import (LineEdit,
-                            PushButton,
-                            StrongBodyLabel,)
-from sqlalchemy import create_engine
-from src.common.annotation import ModelSizeType
-from src.submodules.databasetoolkit.interference import (find_id_building_by_height,
-                                                         load_pressure_coefficients,)
-from src.submodules.utils.scaling import (
-    get_model_and_scale_factors_interference,)
+from qfluentwidgets import PushButton
 from src.ui.common.Buttons import Buttons
 from src.ui.common.RoofType import RoofType
-from src.ui.components.ImageLabel import ImageLabel
-from src.ui.view.building_Interface import BuildingInterface
 from src.ui.view.interference_interface import InterferenceInterface
 from src.ui.view.roof_Interface import RoofInterface
 
@@ -37,11 +20,11 @@ class InterferenceLowRiseRoofInterface(InterferenceInterface, RoofInterface):
         # InterferenceInterface._init_general_information(self)
         RoofInterface._init_general_information(self, RoofType)
 
-        self.PushButtonArrangementTypeOfInterferingBuildingsInformation = PushButton(Buttons.ARRANGEMENT_TYPE_OF_INTERFERING_BUILDINGS)
+        self.PushButtonArrangementTypeOfInterferingBuildingsInformation = PushButton(
+            Buttons.ARRANGEMENT_TYPE_OF_INTERFERING_BUILDINGS)
         self.vBoxLayoutGenInf.addWidget(self.PushButtonArrangementTypeOfInterferingBuildingsInformation)
 
         self.PushButtonInterferingBuildingsDensityInformation = PushButton(Buttons.INTERFERING_BUILDINGS_DENSITY)
         self.vBoxLayoutGenInf.addWidget(self.PushButtonInterferingBuildingsDensityInformation)
-
 
         self.generalInformationContainer.setFixedHeight(600)

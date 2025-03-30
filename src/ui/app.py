@@ -67,7 +67,7 @@ class MainWindow(FluentWindow):
         self.MainInterface = _MainInterface(self)
         self.IsolatedHighRiseBuildingInterface = IsolatedHighRiseBuildingInterface(self, config)
         self.InterferenceHighRiseBuildingInterface = InterferenceHighRiseBuildingInterface(self, config)
-        # self.InterferenceLowRiseRoofInterface = InterferenceLowRiseRoofInterface(self, config)
+        self.InterferenceLowRiseRoofInterface = InterferenceLowRiseRoofInterface(self, config)
         self.IsolatedLowRiseRoofInterface = IsolatedLowRiseRoofInterface(self, config)
         self.IsolatedLowRiseRoofGableInterface = IsolatedLowRiseRoofGableInterface(self, config)
 
@@ -122,10 +122,10 @@ class MainWindow(FluentWindow):
                              '',
                              self.tr('Высотные здания'),
                              parent=self.AerodynamicInterferenceInterface)
-        # self.addSubInterface(self.InterferenceLowRiseRoofInterface,
-        #                      '',
-        #                      self.tr('Низкоэтажные здания'),
-        #                      parent=self.AerodynamicInterferenceInterface)
+        self.addSubInterface(self.InterferenceLowRiseRoofInterface,
+                             '',
+                             self.tr('Низкоэтажные здания'),
+                             parent=self.AerodynamicInterferenceInterface)
 
         self.navigationInterface.addSeparator()
 
