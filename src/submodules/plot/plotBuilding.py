@@ -21,7 +21,8 @@ from src.submodules.plot.utils import calculate_levels
 from src.submodules.plot.utils import interpolator as intp
 from src.submodules.plot.utils import set_colorbar
 from src.submodules.utils.data_features import lambdas
-from src.submodules.utils.speed_sp import speed_sp_region
+from src.submodules.utils.speed_sp import (pressure_coefficient_for_region,
+                                           speed_sp_region,)
 from src.submodules.utils.utils import (get_size_tpu_and_count_sensors,
                                         tpu_size_to_real,)
 from src.ui.common.ChartMode import ChartMode
@@ -388,7 +389,7 @@ class PlotBuilding(Plot):
             # масштабируем высоту датчика, как если бы он был на реальном здание
             vectorized_function_z = np.vectorize(tpu_size_to_real, otypes=[object])
             # otypes=[object] чтобы np.vectorize не конвертировал str в np.str а то валидация падает
-            vectorized_function_coefficient = np.vectorize(speed_sp_region, otypes=[object])
+            vectorized_function_coefficient = np.vectorize(pressure_coefficient_for_region, otypes=[object])
             # np.vectorize чтобы применить функцию к каждому элементу массива
             for i in range(4):
                 z_sensors = vectorized_function_z(z[i].reshape(-1),
